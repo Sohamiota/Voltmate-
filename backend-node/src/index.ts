@@ -6,7 +6,8 @@ import { register, verify, login, me, adminApprove, listEmployees } from './hand
 dotenv.config();
 
 const app = express();
-app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
+const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
+app.use(cors({ origin: allowedOrigin, credentials: true }));
 app.use(express.json());
 
 app.get('/api/v1/health', (_req, res) => res.json({ status: 'ok' }));
