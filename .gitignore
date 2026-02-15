@@ -1,0 +1,39 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log
+
+# Next.js / build
+.next/
+dist/
+build/
+out/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+debug.log*
+
+# Environment
+.env
+.env.*.local
+.env.local
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+.cursor/
+
+# Docker
+docker-compose.override.yml
+
+# Misc
+.cache/
+coverage/
+
