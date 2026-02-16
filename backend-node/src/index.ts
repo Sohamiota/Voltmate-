@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { pool } from './db';
 import { register, verify, login, me, adminApprove, listEmployees } from './handlers/auth';
+import { getOpportunity, updateOpportunity } from './handlers/opportunity';
 dotenv.config();
 
 const app = express();
@@ -39,6 +40,16 @@ app.get('/api/v1/auth/me', authMiddleware, me);
 app.post('/api/v1/admin/users/:id/approve', authMiddleware, adminApprove);
 // list approved employees
 app.get('/api/v1/employees', authMiddleware, listEmployees);
+
+// opportunities
+app.get('/api/v1/opportunities/:id', authMiddleware, getOpportunity);
+app.patch('/api/v1/opportunities/:id', authMiddleware, updateOpportunity);
+app.get('/api/v1/opportunities', authMiddleware, (req, res) => {
+  // forward to handler to keep typing simple
+  // import inside to avoid circular issues (handler is pure)
+  const { listOpportunities } = require('./handlers/opportunity');
+  return listOpportunities(req, res);
+});
 
 const port = parseInt(process.env.PORT || '8080', 10);
 app.listen(port, () => {
