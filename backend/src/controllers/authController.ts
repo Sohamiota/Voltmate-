@@ -73,7 +73,7 @@ export async function login(req: Request, res: Response) {
     if (!ok) return res.status(401).json({ error: 'invalid credentials' });
     if (!u.is_verified) return res.status(403).json({ error: 'email not verified' });
     if (!u.is_approved) return res.status(403).json({ error: 'account not approved' });
-    const token = jwt.sign({ sub: u.id, email: u.email, role: u.role }, process.env.JWT_SECRET || 'please_change_me');
+    const token = jwt.sign({ sub: u.id, email: u.email, role: u.role }, process.env.JWT_SECRET || '6f9d3a8b2e1f4c7a9d5b6e2a3c4f7d1b2a9c5e7f8d3b6a1c4e9f2b7a6c3d8e1');
     res.json({ token });
   } catch (err) {
     console.error(err);
