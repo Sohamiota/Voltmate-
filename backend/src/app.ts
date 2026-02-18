@@ -21,8 +21,22 @@ const app = express();
 // The extra app.options('*', cors()) call has been removed.
 const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
 
+// Allow both www and non-www variants of the configured origin
+const allowedOrigins = [
+  allowedOrigin,
+  allowedOrigin.replace('https://', 'https://www.'),
+  allowedOrigin.replace('https://www.', 'https://'),
+  'http://localhost:3000',
+];
+
 const corsOptions: cors.CorsOptions = {
-  origin: allowedOrigin,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS blocked: ${origin}`));
+    }
+  },
   credentials: true,
   methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
