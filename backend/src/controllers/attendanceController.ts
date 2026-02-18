@@ -147,7 +147,7 @@ export async function attendanceStats(req: Request, res: Response) {
       });
       return;
     } catch (inner) {
-      console.error('attendanceStats compute error', inner && (inner.stack || inner));
+      console.error('attendanceStats compute error', inner && ((inner as any).stack || inner));
       throw inner;
     }
     // unreachable

@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { syncSalesforce } from '../controllers/salesforceController';
-import { Router } from 'express';
 import { authMiddleware } from '../middlewares/auth';
 
 const router = Router();
