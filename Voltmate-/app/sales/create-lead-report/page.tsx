@@ -31,10 +31,10 @@ interface ToastItem {
 
 // ─── Constants (outside component — never recreated) ──────────────────────────
 // Default to backend dev server port 8081 (local)
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ||
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
     ? 'https://voltmate.onrender.com'
-    : 'http://localhost:8081');
+    : 'http://localhost:8081')).replace(/\/api\/v1\/?$/, '');
 
 const BUSINESS_OPTIONS: Record<string, string[]> = {
   'Distribution & Logistics': [
