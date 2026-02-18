@@ -1,10 +1,10 @@
-// Use environment-provided API base. In production Vercel set NEXT_PUBLIC_API_BASE to your backend (e.g. https://api.voltwheelsind.com/api/v1)
-// Fallback to localhost for local development, and to the production API as a last resort.
+// Use environment-provided API base. In production Vercel set NEXT_PUBLIC_API_BASE to your backend URL.
+// Fallback to localhost for local development, and to the Render backend as a last resort.
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ||
   (typeof window !== 'undefined' && window.location.hostname === 'localhost'
     ? 'http://localhost:8081/api/v1'
-    : 'https://api.voltwheelsind.com/api/v1');
+    : 'https://voltmate.onrender.com/api/v1');
 
 type RequestOptions = RequestInit & { token?: string };
 
