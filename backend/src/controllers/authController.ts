@@ -14,35 +14,20 @@ function genOTP() {
 
 export async function register(req: Request, res: Response) {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role } = req.body;
     if (!name || !email || !password) return res.status(400).json({ error: 'invalid request' });
     const exists = await query('SELECT id FROM users WHERE email=$1', [email]);
     if ((exists as any).rowCount > 0) return res.status(409).json({ error: 'email exists' });
     const hash = await bcrypt.hash(password, 10);
-    const otp = genOTP();
-    const expires = new Date(Date.now() + 15 * 60 * 1000);
+    const allowedRoles = ['admin', 'sales', 'service', 'employee'];
+    const userRole = allowedRoles.includes(role) ? role : 'employee';
+    // Auto-verify users on registration (OTP/email verification disabled)
     await query(
-      `INSERT INTO users (name,email,password_hash,is_verified,is_approved,role,otp_code,otp_expires_at,created_at)
-       VALUES ($1,$2,$3,false,false,'employee',$4,$5,now()) RETURNING id`,
-      [name, email, hash, otp, expires]
+      `INSERT INTO users (name,email,password_hash,is_verified,is_approved,role,created_at)
+       VALUES ($1,$2,$3,true,true,$4,now()) RETURNING id`,
+      [name, email, hash, userRole]
     );
-    if (process.env.SENDGRID_API_KEY) {
-      try {
-        await sgMail.send({
-          to: email,
-          from: process.env.SENDGRID_FROM || 'no-reply@example.com',
-          subject: 'Your OTP code',
-          text: `Your OTP is ${otp}. It expires in 15 minutes.`,
-          html: `<p>Your OTP is <strong>${otp}</strong>. It expires in 15 minutes.</p>`,
-        });
-      } catch (e) {
-        console.error('sendgrid error', e);
-        console.log('OTP for', email, otp);
-      }
-    } else {
-      console.log('OTP for', email, otp);
-    }
-    res.status(202).json({ message: 'user created, otp sent' });
+    res.status(201).json({ message: 'user created' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'failed to create user' });

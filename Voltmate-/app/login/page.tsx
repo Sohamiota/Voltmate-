@@ -46,10 +46,9 @@ export default function LoginPage() {
         if (role) payload.role = role;
         const resp = await post('/auth/register', payload);
         if (resp) {
-          // switch to verify mode and show OTP input
-          setRegisteredEmail(email);
-          setMode('verify');
-          setError('Registration submitted. Enter the OTP sent to your email.');
+          // Registration complete — switch directly to login
+          setMode('login');
+          setError('Account created! You can now log in.');
         }
       }
       
