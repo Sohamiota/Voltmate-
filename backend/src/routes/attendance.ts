@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { clockIn, clockOut, currentAttendance, listAttendance, getAttendance, adminApproveAttendance } from '../controllers/attendanceController';
+import { clockIn, clockOut, currentAttendance, listAttendance, getAttendance, adminApproveAttendance, attendanceStats } from '../controllers/attendanceController';
 import { authMiddleware } from '../middlewares/auth';
 
 const router = Router();

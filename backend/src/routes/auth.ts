@@ -4,10 +4,11 @@ import { authMiddleware } from '../middlewares/auth';
 
 const router = Router();
 
-router.post('/auth/register', register);
-router.post('/auth/verify', verify);
-router.post('/auth/login', login);
-router.get('/auth/me', authMiddleware, me);
+// Routes are mounted under /api/v1/auth in app.ts, so define paths relative to that base.
+router.post('/register', register);
+router.post('/verify', verify);
+router.post('/login', login);
+router.get('/me', authMiddleware, me);
 
 // admin actions
 router.post('/admin/users/:id/approve', authMiddleware, adminApprove);

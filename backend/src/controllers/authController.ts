@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { query } from '../db';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import sgMail from '@sendgrid/mail';
 
@@ -95,7 +95,7 @@ export async function listEmployees(req: Request, res: Response) {
     );
     res.json({ employees: r.rows });
   } catch (err) {
-    console.error(err);
+    console.error('listEmployees error:', err);
     res.status(500).json({ error: 'failed' });
   }
 }
