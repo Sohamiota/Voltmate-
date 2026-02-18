@@ -18,7 +18,10 @@ type SortField = 'cust_name' | 'business' | 'lead_type' | 'connect_date';
 type SortDir = 'asc' | 'desc';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? 'https://voltmate.onrender.com'
+    : 'http://localhost:8081');
 
 const LEAD_TYPES = ['Digital Lead', 'Non Digital Lead'];
 

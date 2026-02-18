@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from 'react';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+const API = process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? 'https://voltmate.onrender.com'
+    : 'http://localhost:8081');
 
 export default function AdminAttendancePage() {
   const [list, setList] = useState<any[]>([]);
