@@ -1,0 +1,38 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend-node
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgres://postgres:password@db:5432/postgres?sslmode=disable
+      - JWT_SECRET=please_change_me
+      - PORT=8080
+      - SENDGRID_API_KEY
+      - SENDGRID_FROM
+    depends_on:
+      - db
+    ports:
+      - "8081:8080"
+
+  frontend:
+    build:
+      context: ./Voltmate-
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - backend
+
+volumes:
+  db-data:

@@ -1,10 +1,60 @@
+#
+# Combined .gitignore (merged from HEAD and production)
+#
+
 # v0 runtime files (should only exist in preview, not in git)
 __v0_runtime_loader.js
 __v0_devtools.tsx
 __v0_jsx-dev-runtime.ts
 
-# Common ignores
+# Node
 node_modules/
+npm-debug.log*
+yarn-error.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+/*.env
+
+# Next.js / build
 .next/
-.env*.local
+dist/
+build/
+out/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+debug.log*
+
+# OS
 .DS_Store
+
+# Editor
+.vscode/
+.idea/
+.cursor/
+
+# Docker
+docker-compose.override.yml
+/voltmate-db-data/
+
+# Misc
+.cache/
+coverage/
+
+# Additional ignores
+tmp/
+*.sqlite
+*.pem
+*.key
+/.vercel
+backend/node_modules/
+frontend/node_modules/
+Voltmate-/node_modules/
+voltmate-back/

@@ -1,0 +1,7 @@
+ALTER TABLE users
+  DROP COLUMN IF EXISTS otp_expires_at,
+  DROP COLUMN IF EXISTS otp_code,
+  DROP COLUMN IF EXISTS role,
+  DROP COLUMN IF EXISTS is_approved,
+  DROP COLUMN IF EXISTS is_verified;
+
