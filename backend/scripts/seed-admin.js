@@ -4,7 +4,8 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/postgres';
-const pool = new Pool({ connectionString: DATABASE_URL });
+const isLocal = DATABASE_URL.includes('localhost') || DATABASE_URL.includes('127.0.0.1');
+const pool = new Pool({ connectionString: DATABASE_URL, ssl: isLocal ? false : { rejectUnauthorized: false } });
 
 async function run() {
   try {
