@@ -11,7 +11,8 @@ import {
   Settings,
   Clock,
   UserCheck,
-  Youtube
+  Youtube,
+  ClipboardList,
 } from 'lucide-react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
@@ -59,6 +60,7 @@ export default function Home() {
     { id: 'analytics', label: 'Analytics', icon: Calendar },
     { id: 'settings', label: 'Settings', icon: Settings },
     { id: 'attendance', label: 'Attendance', icon: Clock },
+    { id: 'task-manager', label: 'Task Manager', icon: ClipboardList },
     { id: 'vehicle-videos', label: 'Vehicle Videos', icon: Youtube },
   ]
   if (userRole === 'admin') {
@@ -68,9 +70,10 @@ export default function Home() {
   function handleSectionChange(id: string) {
     setCurrentSection(id)
     // Navigate for standalone pages
-    if (id === 'attendance') { router.push('/attendance'); return }
-    if (id === 'admin-attendance') { router.push('/admin/attendance'); return }
-    if (id === 'vehicle-videos') { router.push('/vehicle-videos'); return }
+    if (id === 'attendance')      { router.push('/attendance');       return }
+    if (id === 'admin-attendance'){ router.push('/admin/attendance'); return }
+    if (id === 'task-manager')    { router.push('/task-manager');     return }
+    if (id === 'vehicle-videos')  { router.push('/vehicle-videos');   return }
   }
 
   const renderSection = () => {

@@ -9,6 +9,7 @@ import authRoutes from './routes/auth';
 import leadsRoutes from './routes/leads';
 import opportunitiesRoutes from './routes/opportunities';
 import salesRoutes from './routes/sales';
+import tasksRoutes from './routes/tasks';
 import visitsRoutes from './routes/visits';
 import { listEmployees } from './controllers/authController';
 
@@ -67,6 +68,7 @@ app.use('/api/v1/opportunities', opportunitiesRoutes);
 app.use('/api/v1/attendance',    attendanceRoutes);
 app.use('/api/v1/sales',         salesRoutes);
 app.use('/api/v1/leads',         leadsRoutes);
+app.use('/api/v1/tasks',         tasksRoutes);
 app.use('/api/v1/visits',        visitsRoutes);
 // Expose employees list at a top-level path so frontend calls to /api/v1/employees work
 app.get('/api/v1/employees', authMiddleware, listEmployees);
