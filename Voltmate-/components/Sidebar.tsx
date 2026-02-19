@@ -52,11 +52,11 @@ export default function Sidebar({
         <div className="px-4 py-5 border-b border-sidebar-border flex items-center justify-between gap-2 flex-shrink-0">
           <div className="flex items-center gap-2">
             <img
-              src="/voltmate-logo.svg"
+              src="/voltmate-logo.png"
               alt="Voltmate"
-              className="h-8 w-auto"
-              style={{ maxWidth: 140 }}
+              className="h-9 w-9 rounded-full object-cover"
             />
+            <span className="font-semibold text-sm text-sidebar-foreground">Voltmate</span>
           </div>
           <button
             onClick={onClose}

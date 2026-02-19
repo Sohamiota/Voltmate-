@@ -11,9 +11,9 @@ export const metadata: Metadata = {
   title: 'Voltmate - Employee Management System',
   description: 'Modern employee management, sales tracking, and payroll system for dealerships',
   icons: {
-    icon: '/voltmate-logo.svg',
-    shortcut: '/voltmate-logo.svg',
-    apple: '/voltmate-logo.svg',
+    icon: '/voltmate-logo.png',
+    shortcut: '/voltmate-logo.png',
+    apple: '/voltmate-logo.png',
   },
 }
 

@@ -1,163 +1,352 @@
- 'use client'
+'use client'
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { TrendingUp, Award, Target } from 'lucide-react'
-import Link from 'next/link'
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend, PieChart, Pie, Cell,
+} from 'recharts';
+import { TrendingUp, Award, Target, FileText, RefreshCw, Users } from 'lucide-react';
+import Link from 'next/link';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? 'https://voltmate.onrender.com'
+    : 'http://localhost:8081')).replace(/\/api\/v1\/?$/, '');
 
 function getToken() {
   if (typeof window === 'undefined') return '';
   return localStorage.getItem('auth_token') || localStorage.getItem('token') || '';
 }
 
-export default function SalesPerformance() {
-  const [visits, setVisits] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const CHART_COLORS = ['#00d9ff', '#7c3aed', '#22c55e', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#f97316'];
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const token = getToken();
-        const res = await fetch(`${API_BASE}/api/v1/visits`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined
-        });
-        if (!res.ok) {
-          const txt = await res.text().catch(() => '');
-          throw new Error(`API ${res.status} ${txt}`);
-        }
-        const j = await res.json();
-        setVisits(j.visits || []);
-      } catch (e: any) {
-        console.error('fetch visits error', e);
-        setError(e?.message || 'failed');
-        setVisits([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
+const STATUS_BADGE: Record<string, string> = {
+  'Booking Amount Received': 'bg-green-500/15 text-green-400 border-green-500/25',
+  'Negotiation':             'bg-yellow-500/15 text-yellow-400 border-yellow-500/25',
+  'Quotation Shared':        'bg-blue-500/15 text-blue-400 border-blue-500/25',
+  'Test Drive Completed':    'bg-purple-500/15 text-purple-400 border-purple-500/25',
+  'New Lead':                'bg-gray-500/15 text-gray-400 border-gray-500/25',
+};
+function statusClass(s: string) {
+  return STATUS_BADGE[s] || 'bg-gray-500/15 text-gray-400 border-gray-500/25';
+}
+
+function fmtDate(d?: string) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+const tooltipStyle = {
+  contentStyle: { backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' },
+  labelStyle: { color: 'hsl(var(--foreground))' },
+};
+
+export default function SalesPerformance() {
+  const [leads,   setLeads]   = useState<any[]>([]);
+  const [visits,  setVisits]  = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState('');
+
+  const fetchAll = useCallback(async () => {
+    const token = getToken();
+    setLoading(true);
+    setError('');
+    try {
+      const [leadsRes, visitsRes] = await Promise.all([
+        fetch(`${API_BASE}/api/v1/leads?limit=500`,  { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE}/api/v1/visits?limit=500`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const [lj, vj] = await Promise.all([leadsRes.json(), visitsRes.json()]);
+      setLeads(lj.leads   || []);
+      setVisits(vj.visits || []);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // aggregate visits by salesperson for the chart
-  const salesData = useMemo(() => {
-    const map = new Map<string, { name: string; sales: number; target: number }>();
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // ── Derived data ─────────────────────────────────────────────────────────────
+
+  // visits per salesperson → bar chart
+  const visitsBySalesperson = useMemo(() => {
+    const map: Record<string, number> = {};
     for (const v of visits) {
-      const name = v.salesperson_name || 'Unknown';
-      const entry = map.get(name) || { name, sales: 0, target: 10 };
-      // count visits as a proxy for "sales" here
-      entry.sales += 1;
-      map.set(name, entry);
+      const name = v.salesperson_name || 'Unassigned';
+      map[name] = (map[name] || 0) + 1;
     }
-    return Array.from(map.values()).map(e => ({ ...e, commission: Math.round(e.sales * 1000 * 0.1) }));
+    return Object.entries(map)
+      .map(([name, count]) => ({ name, visits: count }))
+      .sort((a, b) => b.visits - a.visits);
   }, [visits]);
+
+  // leads by type → pie / bar
+  const leadsByType = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const l of leads) {
+      const t = l.lead_type || 'Unknown';
+      map[t] = (map[t] || 0) + 1;
+    }
+    return Object.entries(map).map(([type, count], i) => ({
+      type, count, color: CHART_COLORS[i % CHART_COLORS.length],
+    }));
+  }, [leads]);
+
+  // top salesperson by visit count
+  const topSalesperson = useMemo(() => {
+    if (!visitsBySalesperson.length) return null;
+    return visitsBySalesperson[0];
+  }, [visitsBySalesperson]);
+
+  // conversion: leads that have at least one visit
+  const leadsWithVisits = useMemo(() => {
+    const visitedCodes = new Set(visits.map(v => v.lead_cust_code).filter(Boolean));
+    return leads.filter(l => visitedCodes.has(l.cust_code)).length;
+  }, [leads, visits]);
+
+  const conversionRate = leads.length > 0 ? Math.round((leadsWithVisits / leads.length) * 100) : 0;
+
+  const recentLeads  = leads.slice(0, 10);
+  const recentVisits = visits.slice(0, 10);
 
   return (
     <div className="space-y-6">
-      {/* Quick actions */}
-      <div className="flex gap-3">
-        <Link href="/sales/lead-report" className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium">View Lead Report</Link>
-        <Link href="/sales/visit-report" className="px-4 py-2 rounded-lg bg-secondary text-white font-medium">View Visit Report</Link>
-        <Link href="/sales/create-lead-report" className="px-4 py-2 rounded-lg border border-border text-foreground font-medium">Create New Lead Report</Link>
-        <Link href="/sales/create-visit-report" className="px-4 py-2 rounded-lg border border-border text-foreground font-medium">Create New Visit Report</Link>
+
+      {/* Quick action buttons */}
+      <div className="flex flex-wrap gap-2">
+        <Link href="/sales/lead-report"
+          className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity">
+          View Lead Report
+        </Link>
+        <Link href="/sales/visit-report"
+          className="px-4 py-2 rounded-lg bg-secondary text-white font-medium text-sm hover:opacity-90 transition-opacity">
+          View Visit Report
+        </Link>
+        <Link href="/sales/create-lead-report"
+          className="px-4 py-2 rounded-lg border border-border text-foreground font-medium text-sm hover:bg-secondary transition-colors">
+          Create New Lead Report
+        </Link>
+        <Link href="/sales/create-visit-report"
+          className="px-4 py-2 rounded-lg border border-border text-foreground font-medium text-sm hover:bg-secondary transition-colors">
+          Create New Visit Report
+        </Link>
+        <button onClick={fetchAll} disabled={loading}
+          className="ml-auto flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors text-sm">
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
+
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Sales Performance</h1>
-        <p className="text-muted-foreground">Track individual and team sales metrics</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Sales Performance</h1>
+        <p className="text-muted-foreground text-sm mt-1">Live data from lead reports and visit reports</p>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-foreground">Total Sales</h3>
-            <TrendingUp className="w-5 h-5 text-primary" />
+      {error && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 text-sm text-destructive">{error}</div>
+      )}
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Leads</p>
+            <FileText className="w-4 h-4 text-primary" />
           </div>
-          <p className="text-3xl font-bold text-foreground mb-2">{salesData.length ? `$${salesData.reduce((s:any, e:any)=>s+ (e.sales||0),0).toLocaleString()}` : '-'}</p>
-          <p className="text-sm text-green-400">{salesData.length ? '+18% vs last month' : ''}</p>
+          <p className="text-3xl font-bold text-primary">{loading ? '…' : leads.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">All lead reports</p>
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-foreground">Top Performer</h3>
-            <Award className="w-5 h-5 text-secondary" />
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Visits</p>
+            <TrendingUp className="w-4 h-4 text-secondary" />
           </div>
-          <p className="text-3xl font-bold text-foreground mb-2">Sarah Smith</p>
-          <p className="text-sm text-secondary">$15,200 in sales</p>
+          <p className="text-3xl font-bold text-secondary">{loading ? '…' : visits.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">All visit reports</p>
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-foreground">Target Progress</h3>
-            <Target className="w-5 h-5 text-primary" />
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Top Salesperson</p>
+            <Award className="w-4 h-4 text-yellow-400" />
           </div>
-          <p className="text-3xl font-bold text-foreground mb-2">114%</p>
-          <p className="text-sm text-green-400">Team target met</p>
-        </div>
-      </div>
-
-      {/* Chart */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <h2 className="text-lg font-bold text-foreground mb-6">Sales by Employee</h2>
-          {salesData.length === 0 ? (
-            <div className="py-16 text-center text-muted-foreground">No sales data available</div>
+          {loading ? (
+            <p className="text-xl font-bold text-foreground">…</p>
+          ) : topSalesperson ? (
+            <>
+              <p className="text-xl font-bold text-foreground truncate">{topSalesperson.name}</p>
+              <p className="text-xs text-yellow-400 mt-1">{topSalesperson.visits} visit{topSalesperson.visits !== 1 ? 's' : ''}</p>
+            </>
           ) : (
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={salesData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+            <p className="text-sm text-muted-foreground mt-2">No data yet</p>
+          )}
+        </div>
+
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Lead Conversion</p>
+            <Target className="w-4 h-4 text-green-400" />
+          </div>
+          <p className="text-3xl font-bold text-green-400">{loading ? '…' : `${conversionRate}%`}</p>
+          <p className="text-xs text-muted-foreground mt-1">{leadsWithVisits} of {leads.length} leads visited</p>
+        </div>
+      </div>
+
+      {/* Charts row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* Visits by Salesperson */}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-base font-semibold text-foreground mb-1">Visits by Salesperson</h2>
+          <p className="text-xs text-muted-foreground mb-4">From visit report data</p>
+          {loading ? (
+            <div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>
+          ) : visitsBySalesperson.length === 0 ? (
+            <div className="py-16 text-center text-muted-foreground text-sm">No visit data yet. Create a visit report to get started.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={visitsBySalesperson} margin={{ top: 5, right: 20, left: 0, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                  }}
-                  labelStyle={{ color: 'hsl(var(--foreground))' }}
-                />
-                <Legend />
-                <Bar dataKey="sales" fill="hsl(var(--primary))" name="Sales" />
-                <Bar dataKey="target" fill="hsl(var(--secondary))" name="Target" opacity={0.5} />
+                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))"
+                  tick={{ fontSize: 11 }} angle={-30} textAnchor="end" interval={0} />
+                <YAxis stroke="hsl(var(--muted-foreground))" allowDecimals={false} tick={{ fontSize: 11 }} />
+                <Tooltip {...tooltipStyle} formatter={(v: any) => [v, 'Visits']} />
+                <Bar dataKey="visits" fill="#00d9ff" radius={[4, 4, 0, 0]} name="Visits" />
               </BarChart>
             </ResponsiveContainer>
           )}
+        </div>
+
+        {/* Leads by Type */}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-base font-semibold text-foreground mb-1">Leads by Type</h2>
+          <p className="text-xs text-muted-foreground mb-4">From lead report data</p>
+          {loading ? (
+            <div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>
+          ) : leadsByType.length === 0 ? (
+            <div className="py-16 text-center text-muted-foreground text-sm">No lead data yet. Create a lead report to get started.</div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie data={leadsByType} dataKey="count" nameKey="type"
+                    cx="50%" cy="50%" outerRadius={90}
+                    label={({ type, count, percent }) => `${type} (${count}) ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}>
+                    {leadsByType.map((e, i) => <Cell key={i} fill={e.color} />)}
+                  </Pie>
+                  <Tooltip {...tooltipStyle} formatter={(v: any, n: any) => [v, n]} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex flex-wrap gap-3 mt-2">
+                {leadsByType.map(d => (
+                  <div key={d.type} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: d.color }} />
+                    {d.type}: {d.count}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Commission Table */}
+      {/* Recent Lead Report table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="p-6 border-b border-border">
-          <h2 className="text-lg font-bold text-foreground">Commission Breakdown</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-base font-semibold text-foreground">Recent Lead Reports</h2>
+          <Link href="/sales/lead-report"
+            className="text-xs text-primary hover:underline">View all →</Link>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-secondary border-b border-border">
-              <tr>
-                <th className="text-left px-6 py-4 font-semibold text-foreground">Employee</th>
-                <th className="text-left px-6 py-4 font-semibold text-foreground">Sales</th>
-                <th className="text-left px-6 py-4 font-semibold text-foreground">Commission (10%)</th>
-                <th className="text-left px-6 py-4 font-semibold text-foreground">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {salesData.map((employee, index) => (
-                <tr key={index} className={index !== salesData.length - 1 ? 'border-b border-border' : ''}>
-                  <td className="px-6 py-4 font-medium text-foreground">{employee.name}</td>
-                  <td className="px-6 py-4 text-foreground">${employee.sales.toLocaleString()}</td>
-                  <td className="px-6 py-4 text-primary font-semibold">${employee.commission.toLocaleString()}</td>
-                  <td className="px-6 py-4">
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400">
-                      {employee.sales >= employee.target ? 'On Target' : 'Below Target'}
-                    </span>
-                  </td>
+          {loading ? (
+            <div className="py-10 text-center text-muted-foreground text-sm">Loading…</div>
+          ) : recentLeads.length === 0 ? (
+            <div className="py-10 text-center text-muted-foreground text-sm">No lead reports found.</div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-secondary/40">
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Cust Code</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer Name</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Business</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Lead Type</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Phone</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Date</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {recentLeads.map((l, i) => (
+                  <tr key={l.id} className={`${i !== recentLeads.length - 1 ? 'border-b border-border/50' : ''} hover:bg-secondary/30 transition-colors`}>
+                    <td className="px-5 py-3 text-xs font-mono text-muted-foreground">{l.cust_code || '—'}</td>
+                    <td className="px-5 py-3 font-medium text-foreground text-sm">{l.cust_name || '—'}</td>
+                    <td className="px-5 py-3 text-sm text-muted-foreground">{l.business || '—'}</td>
+                    <td className="px-5 py-3">
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs border ${l.lead_type === 'Digital Lead' ? 'bg-blue-500/15 text-blue-400 border-blue-500/25' : 'bg-gray-500/15 text-gray-400 border-gray-500/25'}`}>
+                        {l.lead_type || '—'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-sm text-muted-foreground">{l.phone_no || '—'}</td>
+                    <td className="px-5 py-3 text-sm text-muted-foreground">{fmtDate(l.connect_date)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
+
+      {/* Recent Visit Report table */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-base font-semibold text-foreground">Recent Visit Reports</h2>
+          <Link href="/sales/visit-report"
+            className="text-xs text-primary hover:underline">View all →</Link>
+        </div>
+        <div className="overflow-x-auto">
+          {loading ? (
+            <div className="py-10 text-center text-muted-foreground text-sm">Loading…</div>
+          ) : recentVisits.length === 0 ? (
+            <div className="py-10 text-center text-muted-foreground text-sm">No visit reports found.</div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-secondary/40">
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Cust Code</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Salesperson</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Vehicle</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Visit Date</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Next Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentVisits.map((v, i) => (
+                  <tr key={v.id} className={`${i !== recentVisits.length - 1 ? 'border-b border-border/50' : ''} hover:bg-secondary/30 transition-colors`}>
+                    <td className="px-5 py-3 font-medium text-foreground text-sm">{v.cust_name || '—'}</td>
+                    <td className="px-5 py-3 text-xs font-mono text-muted-foreground">{v.lead_cust_code || '—'}</td>
+                    <td className="px-5 py-3 text-sm text-muted-foreground">{v.salesperson_name || '—'}</td>
+                    <td className="px-5 py-3 text-sm text-muted-foreground">{v.vehicle || '—'}</td>
+                    <td className="px-5 py-3">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs border ${statusClass(v.status || '')}`}>
+                        {v.status || '—'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-sm text-muted-foreground">{fmtDate(v.visit_date)}</td>
+                    <td className="px-5 py-3 text-sm text-muted-foreground max-w-[180px] truncate" title={v.next_action || ''}>{v.next_action || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
     </div>
-  )
+  );
 }

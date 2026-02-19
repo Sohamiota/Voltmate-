@@ -6,7 +6,7 @@ import { post } from '../../src/api/client';
 import dynamic from 'next/dynamic';
 const AuthTabs = dynamic(() => import('../../src/components/AuthTabs').then(m => m.Tabs), { ssr: false });
 
-export default function LoginPage() {
+export default function LoginPage()  {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -72,7 +72,7 @@ export default function LoginPage() {
       <div className='max-w-md w-full bg-white/5 dark:bg-slate-900/70 backdrop-blur-md border border-white/10 dark:border-gray-800 rounded-2xl p-8 shadow-2xl'>
         <div className='flex items-start justify-between gap-4 mb-6'>
           <div>
-            <div className='w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-500 to-pink-500 flex items-center justify-center text-white font-bold shadow-lg'>V</div>
+            <img src='/voltmate-logo.png' alt='Voltmate' className='w-12 h-12 rounded-full object-cover shadow-lg' />
           </div>
           <div className='flex-1 ml-3'>
             <h1 className='text-2xl font-semibold text-white mb-0'>Welcome to Voltmate</h1>

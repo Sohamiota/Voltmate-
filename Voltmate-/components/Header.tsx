@@ -27,7 +27,10 @@ export default function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
 
           {/* Logo shown when sidebar is closed */}
           {!isSidebarOpen && (
-            <img src="/voltmate-logo.svg" alt="Voltmate" className="h-7 w-auto hidden sm:block" />
+            <div className="hidden sm:flex items-center gap-2">
+              <img src="/voltmate-logo.png" alt="Voltmate" className="h-8 w-8 rounded-full object-cover" />
+              <span className="font-semibold text-sm text-foreground">Voltmate</span>
+            </div>
           )}
         </div>
 
