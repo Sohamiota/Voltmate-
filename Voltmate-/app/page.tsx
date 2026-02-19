@@ -14,7 +14,8 @@ import {
   ArrowUp,
   Clock,
   UserCheck,
-  Zap
+  Zap,
+  Youtube
 } from 'lucide-react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
@@ -55,6 +56,7 @@ export default function Home() {
     { id: 'analytics', label: 'Analytics', icon: Calendar },
     { id: 'settings', label: 'Settings', icon: Settings },
     { id: 'attendance', label: 'Attendance', icon: Clock },
+    { id: 'vehicle-videos', label: 'Vehicle Videos', icon: Youtube },
   ]
   // if admin, add admin attendance entry
   if (userRole === 'admin') {
@@ -81,6 +83,9 @@ export default function Home() {
         return null
       case 'admin-attendance':
         router.push('/admin/attendance')
+        return null
+      case 'vehicle-videos':
+        router.push('/vehicle-videos')
         return null
       default:
         return <DashboardOverview />

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
@@ -117,6 +118,11 @@ export default function AttendancePage() {
       <div className="header">
         <h1>Attendance</h1>
         <p>Track and manage your attendance records efficiently</p>
+        <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
+          <Link href="/attendance/vehicle-videos" style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'8px 18px', background:'#1a1a1a', border:'1px solid #2a2a2a', borderRadius:8, color:'#00d9ff', fontSize:14, fontWeight:500, textDecoration:'none' }}>
+            🚗 Vehicle Videos
+          </Link>
+        </div>
       </div>
 
       <div className="clock-in-section">
