@@ -163,7 +163,7 @@ export default function TaskManagerPage() {
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#e5e5e5', fontFamily: "'Inter',system-ui,sans-serif", padding: '28px 24px' }}>
+    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#e5e5e5', fontFamily: "'Inter',system-ui,sans-serif", padding: 'clamp(16px, 4vw, 28px) clamp(12px, 4vw, 24px)' }}>
 
       {/* ── Header ── */}
       <div style={{ marginBottom: 28 }}>
@@ -450,11 +450,13 @@ function selectInline(s: string) {
 
 const overlayStyle: React.CSSProperties = {
   position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', zIndex: 100,
-  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+  display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+  padding: '16px', overflowY: 'auto',
 };
 const modalStyle: React.CSSProperties = {
   background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 14,
-  padding: 28, width: '100%', maxWidth: 520, position: 'relative',
+  padding: '20px', width: '100%', maxWidth: 520, position: 'relative',
+  marginTop: 'auto', marginBottom: 'auto',
 };
 const closeBtnStyle: React.CSSProperties = {
   background: 'transparent', border: 'none', color: '#9ca3af',

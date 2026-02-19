@@ -150,8 +150,8 @@ export default function SalesPerformance() {
       )}
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-card border border-border rounded-xl p-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-card border border-border rounded-xl p-3 sm:p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Leads</p>
             <FileText className="w-4 h-4 text-primary" />
@@ -200,20 +200,20 @@ export default function SalesPerformance() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {/* Visits by Salesperson */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-base font-semibold text-foreground mb-1">Visits by Salesperson</h2>
+        <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
+          <h2 className="text-sm sm:text-base font-semibold text-foreground mb-1">Visits by Salesperson</h2>
           <p className="text-xs text-muted-foreground mb-4">From visit report data</p>
           {loading ? (
-            <div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>
+            <div className="py-12 text-center text-muted-foreground text-sm">Loading…</div>
           ) : visitsBySalesperson.length === 0 ? (
-            <div className="py-16 text-center text-muted-foreground text-sm">No visit data yet. Create a visit report to get started.</div>
+            <div className="py-12 text-center text-muted-foreground text-sm">No visit data yet.</div>
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={visitsBySalesperson} margin={{ top: 5, right: 20, left: 0, bottom: 30 }}>
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={visitsBySalesperson} margin={{ top: 5, right: 10, left: -10, bottom: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))"
-                  tick={{ fontSize: 11 }} angle={-30} textAnchor="end" interval={0} />
-                <YAxis stroke="hsl(var(--muted-foreground))" allowDecimals={false} tick={{ fontSize: 11 }} />
+                  tick={{ fontSize: 10 }} angle={-30} textAnchor="end" interval={0} />
+                <YAxis stroke="hsl(var(--muted-foreground))" allowDecimals={false} tick={{ fontSize: 10 }} width={28} />
                 <Tooltip {...tooltipStyle} formatter={(v: any) => [v, 'Visits']} />
                 <Bar dataKey="visits" fill="#00d9ff" radius={[4, 4, 0, 0]} name="Visits" />
               </BarChart>
@@ -222,30 +222,30 @@ export default function SalesPerformance() {
         </div>
 
         {/* Leads by Type */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-base font-semibold text-foreground mb-1">Leads by Type</h2>
+        <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
+          <h2 className="text-sm sm:text-base font-semibold text-foreground mb-1">Leads by Type</h2>
           <p className="text-xs text-muted-foreground mb-4">From lead report data</p>
           {loading ? (
-            <div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>
+            <div className="py-12 text-center text-muted-foreground text-sm">Loading…</div>
           ) : leadsByType.length === 0 ? (
-            <div className="py-16 text-center text-muted-foreground text-sm">No lead data yet. Create a lead report to get started.</div>
+            <div className="py-12 text-center text-muted-foreground text-sm">No lead data yet.</div>
           ) : (
             <>
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={210}>
                 <PieChart>
                   <Pie data={leadsByType} dataKey="count" nameKey="type"
-                    cx="50%" cy="50%" outerRadius={90}
-                    label={({ type, count, percent }) => `${type} (${count}) ${(percent * 100).toFixed(0)}%`}
+                    cx="50%" cy="50%" outerRadius="70%"
+                    label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                     labelLine={false}>
                     {leadsByType.map((e, i) => <Cell key={i} fill={e.color} />)}
                   </Pie>
                   <Tooltip {...tooltipStyle} formatter={(v: any, n: any) => [v, n]} />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="flex flex-wrap gap-3 mt-2">
+              <div className="flex flex-wrap gap-2 mt-2">
                 {leadsByType.map(d => (
                   <div key={d.type} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: d.color }} />
+                    <span className="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0" style={{ background: d.color }} />
                     {d.type}: {d.count}
                   </div>
                 ))}
@@ -257,10 +257,9 @@ export default function SalesPerformance() {
 
       {/* Recent Lead Report table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h2 className="text-base font-semibold text-foreground">Recent Lead Reports</h2>
-          <Link href="/sales/lead-report"
-            className="text-xs text-primary hover:underline">View all →</Link>
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border">
+          <h2 className="text-sm sm:text-base font-semibold text-foreground">Recent Lead Reports</h2>
+          <Link href="/sales/lead-report" className="text-xs text-primary hover:underline">View all →</Link>
         </div>
         <div className="overflow-x-auto">
           {loading ? (
@@ -268,30 +267,27 @@ export default function SalesPerformance() {
           ) : recentLeads.length === 0 ? (
             <div className="py-10 text-center text-muted-foreground text-sm">No lead reports found.</div>
           ) : (
-            <table className="w-full">
+            <table className="w-full" style={{ minWidth: 560 }}>
               <thead>
                 <tr className="border-b border-border bg-secondary/40">
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Cust Code</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer Name</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Business</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Lead Type</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Phone</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Date</th>
+                  {['Cust Code','Customer Name','Business','Lead Type','Phone','Date'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {recentLeads.map((l, i) => (
                   <tr key={l.id} className={`${i !== recentLeads.length - 1 ? 'border-b border-border/50' : ''} hover:bg-secondary/30 transition-colors`}>
-                    <td className="px-5 py-3 text-xs font-mono text-muted-foreground">{l.cust_code || '—'}</td>
-                    <td className="px-5 py-3 font-medium text-foreground text-sm">{l.cust_name || '—'}</td>
-                    <td className="px-5 py-3 text-sm text-muted-foreground">{l.business || '—'}</td>
-                    <td className="px-5 py-3">
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs border ${l.lead_type === 'Digital Lead' ? 'bg-blue-500/15 text-blue-400 border-blue-500/25' : 'bg-gray-500/15 text-gray-400 border-gray-500/25'}`}>
+                    <td className="px-4 py-3 text-xs font-mono text-muted-foreground whitespace-nowrap">{l.cust_code || '—'}</td>
+                    <td className="px-4 py-3 font-medium text-foreground text-sm whitespace-nowrap">{l.cust_name || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{l.business || '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs border whitespace-nowrap ${l.lead_type === 'Digital Lead' ? 'bg-blue-500/15 text-blue-400 border-blue-500/25' : 'bg-gray-500/15 text-gray-400 border-gray-500/25'}`}>
                         {l.lead_type || '—'}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-sm text-muted-foreground">{l.phone_no || '—'}</td>
-                    <td className="px-5 py-3 text-sm text-muted-foreground">{fmtDate(l.connect_date)}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{l.phone_no || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{fmtDate(l.connect_date)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -302,10 +298,9 @@ export default function SalesPerformance() {
 
       {/* Recent Visit Report table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h2 className="text-base font-semibold text-foreground">Recent Visit Reports</h2>
-          <Link href="/sales/visit-report"
-            className="text-xs text-primary hover:underline">View all →</Link>
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border">
+          <h2 className="text-sm sm:text-base font-semibold text-foreground">Recent Visit Reports</h2>
+          <Link href="/sales/visit-report" className="text-xs text-primary hover:underline">View all →</Link>
         </div>
         <div className="overflow-x-auto">
           {loading ? (
@@ -313,32 +308,28 @@ export default function SalesPerformance() {
           ) : recentVisits.length === 0 ? (
             <div className="py-10 text-center text-muted-foreground text-sm">No visit reports found.</div>
           ) : (
-            <table className="w-full">
+            <table className="w-full" style={{ minWidth: 640 }}>
               <thead>
                 <tr className="border-b border-border bg-secondary/40">
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Cust Code</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Salesperson</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Vehicle</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Visit Date</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Next Action</th>
+                  {['Customer','Cust Code','Salesperson','Vehicle','Status','Visit Date','Next Action'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {recentVisits.map((v, i) => (
                   <tr key={v.id} className={`${i !== recentVisits.length - 1 ? 'border-b border-border/50' : ''} hover:bg-secondary/30 transition-colors`}>
-                    <td className="px-5 py-3 font-medium text-foreground text-sm">{v.cust_name || '—'}</td>
-                    <td className="px-5 py-3 text-xs font-mono text-muted-foreground">{v.lead_cust_code || '—'}</td>
-                    <td className="px-5 py-3 text-sm text-muted-foreground">{v.salesperson_name || '—'}</td>
-                    <td className="px-5 py-3 text-sm text-muted-foreground">{v.vehicle || '—'}</td>
-                    <td className="px-5 py-3">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs border ${statusClass(v.status || '')}`}>
+                    <td className="px-4 py-3 font-medium text-foreground text-sm whitespace-nowrap">{v.cust_name || '—'}</td>
+                    <td className="px-4 py-3 text-xs font-mono text-muted-foreground whitespace-nowrap">{v.lead_cust_code || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{v.salesperson_name || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{v.vehicle || '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs border whitespace-nowrap ${statusClass(v.status || '')}`}>
                         {v.status || '—'}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-sm text-muted-foreground">{fmtDate(v.visit_date)}</td>
-                    <td className="px-5 py-3 text-sm text-muted-foreground max-w-[180px] truncate" title={v.next_action || ''}>{v.next_action || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{fmtDate(v.visit_date)}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground max-w-[160px] truncate" title={v.next_action || ''}>{v.next_action || '—'}</td>
                   </tr>
                 ))}
               </tbody>

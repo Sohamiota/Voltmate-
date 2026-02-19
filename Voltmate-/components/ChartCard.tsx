@@ -20,7 +20,7 @@ export default function ChartCard({ title, subtitle, data = [] }: ChartCardProps
       {!hasData ? (
         <div className="py-20 text-center text-muted-foreground">No chart data available</div>
       ) : (
-        <ResponsiveContainer width="100%" height={300}>
+        <ResponsiveContainer width="100%" height={240}>
           <LineChart data={data} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 11 }}

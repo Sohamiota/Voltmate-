@@ -182,7 +182,8 @@ export default function AttendancePage() {
         .badge-approved { background:rgba(34,197,94,.12);   color:#22c55e; border:1px solid rgba(34,197,94,.25); }
         .badge-rejected { background:rgba(239,68,68,.12);   color:#ef4444; border:1px solid rgba(239,68,68,.25); }
         .empty-row td { text-align:center; padding:40px; color:#6b7280; }
-        .tbl-wrap { overflow-x:auto; }
+        .tbl-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+        @media(max-width:480px){ .stats-grid { grid-template-columns:1fr 1fr; } }
         @media(max-width:640px){
           .container { padding:16px; }
           .page-header h1 { font-size:22px; }
