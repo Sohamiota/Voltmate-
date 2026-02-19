@@ -1,20 +1,16 @@
- 'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import { get } from '../src/api/client'
-import { 
-  BarChart3, 
-  Users, 
-  TrendingUp, 
-  DollarSign, 
-  Calendar, 
+import {
+  BarChart3,
+  Users,
+  TrendingUp,
+  DollarSign,
+  Calendar,
   Settings,
-  Menu,
-  X,
-  ArrowUp,
   Clock,
   UserCheck,
-  Zap,
   Youtube
 } from 'lucide-react'
 import Header from '@/components/Header'
@@ -28,22 +24,29 @@ import { useRouter } from 'next/navigation'
 
 export default function Home() {
   const [currentSection, setCurrentSection] = useState('dashboard')
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  // Default closed — opens automatically on desktop via useEffect
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
   const router = useRouter()
 
+  // Open sidebar by default on desktop screens
   useEffect(() => {
-    // fetch current user to determine role (if logged in)
+    const mq = window.matchMedia('(min-width: 1024px)')
+    setSidebarOpen(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setSidebarOpen(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
+  useEffect(() => {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
       if (token) {
         get('/auth/me', token)
-          .then((res: any) => {
-            setUserRole(res.user?.role || null)
-          })
+          .then((res: any) => setUserRole(res.user?.role || null))
           .catch(() => setUserRole(null))
       }
-    } catch (e) {
+    } catch {
       setUserRole(null)
     }
   }, [])
@@ -58,57 +61,48 @@ export default function Home() {
     { id: 'attendance', label: 'Attendance', icon: Clock },
     { id: 'vehicle-videos', label: 'Vehicle Videos', icon: Youtube },
   ]
-  // if admin, add admin attendance entry
   if (userRole === 'admin') {
     sections.push({ id: 'admin-attendance', label: 'Admin Attendance', icon: UserCheck })
   }
 
+  function handleSectionChange(id: string) {
+    setCurrentSection(id)
+    // Navigate for standalone pages
+    if (id === 'attendance') { router.push('/attendance'); return }
+    if (id === 'admin-attendance') { router.push('/admin/attendance'); return }
+    if (id === 'vehicle-videos') { router.push('/vehicle-videos'); return }
+  }
+
   const renderSection = () => {
     switch (currentSection) {
-      case 'dashboard':
-        return <DashboardOverview />
-      case 'employees':
-        return <EmployeeManagement role={userRole} />
-      case 'sales':
-        return <SalesPerformance />
-      case 'payroll':
-        return <PayrollSection />
-      case 'analytics':
-        return <Analytics />
-      case 'settings':
-        return <div className="p-8"><p className="text-muted-foreground">Settings coming soon</p></div>
-      case 'attendance':
-        // navigate to the attendance page
-        router.push('/attendance')
-        return null
-      case 'admin-attendance':
-        router.push('/admin/attendance')
-        return null
-      case 'vehicle-videos':
-        router.push('/vehicle-videos')
-        return null
-      default:
-        return <DashboardOverview />
+      case 'dashboard':   return <DashboardOverview />
+      case 'employees':   return <EmployeeManagement role={userRole} />
+      case 'sales':       return <SalesPerformance />
+      case 'payroll':     return <PayrollSection />
+      case 'analytics':   return <Analytics />
+      case 'settings':    return <div className="p-6 sm:p-8"><p className="text-muted-foreground text-sm">Settings coming soon</p></div>
+      default:            return <DashboardOverview />
     }
   }
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-background via-background to-secondary/10">
-      <Sidebar 
+    <div className="flex h-screen bg-gradient-to-br from-background via-background to-secondary/10 overflow-hidden">
+      <Sidebar
         sections={sections}
         currentSection={currentSection}
-        setCurrentSection={setCurrentSection}
+        setCurrentSection={handleSectionChange}
         isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header 
-          onMenuClick={() => setSidebarOpen(!sidebarOpen)}
+
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <Header
+          onMenuClick={() => setSidebarOpen(prev => !prev)}
           isSidebarOpen={sidebarOpen}
         />
-        
+
         <main className="flex-1 overflow-auto">
-          <div className="p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             {renderSection()}
           </div>
         </main>
