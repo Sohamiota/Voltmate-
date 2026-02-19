@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const YT_API_KEY = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY || '';
+const EULER_CHANNEL = '@EulerMotors';
 
 interface Video {
   id: string;
@@ -83,7 +84,7 @@ function formatDate(iso: string): string {
 
 export default function VehicleVideosPage() {
   const [apiKey, setApiKey] = useState(YT_API_KEY);
-  const [channelInput, setChannelInput] = useState('');
+  const [channelInput, setChannelInput] = useState(EULER_CHANNEL);
   const [videos, setVideos] = useState<Video[]>([]);
   const [filtered, setFiltered] = useState<Video[]>([]);
   const [search, setSearch] = useState('');
@@ -99,6 +100,12 @@ export default function VehicleVideosPage() {
     const q = search.toLowerCase();
     setFiltered(videos.filter(v => v.title.toLowerCase().includes(q) || v.description.toLowerCase().includes(q)));
   }, [search, videos]);
+
+  // Auto-fetch Euler Motors on mount if API key is set
+  useEffect(() => {
+    if (apiKey) fetchVideos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function resolveChannelId(input: string, key: string): Promise<string> {
     const trimmed = input.trim();
@@ -188,31 +195,24 @@ export default function VehicleVideosPage() {
       <div className="vv-header">
         <div className="vv-title">🚗 Vehicle Videos</div>
         <div className="vv-subtitle">
-          {channelTitle ? `Browsing: ${channelTitle}` : 'Browse and play YouTube videos from any vehicle channel'}
+          {channelTitle
+            ? `Showing videos from: ${channelTitle}`
+            : 'Euler Motors — Electric Commercial Vehicles'}
         </div>
       </div>
 
-      {/* Config */}
+      {/* Config — only API key needed, channel is fixed */}
       <div className="vv-config">
-        <h3>Configuration</h3>
+        <h3>YouTube API Key</h3>
         <div className="vv-config-row">
           <div className="vv-field">
-            <label>YouTube API Key</label>
+            <label>API Key</label>
             <input
               className="vv-input"
               type="password"
-              placeholder="AIzaSy..."
+              placeholder="AIzaSy... (YouTube Data API v3)"
               value={apiKey}
               onChange={e => setApiKey(e.target.value)}
-            />
-          </div>
-          <div className="vv-field">
-            <label>Channel ID / Handle / URL</label>
-            <input
-              className="vv-input"
-              placeholder="@VoltwheelsInd or UC... or full URL"
-              value={channelInput}
-              onChange={e => setChannelInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && fetchVideos()}
             />
           </div>
@@ -222,8 +222,14 @@ export default function VehicleVideosPage() {
             disabled={loading}
             style={{ alignSelf: 'flex-end' }}
           >
-            {loading ? 'Loading...' : 'Fetch Videos'}
+            {loading ? 'Loading...' : videos.length ? 'Refresh' : 'Load Videos'}
           </button>
+        </div>
+        <div style={{ marginTop: 10, fontSize: 12, color: '#6b7280' }}>
+          Channel: <span style={{ color: '#00d9ff' }}>@EulerMotors</span> — 
+          <a href="https://www.youtube.com/@EulerMotors" target="_blank" rel="noopener noreferrer" style={{ color: '#00d9ff', marginLeft: 4 }}>
+            youtube.com/@EulerMotors ↗
+          </a>
         </div>
       </div>
 
@@ -257,7 +263,7 @@ export default function VehicleVideosPage() {
       {!loading && videos.length === 0 && !error && (
         <div className="vv-empty">
           <div className="vv-empty-icon">📺</div>
-          <div>Enter your YouTube API key and a channel to get started</div>
+          <div>Enter your YouTube Data API v3 key above to load Euler Motors videos</div>
         </div>
       )}
 
