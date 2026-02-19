@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
@@ -13,14 +12,27 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
+  const [me, setMe] = useState<{ name: string; email: string } | null>(null);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') || localStorage.getItem('auth_token') : null;
 
   useEffect(() => {
+    fetchMe();
     fetchCurrent();
     fetchHistory();
     // eslint-disable-next-line
   }, []);
+
+  async function fetchMe() {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/api/v1/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const j = await res.json();
+        setMe({ name: j.user?.name || j.user?.email || '', email: j.user?.email || '' });
+      }
+    } catch { /* ignore */ }
+  }
 
   async function fetchCurrent() {
     if (!token) return setLoading(false);
@@ -118,16 +130,17 @@ export default function AttendancePage() {
       <div className="header">
         <h1>Attendance</h1>
         <p>Track and manage your attendance records efficiently</p>
-        <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
-          <Link href="/attendance/vehicle-videos" style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'8px 18px', background:'#1a1a1a', border:'1px solid #2a2a2a', borderRadius:8, color:'#00d9ff', fontSize:14, fontWeight:500, textDecoration:'none' }}>
-            🚗 Vehicle Videos
-          </Link>
-        </div>
       </div>
 
       <div className="clock-in-section">
         <h2>Clock In / Out</h2>
-        <div className="current-time">{loading ? 'Loading...' : (current ? new Date(current.clock_in_at).toLocaleString() : new Date().toLocaleString())}</div>
+        {me && (
+          <div style={{ marginBottom: 12, padding: '10px 14px', background: '#111', borderRadius: 8, border: '1px solid #2a2a2a', display: 'inline-block' }}>
+            <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{me.name}</div>
+            <div style={{ color: '#9ca3af', fontSize: 12 }}>{me.email}</div>
+          </div>
+        )}
+        <div className="current-time" style={{ display: 'block', marginTop: 8 }}>{loading ? 'Loading...' : (current ? `Clocked in at: ${new Date(current.clock_in_at).toLocaleString()}` : new Date().toLocaleString())}</div>
         <div className="button-group" style={{ marginTop: 12 }}>
           {current ? (
             <button className="btn btn-secondary" onClick={clockOut} disabled={busy}>Clock Out</button>
@@ -155,18 +168,25 @@ export default function AttendancePage() {
         </div>
         <table id="attendanceTable">
           <thead>
-            <tr><th>Date</th><th>Clock In</th><th>Clock Out</th><th>Duration</th><th>Status</th></tr>
+            <tr><th>Date</th><th>Name</th><th>Email</th><th>Clock In</th><th>Clock Out</th><th>Duration</th><th>Status</th></tr>
           </thead>
           <tbody>
-            {history.map(a => (
-              <tr key={a.id}>
-                <td><strong>{a.date}</strong></td>
-                <td>{a.clock_in_at ? new Date(a.clock_in_at).toLocaleString() : ''}</td>
-                <td>{a.clock_out_at ? new Date(a.clock_out_at).toLocaleString() : ''}</td>
-                <td>{a.duration_seconds ? `${a.duration_seconds} s` : ''}</td>
-                <td><span className={`status-badge ${a.status==='approved'?'status-approved':a.status==='rejected'?'status-rejected':'status-pending'}`}>{a.status}</span></td>
-              </tr>
-            ))}
+            {history.map(a => {
+              const dur = a.duration_seconds
+                ? `${Math.floor(a.duration_seconds/3600)}h ${Math.floor((a.duration_seconds%3600)/60)}m`
+                : '—';
+              return (
+                <tr key={a.id}>
+                  <td><strong>{a.date}</strong></td>
+                  <td>{a.employee_name || me?.name || '—'}</td>
+                  <td style={{ fontSize: 12, color: '#9ca3af' }}>{a.employee_email || me?.email || '—'}</td>
+                  <td>{a.clock_in_at ? new Date(a.clock_in_at).toLocaleString() : '—'}</td>
+                  <td>{a.clock_out_at ? new Date(a.clock_out_at).toLocaleString() : '—'}</td>
+                  <td>{dur}</td>
+                  <td><span className={`status-badge ${a.status==='approved'?'status-approved':a.status==='rejected'?'status-rejected':'status-pending'}`}>{a.status || 'pending'}</span></td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

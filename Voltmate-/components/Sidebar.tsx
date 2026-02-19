@@ -1,6 +1,6 @@
 'use client'
 
-import { LucideIcon, X, Zap } from 'lucide-react'
+import { LucideIcon, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Section {
@@ -51,13 +51,12 @@ export default function Sidebar({
         {/* Logo + close button */}
         <div className="px-4 py-5 border-b border-sidebar-border flex items-center justify-between gap-2 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-gradient-to-br from-primary to-secondary rounded-lg flex-shrink-0">
-              <Zap className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-sidebar-foreground leading-tight">Voltmate</h1>
-              <p className="text-xs text-sidebar-accent-foreground">EMS</p>
-            </div>
+            <img
+              src="/voltmate-logo.svg"
+              alt="Voltmate"
+              className="h-8 w-auto"
+              style={{ maxWidth: 140 }}
+            />
           </div>
           <button
             onClick={onClose}

@@ -56,7 +56,12 @@ export async function currentAttendance(req: Request, res: Response) {
 
 export async function listAttendance(req: Request, res: Response) {
   try {
-    const userId = req.query.userId ? parseInt(req.query.userId as string, 10) : null;
+    const requester = (req as any).user;
+    // Non-admins can only see their own records
+    const isAdmin = requester?.role === 'admin';
+    const requestedUserId = req.query.userId ? parseInt(req.query.userId as string, 10) : null;
+    const userId = isAdmin ? requestedUserId : requester?.sub;
+
     const start = req.query.startDate as string | undefined;
     const end = req.query.endDate as string | undefined;
     const limit = Math.min(parseInt((req.query.limit as string) || '100', 10), 1000);
@@ -65,21 +70,27 @@ export async function listAttendance(req: Request, res: Response) {
     const params: any[] = [];
     if (userId) {
       params.push(userId);
-      where.push(`user_id = $${params.length}`);
+      where.push(`a.user_id = $${params.length}`);
     }
     if (start) {
       params.push(start);
-      where.push(`date >= $${params.length}`);
+      where.push(`a.date >= $${params.length}`);
     }
     if (end) {
       params.push(end);
-      where.push(`date <= $${params.length}`);
+      where.push(`a.date <= $${params.length}`);
     }
-    let sql = `SELECT * FROM attendance`;
-    if (where.length > 0) {
-      sql += ` WHERE ${where.join(' AND ')}`;
-    }
-    sql += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    let sql = `
+      SELECT
+        a.*,
+        u.name  AS employee_name,
+        u.email AS employee_email,
+        u.role  AS employee_role
+      FROM attendance a
+      LEFT JOIN users u ON u.id = a.user_id
+    `;
+    if (where.length > 0) sql += ` WHERE ${where.join(' AND ')}`;
+    sql += ` ORDER BY a.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(limit, offset);
     const r = await query(sql, params);
     res.json({ attendance: (r as any).rows, limit, offset });

@@ -25,9 +25,9 @@ export default function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
             )}
           </button>
 
-          {/* Brand name shown when sidebar is closed */}
+          {/* Logo shown when sidebar is closed */}
           {!isSidebarOpen && (
-            <span className="text-sm font-semibold text-foreground hidden sm:block">Voltmate</span>
+            <img src="/voltmate-logo.svg" alt="Voltmate" className="h-7 w-auto hidden sm:block" />
           )}
         </div>
 

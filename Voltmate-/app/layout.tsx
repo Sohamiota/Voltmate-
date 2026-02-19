@@ -10,6 +10,11 @@ const _geistMono = Geist_Mono({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Voltmate - Employee Management System',
   description: 'Modern employee management, sales tracking, and payroll system for dealerships',
+  icons: {
+    icon: '/voltmate-logo.svg',
+    shortcut: '/voltmate-logo.svg',
+    apple: '/voltmate-logo.svg',
+  },
 }
 
 export const viewport: Viewport = {
