@@ -34,7 +34,7 @@ const STATUSES = [
   'Demo Scheduled',
   'Demo Completed',
   'Quotation Shared',
-  'Follow-Up 1',
+  'Demo Follow Up',
   'Follow-Up 2',
   'Negotiation',
   'Loan Processing',
