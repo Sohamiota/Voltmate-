@@ -30,8 +30,8 @@ const STATUSES = [
   'Connected',
   'Requirement Identified',
   'Qualified Lead',
-  'Test Drive Scheduled',
-  'Test Drive Completed',
+  'Demo Scheduled',
+  'Demo Completed',
   'Quotation Shared',
   'Follow-Up 1',
   'Follow-Up 2',
@@ -263,7 +263,7 @@ function SkeletonRows() {
     <>
       {[1, 2, 3, 4, 5, 6].map(n => (
         <tr key={n} className="vr-skel-row">
-          {[26, 88, 120, 110, 160, 110, 90, 100].map((w, i) => (
+          {[26, 88, 120, 110, 90, 160, 110, 90, 100].map((w, i) => (
             <td key={i}><div className="vr-skel" style={{ width: w }} /></td>
           ))}
         </tr>
@@ -415,7 +415,7 @@ export default function VisitReportPage() {
     return {
       total: visits.length,
       connected: visits.filter(v => (v.status || '').toLowerCase().includes('connected')).length,
-      testDrive: visits.filter(v => (v.status || '').toLowerCase().includes('test')).length,
+      testDrive: visits.filter(v => (v.status || '').toLowerCase().includes('demo')).length,
       won: visits.filter(v => (v.status || '').toLowerCase().includes('won')).length,
     };
   }, [visits]);
@@ -548,7 +548,7 @@ export default function VisitReportPage() {
             <div className="vr-stat-val green">{stats.connected}</div>
           </div>
           <div className="vr-stat">
-            <div className="vr-stat-label">Test Drives</div>
+            <div className="vr-stat-label">Demos</div>
             <div className="vr-stat-val teal">{stats.testDrive}</div>
           </div>
           <div className="vr-stat">
@@ -597,6 +597,7 @@ export default function VisitReportPage() {
                   >
                     Salesperson
                   </th>
+                  <th>Phone</th>
                   <th>Vehicle</th>
                   <th
                     className={`sortable ${sortField === 'status' ? `sorted ${sortDir}` : ''}`}
@@ -618,7 +619,7 @@ export default function VisitReportPage() {
                   <SkeletonRows />
                 ) : visits.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={9}>
                       <div className="vr-empty">
                         <div className="vr-empty-icon">📋</div>
                         <div className="vr-empty-msg">
@@ -636,6 +637,12 @@ export default function VisitReportPage() {
                       <td className="vr-code">{v.lead_cust_code || '—'}</td>
                       <td style={{ fontWeight: 500 }}>{v.cust_name || '—'}</td>
                       <td style={{ color: 'var(--text2)' }}>{v.salesperson_name || '—'}</td>
+                      <td>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: '11.5px', color: 'var(--text2)' }}>{(v as any).phone_no || '—'}</div>
+                        {(v as any).phone_no_2 && (
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--text3)', marginTop: 2 }}>{(v as any).phone_no_2}</div>
+                        )}
+                      </td>
                       <td style={{ color: 'var(--text2)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {v.vehicle || '—'}
                       </td>

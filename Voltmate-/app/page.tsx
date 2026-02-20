@@ -64,7 +64,8 @@ export default function Home() {
     { id: 'vehicle-videos', label: 'Vehicle Videos', icon: Youtube },
   ]
   if (userRole === 'admin') {
-    sections.push({ id: 'admin-attendance', label: 'Admin Attendance', icon: UserCheck })
+    sections.push({ id: 'admin-attendance',   label: 'Admin Attendance',   icon: UserCheck })
+    sections.push({ id: 'admin-task-manager', label: 'Admin Task Manager', icon: ClipboardList })
   }
 
   function handleSectionChange(id: string) {
@@ -72,7 +73,8 @@ export default function Home() {
     // Navigate for standalone pages
     if (id === 'attendance')      { router.push('/attendance');       return }
     if (id === 'admin-attendance'){ router.push('/admin/attendance'); return }
-    if (id === 'task-manager')    { router.push('/task-manager');     return }
+    if (id === 'task-manager')       { router.push('/task-manager');          return }
+    if (id === 'admin-task-manager') { router.push('/admin/task-manager');    return }
     if (id === 'vehicle-videos')  { router.push('/vehicle-videos');   return }
   }
 

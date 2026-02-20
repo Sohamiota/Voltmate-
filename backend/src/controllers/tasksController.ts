@@ -7,16 +7,23 @@ async function ensureTables() {
   if (tablesReady) return;
   await query(`
     CREATE TABLE IF NOT EXISTS tasks (
-      id            SERIAL PRIMARY KEY,
-      user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      task_date     DATE    NOT NULL,
-      description   TEXT    NOT NULL,
-      status        VARCHAR(50) NOT NULL DEFAULT 'Just Assigned',
-      created_at    TIMESTAMPTZ DEFAULT now(),
-      updated_at    TIMESTAMPTZ DEFAULT now(),
+      id              SERIAL PRIMARY KEY,
+      user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      task_date       DATE    NOT NULL,
+      description     TEXT    NOT NULL,
+      status          VARCHAR(50)  NOT NULL DEFAULT 'Just Assigned',
+      approval_status VARCHAR(20)  NOT NULL DEFAULT 'Pending',
+      approved_by     INTEGER REFERENCES users(id),
+      approved_at     TIMESTAMPTZ,
+      created_at      TIMESTAMPTZ DEFAULT now(),
+      updated_at      TIMESTAMPTZ DEFAULT now(),
       UNIQUE (user_id, task_date)
     )
   `);
+  // Migrate existing tables that may be missing the new columns
+  await query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20) NOT NULL DEFAULT 'Pending'`);
+  await query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS approved_by  INTEGER REFERENCES users(id)`);
+  await query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS approved_at  TIMESTAMPTZ`);
   await query(`
     CREATE TABLE IF NOT EXISTS task_edits (
       id              SERIAL PRIMARY KEY,
@@ -32,16 +39,18 @@ async function ensureTables() {
   tablesReady = true;
 }
 
-// ── GET /tasks/today  – today's task for the logged-in user ──────────────────
+// ── GET /tasks/today ──────────────────────────────────────────────────────────
 export async function getTodayTask(req: Request, res: Response) {
   try {
     await ensureTables();
     const userId = (req as any).user?.sub;
     if (!userId) return res.status(401).json({ error: 'missing user' });
     const r = await query(
-      `SELECT t.*, u.name AS employee_name, u.email AS employee_email
+      `SELECT t.*, u.name AS employee_name, u.email AS employee_email,
+              ab.name AS approved_by_name
        FROM tasks t
-       LEFT JOIN users u ON u.id = t.user_id
+       LEFT JOIN users u  ON u.id  = t.user_id
+       LEFT JOIN users ab ON ab.id = t.approved_by
        WHERE t.user_id = $1 AND t.task_date = CURRENT_DATE`,
       [userId]
     );
@@ -53,7 +62,7 @@ export async function getTodayTask(req: Request, res: Response) {
   }
 }
 
-// ── POST /tasks  – create today's task (one per day, returns 409 if exists) ──
+// ── POST /tasks ───────────────────────────────────────────────────────────────
 export async function createTask(req: Request, res: Response) {
   try {
     await ensureTables();
@@ -64,7 +73,6 @@ export async function createTask(req: Request, res: Response) {
     const validStatuses = ['Just Assigned', 'Under Process', 'Completed'];
     const taskStatus = validStatuses.includes(status) ? status : 'Just Assigned';
 
-    // Upsert: if a task already exists for today update it and record an edit
     const existing = await query(
       'SELECT * FROM tasks WHERE user_id=$1 AND task_date=CURRENT_DATE',
       [userId]
@@ -79,8 +87,10 @@ export async function createTask(req: Request, res: Response) {
           [prev.id, prev.description, description.trim(), prev.status, taskStatus, userId]
         );
       }
+      // Reset approval to Pending when employee updates the task
       const upd = await query(
-        `UPDATE tasks SET description=$1, status=$2, updated_at=now()
+        `UPDATE tasks SET description=$1, status=$2, approval_status='Pending',
+                         approved_by=NULL, approved_at=NULL, updated_at=now()
          WHERE id=$3 RETURNING *`,
         [description.trim(), taskStatus, prev.id]
       );
@@ -88,8 +98,8 @@ export async function createTask(req: Request, res: Response) {
     }
 
     const ins = await query(
-      `INSERT INTO tasks (user_id, task_date, description, status)
-       VALUES ($1, CURRENT_DATE, $2, $3) RETURNING *`,
+      `INSERT INTO tasks (user_id, task_date, description, status, approval_status)
+       VALUES ($1, CURRENT_DATE, $2, $3, 'Pending') RETURNING *`,
       [userId, description.trim(), taskStatus]
     );
     res.status(201).json({ ...(ins as any).rows[0], updated: false });
@@ -99,7 +109,7 @@ export async function createTask(req: Request, res: Response) {
   }
 }
 
-// ── PATCH /tasks/:id  – update description and/or status, records edit ──────
+// ── PATCH /tasks/:id ─────────────────────────────────────────────────────────
 export async function updateTask(req: Request, res: Response) {
   try {
     await ensureTables();
@@ -113,7 +123,6 @@ export async function updateTask(req: Request, res: Response) {
     if ((existing as any).rowCount === 0) return res.status(404).json({ error: 'not found' });
     const prev = (existing as any).rows[0];
 
-    // Only the owner can edit (unless admin)
     const requester = (req as any).user;
     if (prev.user_id !== requester.sub && requester.role !== 'admin') {
       return res.status(403).json({ error: 'forbidden' });
@@ -143,34 +152,76 @@ export async function updateTask(req: Request, res: Response) {
   }
 }
 
-// ── GET /tasks  – list all tasks for the logged-in user (with employee info) ─
+// ── PATCH /tasks/:id/approval  – admin approve / reject ──────────────────────
+export async function approveTask(req: Request, res: Response) {
+  try {
+    await ensureTables();
+    const adminId = (req as any).user?.sub;
+    const role    = (req as any).user?.role;
+    if (role !== 'admin') return res.status(403).json({ error: 'admin only' });
+
+    const id     = parseInt(req.params.id, 10);
+    const { approval_status } = req.body;
+    if (!['Approved', 'Rejected', 'Pending'].includes(approval_status)) {
+      return res.status(400).json({ error: 'approval_status must be Approved, Rejected or Pending' });
+    }
+
+    const existing = await query('SELECT * FROM tasks WHERE id=$1', [id]);
+    if ((existing as any).rowCount === 0) return res.status(404).json({ error: 'not found' });
+
+    const upd = await query(
+      `UPDATE tasks
+       SET approval_status=$1,
+           approved_by = CASE WHEN $1 IN ('Approved','Rejected') THEN $2 ELSE NULL END,
+           approved_at = CASE WHEN $1 IN ('Approved','Rejected') THEN now()  ELSE NULL END,
+           updated_at  = now()
+       WHERE id=$3
+       RETURNING *`,
+      [approval_status, adminId, id]
+    );
+    res.json((upd as any).rows[0]);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'failed' });
+  }
+}
+
+// ── GET /tasks ────────────────────────────────────────────────────────────────
 export async function listTasks(req: Request, res: Response) {
   try {
     await ensureTables();
     const requester = (req as any).user;
     const isAdmin = requester?.role === 'admin';
-    const limit  = Math.min(parseInt((req.query.limit as string)  || '100', 10), 1000);
+    const limit  = Math.min(parseInt((req.query.limit  as string) || '200', 10), 1000);
     const offset = parseInt((req.query.offset as string) || '0', 10);
+    const approvalFilter = req.query.approval as string | undefined; // Pending|Approved|Rejected
 
     let sql: string;
     let params: any[];
 
+    const approvalWhere = approvalFilter && ['Pending','Approved','Rejected'].includes(approvalFilter)
+      ? `AND t.approval_status = '${approvalFilter}'` : '';
+
     if (isAdmin) {
-      // Admins see all employees' tasks
       sql = `
-        SELECT t.*, u.name AS employee_name, u.email AS employee_email
+        SELECT t.*, u.name AS employee_name, u.email AS employee_email,
+               ab.name AS approved_by_name
         FROM tasks t
-        LEFT JOIN users u ON u.id = t.user_id
+        LEFT JOIN users u  ON u.id  = t.user_id
+        LEFT JOIN users ab ON ab.id = t.approved_by
+        WHERE 1=1 ${approvalWhere}
         ORDER BY t.task_date DESC, t.updated_at DESC
         LIMIT $1 OFFSET $2
       `;
       params = [limit, offset];
     } else {
       sql = `
-        SELECT t.*, u.name AS employee_name, u.email AS employee_email
+        SELECT t.*, u.name AS employee_name, u.email AS employee_email,
+               ab.name AS approved_by_name
         FROM tasks t
-        LEFT JOIN users u ON u.id = t.user_id
-        WHERE t.user_id = $1
+        LEFT JOIN users u  ON u.id  = t.user_id
+        LEFT JOIN users ab ON ab.id = t.approved_by
+        WHERE t.user_id = $1 ${approvalWhere}
         ORDER BY t.task_date DESC, t.updated_at DESC
         LIMIT $2 OFFSET $3
       `;
@@ -185,7 +236,7 @@ export async function listTasks(req: Request, res: Response) {
   }
 }
 
-// ── GET /tasks/:id/history  – edit history for a specific task ───────────────
+// ── GET /tasks/:id/history ────────────────────────────────────────────────────
 export async function getTaskHistory(req: Request, res: Response) {
   try {
     await ensureTables();

@@ -18,8 +18,17 @@ interface FormState {
   connect_date: string;
   cust_name: string;
   phone_no: string;
+  phone_no_2: string;
   lead_type: string;
+  location: string;
   note: string;
+}
+
+interface NominatimResult {
+  place_id: number;
+  display_name: string;
+  address: { city?: string; town?: string; village?: string; suburb?: string; district?: string; state?: string; };
+  type: string;
 }
 
 type ToastType = 'success' | 'error' | 'info';
@@ -71,9 +80,14 @@ const EMPTY_FORM: FormState = {
   connect_date: new Date().toISOString().slice(0, 10),
   cust_name: '',
   phone_no: '',
+  phone_no_2: '',
   lead_type: '',
+  location: '',
   note: '',
 };
+
+function isValidPhone(v: string)         { return /^[6-9]\d{9}$/.test(v.trim()); }
+function isValidPhoneOptional(v: string) { return v.trim() === '' || isValidPhone(v); }
 
 // ─── Auth helper (module-level, not recreated per render) ─────────────────────
 function getToken(): string {
@@ -349,6 +363,25 @@ const PAGE_STYLES = `
     position: sticky; bottom: 0; background: var(--surface);
   }
 
+  /* ── Location autocomplete ── */
+  .lm-loc-wrap { position: relative; }
+  .lm-loc-drop {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 50;
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 8px; max-height: 220px; overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,.55);
+  }
+  .lm-loc-item {
+    padding: 9px 12px; cursor: pointer; font-size: 12.5px;
+    border-bottom: 1px solid var(--border); transition: background .1s;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .lm-loc-item:last-child { border-bottom: none; }
+  .lm-loc-item:hover, .lm-loc-item.active { background: var(--teal-dim); }
+  .lm-loc-name { color: var(--text); font-weight: 600; }
+  .lm-loc-sub  { color: var(--text3); font-size: 11px; }
+  .lm-loc-loading { padding: 12px; text-align: center; color: var(--text3); font-size: 12px; }
+
   /* ── Toasts ── */
   .lm-toasts {
     position: fixed; bottom: 22px; right: 22px;
@@ -379,7 +412,7 @@ function SkeletonRows() {
     <>
       {[1, 2, 3, 4, 5].map(n => (
         <tr key={n} className="lm-skel-row">
-          {[28, 72, 80, 130, 140, 90, 100, 60].map((w, i) => (
+          {[28, 72, 80, 130, 140, 90, 110, 100, 60].map((w, i) => (
             <td key={i}><div className="lm-skel" style={{ width: w }} /></td>
           ))}
         </tr>
@@ -399,8 +432,14 @@ export default function CreateLeadReportPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [businessCategory, setBusinessCategory] = useState('');
   const [businessSub, setBusinessSub] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null); // FIX: inline confirm instead of confirm()
+  const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [locResults, setLocResults] = useState<NominatimResult[]>([]);
+  const [locLoading, setLocLoading] = useState(false);
+  const [showLocDrop, setShowLocDrop] = useState(false);
+  const [locHighlight, setLocHighlight] = useState(-1);
+  const locTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const locRef = useRef<HTMLDivElement>(null);
   const toastRef = useRef(0);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -409,6 +448,43 @@ export default function CreateLeadReportPage() {
     const id = ++toastRef.current;
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3800);
+  }, []);
+
+  // ── Location autocomplete (Nominatim, West Bengal only) ──────────────────
+  const searchLocation = useCallback((val: string) => {
+    setForm(f => ({ ...f, location: val }));
+    setLocHighlight(-1);
+    if (locTimer.current) clearTimeout(locTimer.current);
+    if (!val.trim() || val.length < 2) { setLocResults([]); setShowLocDrop(false); return; }
+    locTimer.current = setTimeout(async () => {
+      setLocLoading(true);
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val + ', West Bengal')}&countrycodes=in&format=json&addressdetails=1&limit=10`;
+        const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+        const data: NominatimResult[] = await res.json();
+        const wb = data.filter(d => d.address?.state === 'West Bengal');
+        setLocResults(wb.slice(0, 8));
+        setShowLocDrop(wb.length > 0);
+      } catch { setLocResults([]); setShowLocDrop(false); }
+      finally { setLocLoading(false); }
+    }, 320);
+  }, []);
+
+  function pickLocation(item: NominatimResult) {
+    const parts = item.display_name.split(',');
+    const short = parts.slice(0, 3).join(',').trim();
+    setForm(f => ({ ...f, location: short }));
+    setShowLocDrop(false);
+    setLocResults([]);
+  }
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (locRef.current && !locRef.current.contains(e.target as Node)) setShowLocDrop(false);
+    }
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
   }, []);
 
   // ── Derived: filtered leads via useMemo — never mutates allLeads ──────────
@@ -420,7 +496,8 @@ export default function CreateLeadReportPage() {
       (l.cust_name || '').toLowerCase().includes(q) ||
       (l.cust_code || '').toLowerCase().includes(q) ||
       (l.business || '').toLowerCase().includes(q) ||
-      (l.phone_no || '').toLowerCase().includes(q)
+      (l.phone_no || '').toLowerCase().includes(q) ||
+      ((l as any).location || '').toLowerCase().includes(q)
     );
   }, [allLeads, searchQuery]);
 
@@ -490,14 +567,25 @@ export default function CreateLeadReportPage() {
       return;
     }
 
-    // FIX #7: reliable business field logic — validated before send
     const business = businessSub || businessCategory;
     if (!business) {
       showToast('Please select a Business Category', 'error');
       return;
     }
+    if (!form.phone_no.trim()) {
+      showToast('Phone No. 1 is required', 'error');
+      return;
+    }
+    if (!isValidPhone(form.phone_no)) {
+      showToast('Phone No. 1 must be a valid 10-digit mobile number (starts with 6–9)', 'error');
+      return;
+    }
+    if (!isValidPhoneOptional(form.phone_no_2)) {
+      showToast('Phone No. 2 must be a valid 10-digit mobile number (starts with 6–9)', 'error');
+      return;
+    }
 
-    const payload = { ...form, business };
+    const payload = { ...form, business, location: form.location || null };
 
     try {
       setSubmitting(true);
@@ -659,6 +747,7 @@ export default function CreateLeadReportPage() {
                   <th>Customer Name</th>
                   <th>Business</th>
                   <th>Phone No.</th>
+                  <th>Location</th>
                   <th>Lead Type</th>
                   <th>Action</th>
                 </tr>
@@ -668,7 +757,7 @@ export default function CreateLeadReportPage() {
                   <SkeletonRows />
                 ) : leads.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={9}>
                       <div className="lm-empty">
                         <div className="lm-empty-icon">📋</div>
                         <div className="lm-empty-msg">
@@ -695,6 +784,9 @@ export default function CreateLeadReportPage() {
                         {l.business || '—'}
                       </td>
                       <td className="lm-date">{l.phone_no || '—'}</td>
+                      <td style={{ color: 'var(--text2)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {(l as any).location || '—'}
+                      </td>
                       <td>
                         <span className={`lm-badge ${leadBadgeClass(l.lead_type)}`}>
                           {l.lead_type || '—'}
@@ -799,15 +891,38 @@ export default function CreateLeadReportPage() {
                   </div>
 
                   <div className="lm-fg">
-                    <label className="lm-label" htmlFor="f-phone">Phone No.</label>
+                    <label className="lm-label" htmlFor="f-phone">Phone No. 1 <span style={{ color: 'var(--red)', fontWeight: 700 }}>*</span></label>
                     <input
                       id="f-phone"
                       type="tel"
                       className="lm-field"
-                      placeholder="10-digit number"
+                      placeholder="10-digit mobile number"
+                      maxLength={10}
+                      required
                       value={form.phone_no}
-                      onChange={e => setForm(f => ({ ...f, phone_no: e.target.value }))}
+                      onChange={e => setForm(f => ({ ...f, phone_no: e.target.value.replace(/\D/g, '') }))}
+                      style={form.phone_no && !isValidPhone(form.phone_no) ? { borderColor: 'var(--red)' } : {}}
                     />
+                    {form.phone_no && !isValidPhone(form.phone_no) && (
+                      <span style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>Enter a valid 10-digit number starting with 6–9</span>
+                    )}
+                  </div>
+
+                  <div className="lm-fg">
+                    <label className="lm-label" htmlFor="f-phone2">Phone No. 2 <span style={{ color: 'var(--text3)', fontWeight: 400 }}>(optional)</span></label>
+                    <input
+                      id="f-phone2"
+                      type="tel"
+                      className="lm-field"
+                      placeholder="Alternate 10-digit number"
+                      maxLength={10}
+                      value={form.phone_no_2}
+                      onChange={e => setForm(f => ({ ...f, phone_no_2: e.target.value.replace(/\D/g, '') }))}
+                      style={form.phone_no_2 && !isValidPhoneOptional(form.phone_no_2) ? { borderColor: 'var(--red)' } : {}}
+                    />
+                    {form.phone_no_2 && !isValidPhoneOptional(form.phone_no_2) && (
+                      <span style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>Enter a valid 10-digit number starting with 6–9</span>
+                    )}
                   </div>
 
                   <div className="lm-fg">
@@ -823,6 +938,49 @@ export default function CreateLeadReportPage() {
                       <option value="Digital Lead">Digital Lead</option>
                       <option value="Non Digital Lead">Non Digital Lead</option>
                     </select>
+                  </div>
+
+                  <div className="lm-fg full" ref={locRef}>
+                    <label className="lm-label" htmlFor="f-loc">Location (West Bengal)</label>
+                    <div className="lm-loc-wrap">
+                      <input
+                        id="f-loc"
+                        className="lm-field"
+                        autoComplete="off"
+                        placeholder="Type a city, town or area in West Bengal…"
+                        value={form.location}
+                        onChange={e => searchLocation(e.target.value)}
+                        onFocus={() => { if (locResults.length > 0) setShowLocDrop(true); }}
+                        onKeyDown={e => {
+                          if (!showLocDrop) return;
+                          if (e.key === 'ArrowDown') { e.preventDefault(); setLocHighlight(h => Math.min(h + 1, locResults.length - 1)); }
+                          if (e.key === 'ArrowUp')   { e.preventDefault(); setLocHighlight(h => Math.max(h - 1, 0)); }
+                          if (e.key === 'Enter' && locHighlight >= 0) { e.preventDefault(); pickLocation(locResults[locHighlight]); }
+                          if (e.key === 'Escape') setShowLocDrop(false);
+                        }}
+                      />
+                      {(showLocDrop || locLoading) && (
+                        <div className="lm-loc-drop">
+                          {locLoading && <div className="lm-loc-loading">Searching…</div>}
+                          {!locLoading && locResults.map((item, idx) => {
+                            const parts = item.display_name.split(',');
+                            const name = parts.slice(0, 2).join(',').trim();
+                            const sub  = parts.slice(2, 5).join(',').trim();
+                            return (
+                              <div
+                                key={item.place_id}
+                                className={`lm-loc-item${locHighlight === idx ? ' active' : ''}`}
+                                onMouseDown={() => pickLocation(item)}
+                                onMouseEnter={() => setLocHighlight(idx)}
+                              >
+                                <span className="lm-loc-name">{name}</span>
+                                {sub && <span className="lm-loc-sub">{sub}</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="lm-fg full">

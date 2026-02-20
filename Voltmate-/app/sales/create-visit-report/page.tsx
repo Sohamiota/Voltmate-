@@ -35,8 +35,13 @@ interface FormState {
   visit_date: string;
   next_action: string;
   next_action_date: string;
+  phone_no: string;
+  phone_no_2: string;
   note: string;
 }
+
+function isValidPhone(v: string)         { return /^[6-9]\d{9}$/.test(v.trim()); }
+function isValidPhoneOptional(v: string) { return v.trim() === '' || isValidPhone(v); }
 
 type ToastType = 'success' | 'error' | 'info';
 interface Toast {
@@ -60,8 +65,8 @@ const VEHICLES = [
 
 const STATUSES = [
   'New Lead',
-  'Test Drive Scheduled',
-  'Test Drive Completed',
+  'Demo Scheduled',
+  'Demo Completed',
   'Quotation Shared',
   'Follow-Up 1',
   'Follow-Up 2',
@@ -88,6 +93,8 @@ const EMPTY_FORM: FormState = {
   visit_date: new Date().toISOString().slice(0, 10),
   next_action: '',
   next_action_date: '',
+  phone_no: '',
+  phone_no_2: '',
   note: '',
 };
 
@@ -448,7 +455,7 @@ export default function CreateVisitReportPage() {
     const now = new Date();
     return {
       total: allVisits.length,
-      testDrives: allVisits.filter(v => (v.status || '').toLowerCase().includes('test')).length,
+      testDrives: allVisits.filter(v => (v.status || '').toLowerCase().includes('demo')).length,
       connected: allVisits.filter(v => v.status === 'Connected').length,
       thisMonth: allVisits.filter(v => {
         if (!v.visit_date) return false;
@@ -544,6 +551,18 @@ export default function CreateVisitReportPage() {
       showToast('Please log in first', 'error');
       return;
     }
+    if (!form.phone_no.trim()) {
+      showToast('Phone No. 1 is required', 'error');
+      return;
+    }
+    if (!isValidPhone(form.phone_no)) {
+      showToast('Phone No. 1 must be a valid 10-digit mobile number (starts with 6–9)', 'error');
+      return;
+    }
+    if (!isValidPhoneOptional(form.phone_no_2)) {
+      showToast('Phone No. 2 must be a valid 10-digit mobile number (starts with 6–9)', 'error');
+      return;
+    }
     try {
       setSubmitting(true);
       const res = await fetch(`${API_BASE}/api/v1/visits`, {
@@ -628,7 +647,7 @@ export default function CreateVisitReportPage() {
             <div className="vm-stat-value teal">{stats.total}</div>
           </div>
           <div className="vm-stat">
-            <div className="vm-stat-label">Test Drives</div>
+            <div className="vm-stat-label">Demos</div>
             <div className="vm-stat-value blue">{stats.testDrives}</div>
           </div>
           <div className="vm-stat">
@@ -823,6 +842,41 @@ export default function CreateVisitReportPage() {
                       value={form.next_action_date}
                       onChange={e => handleFormChange('next_action_date', e.target.value)}
                     />
+                  </div>
+
+                  <div className="vm-fg">
+                    <label className="vm-label" htmlFor="f-phone">Phone No. 1 <span style={{ color: 'var(--red)', fontWeight: 700 }}>*</span></label>
+                    <input
+                      id="f-phone"
+                      type="tel"
+                      className="vm-field"
+                      placeholder="10-digit mobile number"
+                      maxLength={10}
+                      required
+                      value={form.phone_no}
+                      onChange={e => handleFormChange('phone_no', e.target.value.replace(/\D/g, ''))}
+                      style={form.phone_no && !isValidPhone(form.phone_no) ? { borderColor: 'var(--red)' } : {}}
+                    />
+                    {form.phone_no && !isValidPhone(form.phone_no) && (
+                      <span style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>Enter a valid 10-digit number starting with 6–9</span>
+                    )}
+                  </div>
+
+                  <div className="vm-fg">
+                    <label className="vm-label" htmlFor="f-phone2">Phone No. 2 <span style={{ color: 'var(--text3)', fontWeight: 400 }}>(optional)</span></label>
+                    <input
+                      id="f-phone2"
+                      type="tel"
+                      className="vm-field"
+                      placeholder="Alternate 10-digit number"
+                      maxLength={10}
+                      value={form.phone_no_2}
+                      onChange={e => handleFormChange('phone_no_2', e.target.value.replace(/\D/g, ''))}
+                      style={form.phone_no_2 && !isValidPhoneOptional(form.phone_no_2) ? { borderColor: 'var(--red)' } : {}}
+                    />
+                    {form.phone_no_2 && !isValidPhoneOptional(form.phone_no_2) && (
+                      <span style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>Enter a valid 10-digit number starting with 6–9</span>
+                    )}
                   </div>
 
                   <div className="vm-fg full">

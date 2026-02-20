@@ -16,6 +16,12 @@ const STATUS_COLOR: Record<Status, string> = {
   'Completed':     'bg-green-500/12 text-green-400 border-green-500/25',
 };
 
+function approvalStyle(s: string): React.CSSProperties {
+  if (s === 'Approved') return { background: 'rgba(34,197,94,.13)',  color: '#22c55e', borderColor: 'rgba(34,197,94,.3)' };
+  if (s === 'Rejected') return { background: 'rgba(239,68,68,.12)',  color: '#ef4444', borderColor: 'rgba(239,68,68,.28)' };
+  return                       { background: 'rgba(251,191,36,.12)', color: '#fbbf24', borderColor: 'rgba(251,191,36,.28)' };
+}
+
 function tok() {
   if (typeof window === 'undefined') return '';
   return localStorage.getItem('auth_token') || localStorage.getItem('token') || '';
@@ -183,9 +189,14 @@ export default function TaskManagerPage() {
             <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>One task entry per day. Saving again will update and log the edit.</div>
           </div>
           {todayTask && (
-            <span style={{ padding: '3px 12px', borderRadius: 8, fontSize: 12, border: '1px solid', ...badgeInline(todayTask.status) }}>
-              {todayTask.status}
-            </span>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ padding: '3px 12px', borderRadius: 8, fontSize: 12, border: '1px solid', ...badgeInline(todayTask.status) }}>
+                {todayTask.status}
+              </span>
+              <span style={{ padding: '3px 12px', borderRadius: 8, fontSize: 12, border: '1px solid', fontWeight: 600, ...approvalStyle(todayTask.approval_status || 'Pending') }}>
+                {todayTask.approval_status || 'Pending'}
+              </span>
+            </div>
           )}
         </div>
 
@@ -265,7 +276,7 @@ export default function TaskManagerPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #2a2a2a' }}>
-                  {['#', 'Date', 'Employee', 'Task Description', 'Status', 'Last Updated', 'Edits', 'Actions'].map(h => (
+                  {['#', 'Date', 'Employee', 'Task Description', 'Status', 'Approval', 'Last Updated', 'Edits', 'Actions'].map(h => (
                     <th key={h} style={{ padding: '11px 16px', textAlign: 'left', color: '#9ca3af', fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
                       {h}
                     </th>
@@ -309,6 +320,18 @@ export default function TaskManagerPage() {
                       >
                         {STATUSES.map(s => <option key={s} value={s} style={{ background: '#1a1a1a', color: '#e5e5e5' }}>{s}</option>)}
                       </select>
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center',
+                        padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                        border: '1px solid', ...approvalStyle(t.approval_status || 'Pending'),
+                      }}>
+                        {t.approval_status || 'Pending'}
+                      </span>
+                      {t.approved_by_name && (
+                        <div style={{ fontSize: 10, color: '#6b7280', marginTop: 3 }}>by {t.approved_by_name}</div>
+                      )}
                     </td>
                     <td style={{ padding: '14px 16px', fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap' }}>
                       {fmtTs(t.updated_at || t.created_at)}

@@ -241,7 +241,7 @@ function SkeletonRows() {
     <>
       {[1, 2, 3, 4, 5, 6].map(n => (
         <tr key={n} className="lr-skel-row">
-          {[26, 88, 130, 150, 100, 110, 90].map((w, i) => (
+          {[26, 88, 130, 150, 100, 110, 100, 90].map((w, i) => (
             <td key={i}><div className="lr-skel" style={{ width: w }} /></td>
           ))}
         </tr>
@@ -600,6 +600,7 @@ export default function LeadReportPage() {
                     Business
                   </th>
                   <th>Phone</th>
+                  <th>Location</th>
                   <th
                     className={`sortable ${sortField === 'lead_type' ? `sorted ${sortDir}` : ''}`}
                     onClick={() => handleSort('lead_type')}
@@ -619,7 +620,7 @@ export default function LeadReportPage() {
                   <SkeletonRows />
                 ) : leads.length === 0 ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <div className="lr-empty">
                         <div className="lr-empty-icon">📋</div>
                         <div className="lr-empty-msg">
@@ -639,7 +640,15 @@ export default function LeadReportPage() {
                       <td style={{ color: 'var(--text2)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {l.business || '—'}
                       </td>
-                      <td className="lr-date">{l.phone_no || '—'}</td>
+                      <td>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: '11.5px', color: 'var(--text2)' }}>{l.phone_no || '—'}</div>
+                        {(l as any).phone_no_2 && (
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--text3)', marginTop: 2 }}>{(l as any).phone_no_2}</div>
+                        )}
+                      </td>
+                      <td style={{ color: 'var(--text2)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {(l as any).location || '—'}
+                      </td>
                       <td>
                         <span className={`lr-badge ${leadBadgeClass(l.lead_type)}`}>
                           {l.lead_type || '—'}

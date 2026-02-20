@@ -24,7 +24,7 @@ const STATUS_BADGE: Record<string, string> = {
   'Booking Amount Received': 'bg-green-500/15 text-green-400 border-green-500/25',
   'Negotiation':             'bg-yellow-500/15 text-yellow-400 border-yellow-500/25',
   'Quotation Shared':        'bg-blue-500/15 text-blue-400 border-blue-500/25',
-  'Test Drive Completed':    'bg-purple-500/15 text-purple-400 border-purple-500/25',
+  'Demo Completed':          'bg-purple-500/15 text-purple-400 border-purple-500/25',
   'New Lead':                'bg-gray-500/15 text-gray-400 border-gray-500/25',
 };
 function statusClass(s: string) {
