@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import SearchableSelect from '@/components/SearchableSelect';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Lead {
@@ -115,6 +116,7 @@ const PAGE_STYLES = `
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 12 12'%3E%3Cpath fill='%234f5463' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
   }
+  button.lr-field { border: 1px solid var(--border); }
   .lr-btn-clear {
     font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; font-weight: 600;
     padding: 8px 16px; border-radius: 7px;
@@ -506,14 +508,14 @@ export default function LeadReportPage() {
             </div>
             <div className="lr-fg">
               <label className="lr-label">Business Category</label>
-              <select
-                className="lr-field"
+              <SearchableSelect
+                fieldClass="lr-field"
+                options={BUSINESS_CATEGORIES}
                 value={filterBusiness}
-                onChange={e => setFilterBusiness(e.target.value)}
-              >
-                <option value="">All categories</option>
-                {BUSINESS_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+                onChange={v => setFilterBusiness(v)}
+                emptyLabel="All categories"
+                accentColor="var(--primary)"
+              />
             </div>
             <div className="lr-fg">
               <label className="lr-label">Date From</label>

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import SearchableSelect from '@/components/SearchableSelect';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Lead {
@@ -52,6 +53,75 @@ interface Toast {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const VEHICLES = [
+  // ── Storm T1500 TR ──
+  'Storm T1500 TR DV260',
+  'Storm T1500 TR DV220',
+  'Storm T1500 TR PV',
+  'Storm T1500 TR HD',
+  'Storm T1500 TR FB',
+  // ── Storm T1500 TR+ ──
+  'Storm T1500 TR+ DV260',
+  'Storm T1500 TR+ DV220',
+  'Storm T1500 TR+ PV',
+  'Storm T1500 TR+ HD',
+  'Storm T1500 TR+ FB',
+  // ── Storm T1500 TR+32 ──
+  'Storm T1500 TR+32 DV260',
+  'Storm T1500 TR+32 DV220',
+  'Storm T1500 TR+32 PV',
+  'Storm T1500 TR+32 HD',
+  'Storm T1500 TR+32 FB',
+  // ── Storm T1500 ATR ──
+  'Storm T1500 ATR DV260',
+  'Storm T1500 ATR DV220',
+  'Storm T1500 ATR PV',
+  'Storm T1500 ATR HD',
+  'Storm T1500 ATR FB',
+  // ── Storm T1500 ATR+ ──
+  'Storm T1500 ATR+ DV260',
+  'Storm T1500 ATR+ DV220',
+  'Storm T1500 ATR+ PV',
+  'Storm T1500 ATR+ HD',
+  'Storm T1500 ATR+ FB',
+  // ── Storm T1500 ATR+32 ──
+  'Storm T1500 ATR+32 DV260',
+  'Storm T1500 ATR+32 DV220',
+  'Storm T1500 ATR+32 PV',
+  'Storm T1500 ATR+32 HD',
+  'Storm T1500 ATR+32 FB',
+  // ── Storm T1500 TR 32 ──
+  'Storm T1500 TR 32 DV220',
+  'Storm T1500 TR 32 DV260',
+  'Storm T1500 TR 32 PV',
+  // ── LR ──
+  'LR PV',
+  'LR HD',
+  'LR FB',
+  'LR DV330',
+  // ── LR+ ──
+  'LR+ PV',
+  'LR+ HD',
+  'LR+ FB',
+  'LR+ DV330',
+  // ── HiLoad ──
+  'HiLoad XR',
+  'HiLoad TR NC',
+  'HiLoad TR GBT',
+  // ── City ──
+  'City FB',
+  'City PV',
+  'City DV200',
+  'City HD',
+  // ── Maxx ──
+  'Maxx FB',
+  'Maxx PV',
+  'Maxx DV220',
+  'Maxx HD',
+  // ── FastCharge ──
+  'FastCharge FB',
+  'FastCharge PV',
+  'FastCharge DV220',
+  // ── Legacy / Previous Models ──
   'Euler HiLoad EV',
   'Euler Turbo EV 1000 City',
   'Euler Turbo EV 1000 Fast Charge',
@@ -361,6 +431,7 @@ const PAGE_STYLES = `
   .vm-field::placeholder { color: var(--text3); }
   textarea.vm-field { resize: vertical; min-height: 80px; }
   select.vm-field { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+  button.vm-field { border: 1px solid var(--border); }
 
   .vm-modal-foot {
     display: flex; justify-content: flex-end; gap: 8px;
@@ -751,61 +822,56 @@ export default function CreateVisitReportPage() {
 
                   <div className="vm-fg">
                     <label className="vm-label" htmlFor="f-lead">Customer</label>
-                    <select
+                    <SearchableSelect
                       id="f-lead"
-                      className="vm-field"
+                      fieldClass="vm-field"
+                      options={leads.map(l => ({ value: String(l.id), label: `${l.cust_code} — ${l.cust_name}` }))}
                       value={form.lead_id}
-                      onChange={e => handleFormChange('lead_id', e.target.value)}
-                      required
-                    >
-                      <option value="">Select lead</option>
-                      {leads.map(l => (
-                        <option key={l.id} value={String(l.id)}>{l.cust_code} — {l.cust_name}</option>
-                      ))}
-                    </select>
+                      onChange={v => handleFormChange('lead_id', v)}
+                      placeholder="Select lead"
+                      accentColor="var(--teal)"
+                    />
                   </div>
 
                   <div className="vm-fg">
                     <label className="vm-label" htmlFor="f-sp">Salesperson</label>
-                    <select
+                    <SearchableSelect
                       id="f-sp"
-                      className="vm-field"
+                      fieldClass="vm-field"
+                      options={employees.map(e => ({ value: String(e.id), label: e.name }))}
                       value={form.salesperson_id}
-                      onChange={e => handleFormChange('salesperson_id', e.target.value)}
-                      required
-                    >
-                      <option value="">Select salesperson</option>
-                      {employees.map(emp => (
-                        <option key={emp.id} value={String(emp.id)}>{emp.name}</option>
-                      ))}
-                    </select>
+                      onChange={v => handleFormChange('salesperson_id', v)}
+                      placeholder="Select salesperson"
+                      accentColor="var(--teal)"
+                    />
                   </div>
 
                   <div className="vm-fg">
                     <label className="vm-label" htmlFor="f-vehicle">Vehicle</label>
-                    <select
+                    <SearchableSelect
                       id="f-vehicle"
-                      className="vm-field"
+                      fieldClass="vm-field"
+                      options={VEHICLES}
                       value={form.vehicle}
-                      onChange={e => handleFormChange('vehicle', e.target.value)}
-                    >
-                      <option value="">Select vehicle</option>
-                      {VEHICLES.map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
+                      onChange={v => handleFormChange('vehicle', v)}
+                      placeholder="Select vehicle"
+                      emptyLabel="Select vehicle"
+                      accentColor="var(--teal)"
+                    />
                   </div>
 
                   <div className="vm-fg">
                     <label className="vm-label" htmlFor="f-status">Status</label>
-                    <select
+                    <SearchableSelect
                       id="f-status"
-                      className="vm-field"
+                      fieldClass="vm-field"
+                      options={STATUSES}
                       value={form.status}
-                      onChange={e => handleFormChange('status', e.target.value)}
-                      required
-                    >
-                      <option value="">Select status</option>
-                      {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                      onChange={v => handleFormChange('status', v)}
+                      placeholder="Select status"
+                      emptyLabel="Select status"
+                      accentColor="var(--teal)"
+                    />
                   </div>
 
                   <div className="vm-fg">
@@ -821,15 +887,16 @@ export default function CreateVisitReportPage() {
 
                   <div className="vm-fg">
                     <label className="vm-label" htmlFor="f-na">Next Action</label>
-                    <select
+                    <SearchableSelect
                       id="f-na"
-                      className="vm-field"
+                      fieldClass="vm-field"
+                      options={NEXT_ACTIONS}
                       value={form.next_action}
-                      onChange={e => handleFormChange('next_action', e.target.value)}
-                    >
-                      <option value="">Select next action</option>
-                      {NEXT_ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
-                    </select>
+                      onChange={v => handleFormChange('next_action', v)}
+                      placeholder="Select next action"
+                      emptyLabel="Select next action"
+                      accentColor="var(--teal)"
+                    />
                   </div>
 
                   {/* FIX: next_action_date field now rendered (was in state but missing from UI) */}

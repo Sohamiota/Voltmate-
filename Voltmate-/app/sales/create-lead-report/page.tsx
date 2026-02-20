@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import SearchableSelect from '@/components/SearchableSelect';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Lead {
@@ -352,6 +353,7 @@ const PAGE_STYLES = `
   .lm-field:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-dim); }
   .lm-field::placeholder { color: var(--text3); }
   textarea.lm-field { resize: vertical; min-height: 82px; line-height: 1.55; }
+  button.lm-field { border: 1px solid var(--border); }
   select.lm-field {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 12 12'%3E%3Cpath fill='%234b5268' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
@@ -859,35 +861,31 @@ export default function CreateLeadReportPage() {
 
                   <div className="lm-fg">
                     <label className="lm-label" htmlFor="f-cat">Business Category</label>
-                    <select
+                    <SearchableSelect
                       id="f-cat"
-                      className="lm-field"
+                      fieldClass="lm-field"
+                      options={Object.keys(BUSINESS_OPTIONS)}
                       value={businessCategory}
-                      // FIX #8: businessSub reset when category changes
-                      onChange={e => { setBusinessCategory(e.target.value); setBusinessSub(''); }}
-                      required
-                    >
-                      <option value="">Select category</option>
-                      {Object.keys(BUSINESS_OPTIONS).map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
+                      onChange={v => { setBusinessCategory(v); setBusinessSub(''); }}
+                      placeholder="Select category"
+                      emptyLabel="Select category"
+                      accentColor="#00c9b1"
+                    />
                   </div>
 
                   <div className="lm-fg">
                     <label className="lm-label" htmlFor="f-sub">Business Type</label>
-                    <select
+                    <SearchableSelect
                       id="f-sub"
-                      className="lm-field"
+                      fieldClass="lm-field"
+                      options={BUSINESS_OPTIONS[businessCategory] || []}
                       value={businessSub}
-                      onChange={e => setBusinessSub(e.target.value)}
+                      onChange={v => setBusinessSub(v)}
+                      placeholder="Select specific type"
+                      emptyLabel="Select specific type"
                       disabled={!businessCategory}
-                    >
-                      <option value="">Select specific type</option>
-                      {(BUSINESS_OPTIONS[businessCategory] || []).map(sub => (
-                        <option key={sub} value={sub}>{sub}</option>
-                      ))}
-                    </select>
+                      accentColor="#00c9b1"
+                    />
                   </div>
 
                   <div className="lm-fg">

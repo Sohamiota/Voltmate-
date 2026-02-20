@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import SearchableSelect from '@/components/SearchableSelect';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Visit {
@@ -128,6 +129,7 @@ const PAGE_STYLES = `
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 12 12'%3E%3Cpath fill='%23545968' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
   }
+  button.vr-field { border: 1px solid var(--border); }
   .vr-btn-clear {
     font-family: 'Outfit', sans-serif; font-size: 12.5px; font-weight: 600;
     padding: 8px 16px; border-radius: 7px;
@@ -504,14 +506,14 @@ export default function VisitReportPage() {
             </div>
             <div className="vr-fg">
               <label className="vr-label">Status</label>
-              <select
-                className="vr-field"
+              <SearchableSelect
+                fieldClass="vr-field"
+                options={STATUSES}
                 value={filterStatus}
-                onChange={e => setFilterStatus(e.target.value)}
-              >
-                <option value="">All statuses</option>
-                {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+                onChange={v => setFilterStatus(v)}
+                emptyLabel="All statuses"
+                accentColor="var(--accent)"
+              />
             </div>
             <div className="vr-fg">
               <label className="vr-label">Date From</label>
