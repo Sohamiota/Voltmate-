@@ -160,7 +160,7 @@ const EMPTY_FORM: FormState = {
   salesperson_id: '',
   vehicle: '',
   status: '',
-  visit_date: new Date().toISOString().slice(0, 10),
+  visit_date: '',          // set to today at runtime (openModal) to avoid SSR hydration mismatch
   next_action: '',
   next_action_date: '',
   phone_no: '',
@@ -168,10 +168,10 @@ const EMPTY_FORM: FormState = {
   note: '',
 };
 
-  const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
-    (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-      ? 'https://voltmate.onrender.com'
-      : 'http://localhost:8081')).replace(/\/api\/v1\/?$/, '');
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? 'https://voltmate.onrender.com'
+    : 'http://localhost:8081')).replace(/\/api\/v1\/?$/, '');
 
 // ─── Token helper (module-level, not recreated per render) ────────────────────
 function getAuthToken(): string {
@@ -597,7 +597,7 @@ export default function CreateVisitReportPage() {
 
   // ── Open / close modal ─────────────────────────────────────────────────────
   function openModal() {
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, visit_date: new Date().toISOString().slice(0, 10) });
     setHasUnsaved(false);
     setOpen(true);
   }

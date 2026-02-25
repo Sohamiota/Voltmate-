@@ -1,5 +1,6 @@
 'use client';
 
+import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface SSOption { value: string; label: string; }
@@ -39,7 +40,7 @@ export default function SearchableSelect({
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Normalise to { value, label }
-  const normalised: SSOption[] = options.map(o =>
+  const normalised: SSOption[] = (options ?? []).map(o =>
     typeof o === 'string' ? { value: o, label: o } : o
   );
   const allOpts: SSOption[] = emptyLabel

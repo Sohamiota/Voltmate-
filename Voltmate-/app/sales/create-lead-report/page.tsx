@@ -78,7 +78,7 @@ const BUSINESS_OPTIONS: Record<string, string[]> = {
 };
 
 const EMPTY_FORM: FormState = {
-  connect_date: new Date().toISOString().slice(0, 10),
+  connect_date: '',          // set to today at runtime (openModal) to avoid SSR hydration mismatch
   cust_name: '',
   phone_no: '',
   phone_no_2: '',

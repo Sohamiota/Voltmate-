@@ -346,13 +346,15 @@ export default function VisitReportPage() {
 
   // ── Clear filters ──────────────────────────────────────────────────────────
   function clearFilters() {
+    // Cancel any pending debounced search first
+    if (searchTimer.current) { clearTimeout(searchTimer.current); searchTimer.current = null; }
     setSearchQuery('');
     setFilterStatus('');
     setFilterDateFrom('');
     setFilterDateTo('');
-    // Clear actual input values
-    const inputs = document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('.vr-field');
-    inputs.forEach(inp => { inp.value = ''; });
+    // Clear the uncontrolled search text input
+    const searchInput = document.querySelector<HTMLInputElement>('input.vr-field[placeholder]');
+    if (searchInput) searchInput.value = '';
   }
 
   // ── Filtered & sorted visits ──────────────────────────────────────────────
