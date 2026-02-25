@@ -461,11 +461,11 @@ const PAGE_STYLES = `
 `;
 
 // ─── Badge colour helper ──────────────────────────────────────────────────────
-function badgeClass(status = ''): string {
-  const s = status.toLowerCase();
+function badgeClass(status?: string | null): string {
+  const s = (status || '').toLowerCase();
   if (s.includes('delivered') || s.includes('closed')) return 'green';
   if (s.includes('lost')) return 'red';
-  if (s.includes('test drive') || s.includes('quotation')) return 'blue';
+  if (s.includes('test drive') || s.includes('quotation') || s.includes('demo')) return 'blue';
   if (s.includes('negotiation') || s.includes('follow-up')) return 'amber';
   if (s.includes('new') || s.includes('attempted')) return 'muted';
   return 'teal';
