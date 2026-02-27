@@ -4,6 +4,7 @@ import express, { NextFunction, Request, Response } from 'express';
 
 import { authMiddleware } from './middlewares/auth';
 import activityRoutes from './routes/activity';
+import activityLogRoutes from './routes/activityLog';
 import attendanceRoutes from './routes/attendance';
 import authRoutes from './routes/auth';
 import leadsRoutes from './routes/leads';
@@ -64,6 +65,7 @@ app.use(authMiddleware);
 // ─── Protected routes ─────────────────────────────────────────────────────────
 // FIX #6: activityRoutes moved to its own prefix '/api/v1/activity'
 app.use('/api/v1/activity',      activityRoutes);
+app.use('/api/v1/activity-log',  activityLogRoutes);
 app.use('/api/v1/opportunities', opportunitiesRoutes);
 app.use('/api/v1/attendance',    attendanceRoutes);
 app.use('/api/v1/sales',         salesRoutes);

@@ -13,6 +13,11 @@ interface Lead {
   phone_no?: string;
   lead_type?: string;
   note?: string;
+  // audit fields
+  created_by_name?: string;
+  updated_by_name?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface FormState {
@@ -266,6 +271,15 @@ const PAGE_STYLES = `
   .lm-btn-ghost:hover { border-color: var(--border2); color: var(--text); }
   .lm-btn-red   { background: var(--red-dim); color: var(--red); border: 1px solid rgba(244,63,94,.22); }
   .lm-btn-red:hover { background: rgba(244,63,94,.16); }
+  .lm-btn-amber { background: rgba(251,191,36,.08); color: #fbbf24; border: 1px solid rgba(251,191,36,.22); }
+  .lm-btn-amber:hover { background: rgba(251,191,36,.16); }
+  /* ── Audit / Logged-By cell ── */
+  .lm-audit-cell { display: flex; flex-direction: column; gap: 3px; min-width: 130px; }
+  .lm-audit-row  { display: flex; align-items: center; gap: 4px; font-size: 11px; line-height: 1.3; white-space: nowrap; }
+  .lm-audit-icon { font-size: 10px; opacity: .7; }
+  .lm-audit-create { color: #4ade80; }
+  .lm-audit-edit   { color: #fbbf24; }
+  .lm-audit-time   { opacity: .55; font-size: 10px; }
 
   /* ── Empty & skeleton ── */
   .lm-empty { text-align: center; padding: 56px 20px; color: var(--text3); }
@@ -434,6 +448,7 @@ export default function CreateLeadReportPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [businessCategory, setBusinessCategory] = useState('');
   const [businessSub, setBusinessSub] = useState('');
+  const [editTarget, setEditTarget] = useState<Lead | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [locResults, setLocResults] = useState<NominatimResult[]>([]);
@@ -549,15 +564,46 @@ export default function CreateLeadReportPage() {
   // ── Open / close modal — resets ALL form state ────────────────────────────
   // FIX #9: full form reset, not just connect_date
   // FIX #8: businessCategory and businessSub also reset
+  // Helper: reverse-map a stored business value → { category, sub }
+  function findBusinessParts(business: string): { cat: string; sub: string } {
+    if (!business) return { cat: '', sub: '' };
+    for (const [cat, subs] of Object.entries(BUSINESS_OPTIONS)) {
+      if (subs.includes(business)) return { cat, sub: business };
+    }
+    // might be a category itself
+    if (BUSINESS_OPTIONS[business]) return { cat: business, sub: '' };
+    return { cat: '', sub: '' };
+  }
+
   function openModal() {
+    setEditTarget(null);
     setForm({ ...EMPTY_FORM, connect_date: new Date().toISOString().slice(0, 10) });
     setBusinessCategory('');
     setBusinessSub('');
     setOpen(true);
   }
 
+  function openEditModal(lead: Lead) {
+    setEditTarget(lead);
+    const l = lead as any;
+    const { cat, sub } = findBusinessParts(l.business || '');
+    setBusinessCategory(cat);
+    setBusinessSub(sub);
+    setForm({
+      connect_date: l.connect_date ? l.connect_date.slice(0, 10) : '',
+      cust_name:  l.cust_name  || '',
+      phone_no:   l.phone_no   || '',
+      phone_no_2: l.phone_no_2 || '',
+      lead_type:  l.lead_type  || '',
+      location:   l.location   || '',
+      note:       l.note       || '',
+    });
+    setOpen(true);
+  }
+
   function closeModal() {
     setOpen(false);
+    setEditTarget(null);
   }
 
   // ── Submit ─────────────────────────────────────────────────────────────────
@@ -591,20 +637,23 @@ export default function CreateLeadReportPage() {
 
     try {
       setSubmitting(true);
-      const res = await fetch(`${API_BASE}/api/v1/leads`, { // FIX #3: always uses API_BASE
-        method: 'POST',
-        headers: buildHeaders(true), // FIX #2: token called once inside buildHeaders
+      const isEdit = editTarget !== null;
+      const url = isEdit
+        ? `${API_BASE}/api/v1/leads/${editTarget!.id}`
+        : `${API_BASE}/api/v1/leads`;
+      const res = await fetch(url, {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: buildHeaders(true),
         body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         const txt = await res.text().catch(() => '');
-        console.error('create lead failed', res.status, txt);
-        showToast(`Failed to save (${res.status})${txt ? ' – ' + txt : ''}`, 'error');
+        showToast(`Failed to ${isEdit ? 'update' : 'save'} (${res.status})${txt ? ' – ' + txt : ''}`, 'error');
         return;
       }
 
-      showToast('Lead saved successfully', 'success');
+      showToast(isEdit ? 'Lead updated successfully' : 'Lead saved successfully', 'success');
       closeModal();
       await fetchList();
     } catch (err) {
@@ -751,6 +800,7 @@ export default function CreateLeadReportPage() {
                   <th>Phone No.</th>
                   <th>Location</th>
                   <th>Lead Type</th>
+                  <th>Logged By</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -759,7 +809,7 @@ export default function CreateLeadReportPage() {
                   <SkeletonRows />
                 ) : leads.length === 0 ? (
                   <tr>
-                    <td colSpan={9}>
+                    <td colSpan={10}>
                       <div className="lm-empty">
                         <div className="lm-empty-icon">📋</div>
                         <div className="lm-empty-msg">
@@ -795,14 +845,49 @@ export default function CreateLeadReportPage() {
                         </span>
                       </td>
                       <td>
-                        {/* FIX #11: setDeleteTarget triggers inline modal, not confirm() */}
-                        <button
-                          className="lm-btn lm-btn-red"
-                          style={{ fontSize: 12, padding: '5px 12px' }}
-                          onClick={() => setDeleteTarget(l)}
-                        >
-                          Delete
-                        </button>
+                        <div className="lm-audit-cell">
+                          {l.created_by_name && (
+                            <span className="lm-audit-row lm-audit-create">
+                              <span className="lm-audit-icon">＋</span>
+                              <span>{l.created_by_name}</span>
+                              {l.created_at && (
+                                <span className="lm-audit-time">
+                                  {new Date(l.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'2-digit' })}
+                                </span>
+                              )}
+                            </span>
+                          )}
+                          {l.updated_by_name && (
+                            <span className="lm-audit-row lm-audit-edit">
+                              <span className="lm-audit-icon">✎</span>
+                              <span>{l.updated_by_name}</span>
+                              {l.updated_at && (
+                                <span className="lm-audit-time">
+                                  {new Date(l.updated_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'2-digit' })}
+                                </span>
+                              )}
+                            </span>
+                          )}
+                          {!l.created_by_name && !l.updated_by_name && <span style={{ color: 'var(--text3)' }}>—</span>}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            className="lm-btn lm-btn-amber"
+                            style={{ fontSize: 12, padding: '5px 12px' }}
+                            onClick={() => openEditModal(l)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="lm-btn lm-btn-red"
+                            style={{ fontSize: 12, padding: '5px 12px' }}
+                            onClick={() => setDeleteTarget(l)}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -825,8 +910,26 @@ export default function CreateLeadReportPage() {
           <div className="lm-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
             <div className="lm-modal-head">
               <div>
-                <div className="lm-modal-title" id="modal-title">Add New Lead</div>
-                <div className="lm-modal-sub">Fill in the lead details below</div>
+                <div className="lm-modal-title" id="modal-title">{editTarget ? 'Edit Lead' : 'Add New Lead'}</div>
+                <div className="lm-modal-sub">
+                  {editTarget ? (
+                    <span>
+                      Editing: <strong>{(editTarget as any).cust_name || ''}</strong>
+                      {editTarget.created_by_name && (
+                        <span style={{ marginLeft: 8, fontSize: 11, color: '#4ade80' }}>
+                          ＋ Added by {editTarget.created_by_name}
+                          {editTarget.created_at && ` on ${new Date(editTarget.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
+                        </span>
+                      )}
+                      {editTarget.updated_by_name && (
+                        <span style={{ marginLeft: 8, fontSize: 11, color: '#fbbf24' }}>
+                          · ✎ Last edited by {editTarget.updated_by_name}
+                          {editTarget.updated_at && ` on ${new Date(editTarget.updated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
+                        </span>
+                      )}
+                    </span>
+                  ) : 'Fill in the lead details below'}
+                </div>
               </div>
               <button className="lm-close" onClick={closeModal} aria-label="Close">✕</button>
             </div>
@@ -1001,7 +1104,7 @@ export default function CreateLeadReportPage() {
                   Cancel
                 </button>
                 <button type="submit" className="lm-btn lm-btn-teal" disabled={submitting}>
-                  {submitting ? 'Saving…' : 'Save Lead'}
+                  {submitting ? (editTarget ? 'Updating…' : 'Saving…') : (editTarget ? 'Update Lead' : 'Save Lead')}
                 </button>
               </div>
             </form>

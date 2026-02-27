@@ -8,6 +8,8 @@ interface Lead {
   id: string | number;
   cust_code: string;
   cust_name: string;
+  phone_no?: string;
+  phone_no_2?: string;
 }
 
 interface Employee {
@@ -26,6 +28,11 @@ interface Visit {
   next_action?: string;
   next_action_date?: string;
   note?: string;
+  // audit fields
+  created_by_name?: string;
+  updated_by_name?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface FormState {
@@ -352,6 +359,15 @@ const PAGE_STYLES = `
   .vm-btn-teal:hover { box-shadow: 0 0 16px var(--teal-glow); }
   .vm-btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
   .vm-btn-ghost:hover { border-color: var(--border-hover); color: var(--text); }
+  .vm-btn-amber { background: rgba(245,158,11,.08); color: #f59e0b; border: 1px solid rgba(245,158,11,.22); }
+  .vm-btn-amber:hover { background: rgba(245,158,11,.16); }
+  /* ── Audit / Logged-By cell ── */
+  .vm-audit-cell { display: flex; flex-direction: column; gap: 3px; min-width: 130px; }
+  .vm-audit-row  { display: flex; align-items: center; gap: 4px; font-size: 11px; line-height: 1.3; white-space: nowrap; }
+  .vm-audit-icon { font-size: 10px; opacity: .7; }
+  .vm-audit-create { color: #4ade80; }
+  .vm-audit-edit   { color: #fbbf24; }
+  .vm-audit-time   { opacity: .55; font-size: 10px; }
   .vm-btn:disabled { opacity: .5; cursor: not-allowed; }
 
   /* ── Empty State ── */
@@ -494,6 +510,7 @@ export default function CreateVisitReportPage() {
   const [allVisits, setAllVisits] = useState<Visit[]>([]);  // FIX: separate source-of-truth
   const [searchQuery, setSearchQuery] = useState('');       // FIX: search as derived state, not mutation
   const [open, setOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Visit | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -591,13 +608,44 @@ export default function CreateVisitReportPage() {
 
   // ── Form change ────────────────────────────────────────────────────────────
   function handleFormChange<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm(f => ({ ...f, [key]: value }));
+    if (key === 'lead_id') {
+      // Always pull phone numbers directly from the selected lead
+      const selected = leads.find(l => String(l.id) === String(value));
+      setForm(f => ({
+        ...f,
+        lead_id:    value as string,
+        phone_no:   selected?.phone_no   || '',
+        phone_no_2: selected?.phone_no_2 || '',
+      }));
+    } else {
+      setForm(f => ({ ...f, [key]: value }));
+    }
     setHasUnsaved(true);
   }
 
   // ── Open / close modal ─────────────────────────────────────────────────────
   function openModal() {
+    setEditTarget(null);
     setForm({ ...EMPTY_FORM, visit_date: new Date().toISOString().slice(0, 10) });
+    setHasUnsaved(false);
+    setOpen(true);
+  }
+
+  function openEditModal(visit: Visit) {
+    setEditTarget(visit);
+    const v = visit as any;
+    setForm({
+      lead_id:          String(v.lead_id || ''),
+      salesperson_id:   String(v.salesperson_id || ''),
+      vehicle:          v.vehicle          || '',
+      status:           v.status           || '',
+      visit_date:       v.visit_date       ? v.visit_date.slice(0, 10) : '',
+      next_action:      v.next_action      || '',
+      next_action_date: v.next_action_date ? v.next_action_date.slice(0, 10) : '',
+      phone_no:         v.phone_no         || '',
+      phone_no_2:       v.phone_no_2       || '',
+      note:             v.note             || '',
+    });
     setHasUnsaved(false);
     setOpen(true);
   }
@@ -608,6 +656,7 @@ export default function CreateVisitReportPage() {
     }
     setOpen(false);
     setHasUnsaved(false);
+    setEditTarget(null);
   }
 
   function handleOverlayClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -636,8 +685,12 @@ export default function CreateVisitReportPage() {
     }
     try {
       setSubmitting(true);
-      const res = await fetch(`${API_BASE}/api/v1/visits`, {
-        method: 'POST',
+      const isEdit = editTarget !== null;
+      const url = isEdit
+        ? `${API_BASE}/api/v1/visits/${editTarget!.id}`
+        : `${API_BASE}/api/v1/visits`;
+      const res = await fetch(url, {
+        method: isEdit ? 'PUT' : 'POST',
         headers: authHeaders(),
         body: JSON.stringify(form),
       });
@@ -648,7 +701,7 @@ export default function CreateVisitReportPage() {
       }
       setOpen(false);
       setHasUnsaved(false);
-      showToast('Visit saved successfully', 'success');
+      showToast(editTarget ? 'Visit updated successfully' : 'Visit saved successfully', 'success');
       await fetchVisits();
     } catch (err) {
       console.error(err);
@@ -762,6 +815,8 @@ export default function CreateVisitReportPage() {
                   <th>Status</th>
                   <th>Visit Date</th>
                   <th>Next Action</th>
+                  <th>Logged By</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -769,7 +824,7 @@ export default function CreateVisitReportPage() {
                   <SkeletonRows />
                 ) : visits.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={10}>
                       <div className="vm-empty">
                         <div className="vm-empty-icon">📋</div>
                         <div className="vm-empty-text">
@@ -795,6 +850,42 @@ export default function CreateVisitReportPage() {
                         {v.visit_date ? new Date(v.visit_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                       </td>
                       <td style={{ color: 'var(--text2)' }}>{v.next_action || '—'}</td>
+                      <td>
+                        <div className="vm-audit-cell">
+                          {v.created_by_name && (
+                            <span className="vm-audit-row vm-audit-create">
+                              <span className="vm-audit-icon">＋</span>
+                              <span>{v.created_by_name}</span>
+                              {v.created_at && (
+                                <span className="vm-audit-time">
+                                  {new Date(v.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'2-digit' })}
+                                </span>
+                              )}
+                            </span>
+                          )}
+                          {v.updated_by_name && (
+                            <span className="vm-audit-row vm-audit-edit">
+                              <span className="vm-audit-icon">✎</span>
+                              <span>{v.updated_by_name}</span>
+                              {v.updated_at && (
+                                <span className="vm-audit-time">
+                                  {new Date(v.updated_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'2-digit' })}
+                                </span>
+                              )}
+                            </span>
+                          )}
+                          {!v.created_by_name && !v.updated_by_name && <span style={{ color: 'var(--text3)' }}>—</span>}
+                        </div>
+                      </td>
+                      <td>
+                        <button
+                          className="vm-btn vm-btn-amber"
+                          style={{ fontSize: 12, padding: '5px 12px' }}
+                          onClick={() => openEditModal(v)}
+                        >
+                          Edit
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -810,8 +901,26 @@ export default function CreateVisitReportPage() {
           <div className="vm-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
             <div className="vm-modal-head">
               <div>
-                <div className="vm-modal-title" id="modal-title">Add Visit</div>
-                <div className="vm-modal-sub">Create a new customer visit record</div>
+                <div className="vm-modal-title" id="modal-title">{editTarget ? 'Edit Visit' : 'Add Visit'}</div>
+                <div className="vm-modal-sub">
+                  {editTarget ? (
+                    <span>
+                      Editing visit <strong>#{(editTarget as any).id}</strong>
+                      {editTarget.created_by_name && (
+                        <span style={{ marginLeft: 8, fontSize: 11, color: '#4ade80' }}>
+                          ＋ Added by {editTarget.created_by_name}
+                          {editTarget.created_at && ` on ${new Date(editTarget.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
+                        </span>
+                      )}
+                      {editTarget.updated_by_name && (
+                        <span style={{ marginLeft: 8, fontSize: 11, color: '#fbbf24' }}>
+                          · ✎ Last edited by {editTarget.updated_by_name}
+                          {editTarget.updated_at && ` on ${new Date(editTarget.updated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
+                        </span>
+                      )}
+                    </span>
+                  ) : 'Create a new customer visit record'}
+                </div>
               </div>
               <button className="vm-close" onClick={closeModal} aria-label="Close modal">✕</button>
             </div>
@@ -830,6 +939,7 @@ export default function CreateVisitReportPage() {
                       onChange={v => handleFormChange('lead_id', v)}
                       placeholder="Select lead"
                       accentColor="var(--teal)"
+                      disabled={editTarget !== null}
                     />
                   </div>
 
@@ -966,7 +1076,7 @@ export default function CreateVisitReportPage() {
                   Cancel
                 </button>
                 <button type="submit" className="vm-btn vm-btn-teal" disabled={submitting}>
-                  {submitting ? 'Saving…' : 'Save Visit'}
+                  {submitting ? (editTarget ? 'Updating…' : 'Saving…') : (editTarget ? 'Update Visit' : 'Save Visit')}
                 </button>
               </div>
             </form>
