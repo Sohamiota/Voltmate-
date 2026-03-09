@@ -30,8 +30,13 @@ interface Vehicle {
   location?: string;
   purchase_date?: string;
   current_km?: number;
-  poi?: string;
+  pdi?: string;
+  speak_with?: string;
   remarks?: string;
+  // inline service data
+  s1_id?: number; s1_due_km?: number; s1_due_date?: string; s1_actual_km?: number; s1_completion_date?: string; s1_status?: string;
+  s2_id?: number; s2_due_km?: number; s2_due_date?: string; s2_actual_km?: number; s2_completion_date?: string; s2_status?: string;
+  s3_id?: number; s3_due_km?: number; s3_due_date?: string; s3_actual_km?: number; s3_completion_date?: string; s3_status?: string;
   next_service_no?: number;
   next_due_km?: number;
   next_due_date?: string;
@@ -50,7 +55,7 @@ interface VehicleService {
   remarks?: string;
 }
 
-const EMPTY_VEHICLE = {
+const EMPTY_VEHICLE: Record<string, string | number> = {
   vehicle_number: '',
   chassis_number: '',
   vehicle_type: '',
@@ -61,13 +66,14 @@ const EMPTY_VEHICLE = {
   location: '',
   purchase_date: '',
   current_km: 0,
-  poi: '',
+  pdi: '',
+  speak_with: '',
   remarks: '',
 };
 
 const PAGE_STYLES = `
   .sm-root { min-height: 100vh; background: #0a0c12; color: #e8edf5; font-family: 'Outfit', sans-serif; }
-  .sm-content { padding: 32px 28px; max-width: 1680px; margin: 0 auto; }
+  .sm-content { padding: 32px 28px; max-width: 100%; margin: 0 auto; }
   .sm-header { margin-bottom: 28px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
   .sm-title { font-size: 28px; font-weight: 800; letter-spacing: -.5px; margin-bottom: 6px; }
   .sm-subtitle { font-size: 13.5px; color: #8e97ad; }
@@ -75,24 +81,29 @@ const PAGE_STYLES = `
   .sm-table-header { padding: 16px 20px; border-bottom: 1px solid #1e2236; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
   .sm-table-title { font-size: 14px; font-weight: 700; }
   .sm-table-outer { overflow-x: auto; }
-  .sm-table { width: 100%; border-collapse: collapse; min-width: 880px; }
-  .sm-table th { padding: 11px 16px; text-align: left; font-size: 10px; font-weight: 700; color: #545968; text-transform: uppercase; letter-spacing: 1px; background: #141720; border-bottom: 1px solid #1e2236; }
-  .sm-table td { padding: 13px 16px; border-bottom: 1px solid rgba(30,34,54,.6); font-size: 13px; }
+  .sm-table { width: 100%; border-collapse: collapse; min-width: 2200px; }
+  .sm-table th { padding: 10px 12px; text-align: left; font-size: 10px; font-weight: 700; color: #545968; text-transform: uppercase; letter-spacing: 1px; background: #141720; border-bottom: 1px solid #1e2236; white-space: nowrap; }
+  .sm-table th.svc-group { background: #101420; text-align: center; border-left: 2px solid #1e2236; }
+  .sm-table th.svc-sub { background: #0f1117; font-size: 9px; border-left: 1px solid #1a1e30; text-align: center; }
+  .sm-table td { padding: 11px 12px; border-bottom: 1px solid rgba(30,34,54,.6); font-size: 12.5px; vertical-align: top; }
+  .sm-table td.svc-cell { border-left: 1px solid rgba(30,34,54,.8); text-align: center; min-width: 90px; }
+  .sm-table td.svc-group-start { border-left: 2px solid #1e2236; }
   .sm-table tbody tr:last-child td { border-bottom: none; }
-  .sm-badge { display: inline-flex; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .sm-badge { display: inline-flex; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; }
   .sm-badge.overdue { background: rgba(244,63,94,.15); color: #f43f5e; }
   .sm-badge.due_soon { background: rgba(251,191,36,.12); color: #fbbf24; }
   .sm-badge.ok { background: rgba(16,185,129,.1); color: #10b981; }
   .sm-badge.done { background: rgba(16,185,129,.15); color: #10b981; }
-  .sm-btn { font-family: inherit; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 8px; border: 1px solid #1e2236; background: transparent; color: #8e97ad; cursor: pointer; transition: all .15s; }
+  .sm-badge.pending { background: rgba(251,191,36,.12); color: #fbbf24; }
+  .sm-btn { font-family: inherit; font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 7px; border: 1px solid #1e2236; background: transparent; color: #8e97ad; cursor: pointer; transition: all .15s; white-space: nowrap; }
   .sm-btn:hover { border-color: #272b40; color: #e8edf5; }
-  .sm-btn-primary { background: #00d9ff; color: #0a0c12; border-color: #00d9ff; }
+  .sm-btn-primary { background: #00d9ff; color: #0a0c12; border-color: #00d9ff; font-size: 10px; padding: 4px 8px; }
   .sm-btn-primary:hover { background: #00b8d9; border-color: #00b8d9; color: #0a0c12; }
   .sm-btn-amber { background: rgba(251,191,36,.1); color: #fbbf24; border-color: rgba(251,191,36,.3); }
   .sm-btn-red { background: rgba(244,63,94,.1); color: #f43f5e; border-color: rgba(244,63,94,.25); }
-  .sm-mono { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8e97ad; }
+  .sm-mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8e97ad; }
   .sm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
-  .sm-modal { background: #0f1117; border: 1px solid #1e2236; border-radius: 16px; width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; }
+  .sm-modal { background: #0f1117; border: 1px solid #1e2236; border-radius: 16px; width: 100%; max-width: 620px; max-height: 92vh; overflow-y: auto; }
   .sm-modal-head { padding: 20px 24px; border-bottom: 1px solid #1e2236; display: flex; justify-content: space-between; align-items: flex-start; }
   .sm-modal-title { font-size: 18px; font-weight: 700; }
   .sm-modal-close { background: transparent; border: 1px solid #1e2236; color: #8e97ad; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; }
@@ -100,17 +111,33 @@ const PAGE_STYLES = `
   .sm-modal-body { padding: 24px; }
   .sm-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
   .sm-field label { font-size: 11px; font-weight: 600; color: #545968; text-transform: uppercase; letter-spacing: .8px; }
-  .sm-field input, .sm-field textarea { font-family: inherit; font-size: 13px; padding: 10px 12px; background: #0a0c12; border: 1px solid #1e2236; border-radius: 8px; color: #e8edf5; }
-  .sm-field textarea { min-height: 80px; resize: vertical; }
+  .sm-field input, .sm-field textarea, .sm-field select { font-family: inherit; font-size: 13px; padding: 10px 12px; background: #0a0c12; border: 1px solid #1e2236; border-radius: 8px; color: #e8edf5; }
+  .sm-field textarea { min-height: 72px; resize: vertical; }
   .sm-modal-foot { padding: 16px 24px; border-top: 1px solid #1e2236; display: flex; gap: 10px; justify-content: flex-end; }
   .sm-empty { text-align: center; padding: 48px 20px; color: #545968; font-size: 14px; }
   .sm-loading { text-align: center; padding: 48px; color: #8e97ad; }
-  .sm-history { margin-top: 12px; padding: 16px; background: #0a0c12; border-radius: 10px; border: 1px solid #1e2236; }
-  .sm-history-title { font-size: 12px; font-weight: 700; color: #545968; margin-bottom: 12px; }
-  .sm-history-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #1e2236; font-size: 13px; }
-  .sm-history-row:last-child { border-bottom: none; }
   .sm-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .sm-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .sm-section-title { font-size: 11px; font-weight: 700; color: #545968; text-transform: uppercase; letter-spacing: 1px; margin: 20px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #1e2236; }
+  .sm-svc-cell-inner { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 80px; }
+  .sm-cell-km { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 600; color: #e8edf5; }
+  .sm-cell-date { font-size: 10.5px; color: #8e97ad; }
 `;
+
+function svcObj(v: Vehicle, n: 1 | 2 | 3): VehicleService | null {
+  const id = v[`s${n}_id` as keyof Vehicle] as number | undefined;
+  if (!id) return null;
+  return {
+    id,
+    vehicle_id: v.id,
+    service_no: n,
+    due_km: v[`s${n}_due_km` as keyof Vehicle] as number | undefined,
+    due_date: v[`s${n}_due_date` as keyof Vehicle] as string | undefined,
+    actual_km: v[`s${n}_actual_km` as keyof Vehicle] as number | undefined,
+    completion_date: v[`s${n}_completion_date` as keyof Vehicle] as string | undefined,
+    status: v[`s${n}_status` as keyof Vehicle] as string | undefined,
+  };
+}
 
 export default function ServiceManagerVehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -119,8 +146,6 @@ export default function ServiceManagerVehiclesPage() {
   const [modalOpen, setModalOpen] = useState<'add' | 'edit' | null>(null);
   const [form, setForm] = useState<Record<string, string | number>>(EMPTY_VEHICLE);
   const [editId, setEditId] = useState<number | null>(null);
-  const [historyVehicleId, setHistoryVehicleId] = useState<number | null>(null);
-  const [historyServices, setHistoryServices] = useState<VehicleService[]>([]);
   const [markDoneService, setMarkDoneService] = useState<{ vehicleId: number; service: VehicleService } | null>(null);
   const [markDoneForm, setMarkDoneForm] = useState({ actual_km: '', completion_date: '', remarks: '' });
   const [submitting, setSubmitting] = useState(false);
@@ -148,7 +173,7 @@ export default function ServiceManagerVehiclesPage() {
 
   function openAdd() {
     setEditId(null);
-    setForm(EMPTY_VEHICLE);
+    setForm({ ...EMPTY_VEHICLE });
     setModalOpen('add');
   }
 
@@ -165,7 +190,8 @@ export default function ServiceManagerVehiclesPage() {
       location: v.location ?? '',
       purchase_date: v.purchase_date ? v.purchase_date.slice(0, 10) : '',
       current_km: v.current_km ?? 0,
-      poi: v.poi ?? '',
+      pdi: v.pdi ?? '',
+      speak_with: v.speak_with ?? '',
       remarks: v.remarks ?? '',
     });
     setModalOpen('edit');
@@ -189,7 +215,8 @@ export default function ServiceManagerVehiclesPage() {
         location: form.location || null,
         purchase_date: form.purchase_date || null,
         current_km: form.current_km ?? 0,
-        poi: form.poi || null,
+        pdi: form.pdi || null,
+        speak_with: form.speak_with || null,
         remarks: form.remarks || null,
       };
       if (editId) {
@@ -205,26 +232,6 @@ export default function ServiceManagerVehiclesPage() {
       alert(err?.message || 'Save failed');
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  async function openHistory(vehicleId: number) {
-    if (historyVehicleId === vehicleId) {
-      setHistoryVehicleId(null);
-      setHistoryServices([]);
-      return;
-    }
-    setHistoryVehicleId(vehicleId);
-    try {
-      const token = getToken();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE}/api/v1/vehicles/${vehicleId}/services`, { headers });
-      if (!res.ok) throw new Error(await res.text());
-      const j = await res.json();
-      setHistoryServices(j.services || []);
-    } catch {
-      setHistoryServices([]);
     }
   }
 
@@ -264,9 +271,7 @@ export default function ServiceManagerVehiclesPage() {
         },
       );
       if (!res.ok) throw new Error(await res.text());
-      const j = await res.json();
       setMarkDoneService(null);
-      if (historyVehicleId === markDoneService.vehicleId) setHistoryServices(j.services || []);
       await fetchVehicles();
     } catch (err: any) {
       alert(err?.message || 'Update failed');
@@ -283,11 +288,36 @@ export default function ServiceManagerVehiclesPage() {
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch(`${API_BASE}/api/v1/vehicles/${id}`, { method: 'DELETE', headers });
       if (!res.ok) throw new Error(await res.text());
-      setHistoryVehicleId(prev => prev === id ? null : prev);
       await fetchVehicles();
     } catch (err: any) {
       alert(err?.message || 'Delete failed');
     }
+  }
+
+  function ServiceCell({ v, n }: { v: Vehicle; n: 1 | 2 | 3 }) {
+    const svc = svcObj(v, n);
+    if (!svc) return <span style={{ color: '#3a3f52', fontSize: 12 }}>—</span>;
+    const done = svc.status === 'done';
+    return (
+      <div className="sm-svc-cell-inner">
+        {done ? (
+          <>
+            <span className="sm-badge done">Done</span>
+            {svc.actual_km != null && <span className="sm-cell-km">{svc.actual_km} km</span>}
+            <span className="sm-cell-date">{fmtDate(svc.completion_date)}</span>
+          </>
+        ) : (
+          <>
+            <span className="sm-badge pending">Pending</span>
+            {svc.due_km != null && <span className="sm-cell-km">{svc.due_km} km</span>}
+            <span className="sm-cell-date">{fmtDate(svc.due_date)}</span>
+            <button type="button" className="sm-btn sm-btn-primary" style={{ marginTop: 4 }} onClick={() => openMarkDone(v.id, svc)}>
+              Mark Done
+            </button>
+          </>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -298,9 +328,9 @@ export default function ServiceManagerVehiclesPage() {
           <div>
             <Link href="/service-manager" className="sm-btn" style={{ marginBottom: 8, display: 'inline-block' }}>← Dashboard</Link>
             <div className="sm-title">Vehicle Management</div>
-            <div className="sm-subtitle">Add and edit vehicles; view service history and mark services done</div>
+            <div className="sm-subtitle">Full service tracking: 1st, 2nd, and 3rd service status per vehicle</div>
           </div>
-          <button type="button" className="sm-btn sm-btn-primary" onClick={openAdd}>+ Add Vehicle</button>
+          <button type="button" className="sm-btn sm-btn-primary" style={{ fontSize: 13, padding: '8px 16px' }} onClick={openAdd}>+ Add Vehicle</button>
         </div>
 
         {error && <div style={{ background: 'rgba(244,63,94,.1)', border: '1px solid rgba(244,63,94,.25)', borderRadius: 12, padding: 16, marginBottom: 24 }}>{error}</div>}
@@ -316,68 +346,134 @@ export default function ServiceManagerVehiclesPage() {
               <table className="sm-table">
                 <thead>
                   <tr>
-                    <th>Vehicle</th>
-                    <th>Owner</th>
-                    <th>Location</th>
-                    <th>Current KM</th>
-                    <th>Next Service</th>
-                    <th>Status</th>
-                    <th>Actions</th>
+                    <th rowSpan={2}>Vehicle No / Chassis</th>
+                    <th rowSpan={2}>Vehicle Type</th>
+                    <th rowSpan={2}>Owner Name & No.</th>
+                    <th rowSpan={2}>Location</th>
+                    <th rowSpan={2}>Driver Name & No.</th>
+                    <th rowSpan={2}>Purchase Date</th>
+                    <th rowSpan={2}>PDI</th>
+                    <th className="svc-group" colSpan={3}>1st Service</th>
+                    <th className="svc-group" colSpan={3}>2nd Service</th>
+                    <th className="svc-group" colSpan={3}>3rd Service</th>
+                    <th rowSpan={2}>Remarks</th>
+                    <th rowSpan={2}>Speak With / Notes</th>
+                    <th rowSpan={2}>Actions</th>
+                  </tr>
+                  <tr>
+                    <th className="svc-sub">KM</th>
+                    <th className="svc-sub">Date</th>
+                    <th className="svc-sub">Status</th>
+                    <th className="svc-sub">KM</th>
+                    <th className="svc-sub">Date</th>
+                    <th className="svc-sub">Status</th>
+                    <th className="svc-sub">KM</th>
+                    <th className="svc-sub">Date</th>
+                    <th className="svc-sub">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {vehicles.length === 0 ? (
-                    <tr><td colSpan={7} className="sm-empty">No vehicles. Click + Add Vehicle to add one.</td></tr>
+                    <tr><td colSpan={20} className="sm-empty">No vehicles. Click + Add Vehicle to add one.</td></tr>
                   ) : (
-                    vehicles.map(v => (
-                      <React.Fragment key={v.id}>
-                        <tr>
+                    vehicles.map(v => {
+                      const s1 = svcObj(v, 1);
+                      const s2 = svcObj(v, 2);
+                      const s3 = svcObj(v, 3);
+                      return (
+                        <tr key={v.id}>
+                          {/* Vehicle */}
                           <td>
-                            <span style={{ fontWeight: 600 }}>{v.vehicle_number || v.chassis_number || `#${v.id}`}</span>
-                            {v.vehicle_type && <span className="sm-mono" style={{ display: 'block', marginTop: 2 }}>{v.vehicle_type}</span>}
+                            <span style={{ fontWeight: 700, display: 'block' }}>{v.vehicle_number || '—'}</span>
+                            {v.chassis_number && <span className="sm-mono" style={{ display: 'block', marginTop: 2 }}>{v.chassis_number}</span>}
                           </td>
-                          <td>{v.owner_name || '—'}<br /><span className="sm-mono" style={{ fontSize: 11 }}>{v.owner_phone || ''}</span></td>
-                          <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.location || '—'}</td>
-                          <td className="sm-mono">{v.current_km ?? '—'}</td>
-                          <td className="sm-mono">
-                            {v.next_service_no != null ? `#${v.next_service_no} · ${v.next_due_km ?? '—'} km · ${fmtDate(v.next_due_date)}` : '—'}
-                          </td>
+                          {/* Vehicle Type */}
+                          <td>{v.vehicle_type || '—'}</td>
+                          {/* Owner */}
                           <td>
-                            {v.urgency && <span className={`sm-badge ${v.urgency}`}>{v.urgency === 'overdue' ? 'Overdue' : v.urgency === 'due_soon' ? 'Due soon' : 'OK'}</span>}
+                            <span style={{ fontWeight: 600 }}>{v.owner_name || '—'}</span>
+                            {v.owner_phone && <span className="sm-mono" style={{ display: 'block', marginTop: 2 }}>{v.owner_phone}</span>}
                           </td>
+                          {/* Location */}
+                          <td style={{ maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.location || '—'}</td>
+                          {/* Driver */}
                           <td>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            <span style={{ fontWeight: 600 }}>{v.driver_name || '—'}</span>
+                            {v.driver_phone && <span className="sm-mono" style={{ display: 'block', marginTop: 2 }}>{v.driver_phone}</span>}
+                          </td>
+                          {/* Purchase Date */}
+                          <td className="sm-mono">{fmtDate(v.purchase_date)}</td>
+                          {/* PDI */}
+                          <td style={{ maxWidth: 100 }}>{v.pdi || '—'}</td>
+
+                          {/* 1st Service: KM | Date | Status */}
+                          <td className="svc-cell svc-group-start">
+                            {s1 ? <span className="sm-cell-km">{s1.status === 'done' ? (s1.actual_km ?? '—') : (s1.due_km ?? '—')}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
+                          </td>
+                          <td className="svc-cell">
+                            {s1 ? <span className="sm-cell-date">{fmtDate(s1.status === 'done' ? s1.completion_date : s1.due_date)}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
+                          </td>
+                          <td className="svc-cell">
+                            {s1 ? (
+                              s1.status === 'done'
+                                ? <span className="sm-badge done">Done</span>
+                                : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                    <span className="sm-badge pending">Pending</span>
+                                    <button type="button" className="sm-btn sm-btn-primary" onClick={() => openMarkDone(v.id, s1)}>Mark Done</button>
+                                  </div>
+                            ) : <span style={{ color: '#3a3f52' }}>—</span>}
+                          </td>
+
+                          {/* 2nd Service */}
+                          <td className="svc-cell svc-group-start">
+                            {s2 ? <span className="sm-cell-km">{s2.status === 'done' ? (s2.actual_km ?? '—') : (s2.due_km ?? '—')}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
+                          </td>
+                          <td className="svc-cell">
+                            {s2 ? <span className="sm-cell-date">{fmtDate(s2.status === 'done' ? s2.completion_date : s2.due_date)}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
+                          </td>
+                          <td className="svc-cell">
+                            {s2 ? (
+                              s2.status === 'done'
+                                ? <span className="sm-badge done">Done</span>
+                                : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                    <span className="sm-badge pending">Pending</span>
+                                    <button type="button" className="sm-btn sm-btn-primary" onClick={() => openMarkDone(v.id, s2)}>Mark Done</button>
+                                  </div>
+                            ) : <span style={{ color: '#3a3f52' }}>—</span>}
+                          </td>
+
+                          {/* 3rd Service */}
+                          <td className="svc-cell svc-group-start">
+                            {s3 ? <span className="sm-cell-km">{s3.status === 'done' ? (s3.actual_km ?? '—') : (s3.due_km ?? '—')}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
+                          </td>
+                          <td className="svc-cell">
+                            {s3 ? <span className="sm-cell-date">{fmtDate(s3.status === 'done' ? s3.completion_date : s3.due_date)}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
+                          </td>
+                          <td className="svc-cell">
+                            {s3 ? (
+                              s3.status === 'done'
+                                ? <span className="sm-badge done">Done</span>
+                                : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                    <span className="sm-badge pending">Pending</span>
+                                    <button type="button" className="sm-btn sm-btn-primary" onClick={() => openMarkDone(v.id, s3)}>Mark Done</button>
+                                  </div>
+                            ) : <span style={{ color: '#3a3f52' }}>—</span>}
+                          </td>
+
+                          {/* Remarks */}
+                          <td style={{ maxWidth: 160, fontSize: 12, color: '#8e97ad' }}>{v.remarks || '—'}</td>
+                          {/* Speak With */}
+                          <td style={{ maxWidth: 180, fontSize: 12, color: '#8e97ad' }}>{v.speak_with || '—'}</td>
+                          {/* Actions */}
+                          <td>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                               <button type="button" className="sm-btn sm-btn-amber" onClick={() => openEdit(v)}>Edit</button>
-                              <button type="button" className="sm-btn" onClick={() => openHistory(v.id)}>View History</button>
                               <button type="button" className="sm-btn sm-btn-red" onClick={() => deleteVehicle(v.id)}>Delete</button>
                             </div>
                           </td>
                         </tr>
-                        {historyVehicleId === v.id && (
-                          <tr>
-                            <td colSpan={7} style={{ padding: 0, verticalAlign: 'top' }}>
-                              <div className="sm-history">
-                                <div className="sm-history-title">Service history</div>
-                                {historyServices.length === 0 ? <div className="sm-mono" style={{ fontSize: 12 }}>No services recorded.</div> : (
-                                  historyServices.map(svc => (
-                                    <div key={svc.id} className="sm-history-row">
-                                      <span className={`sm-badge ${svc.status === 'done' ? 'done' : 'due_soon'}`}>{svc.status === 'done' ? 'Done' : 'Pending'}</span>
-                                      <span className="sm-mono">Service #{svc.service_no}</span>
-                                      {svc.completion_date && <span>{fmtDate(svc.completion_date)}</span>}
-                                      {svc.actual_km != null && <span>{svc.actual_km} km</span>}
-                                      {svc.status === 'pending' && (
-                                        <button type="button" className="sm-btn sm-btn-primary" style={{ marginLeft: 'auto' }} onClick={() => openMarkDone(v.id, svc)}>Mark Done</button>
-                                      )}
-                                    </div>
-                                  ))
-                                )}
-                                <button type="button" className="sm-btn" style={{ marginTop: 12 }} onClick={() => setHistoryVehicleId(null)}>Close</button>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -385,6 +481,7 @@ export default function ServiceManagerVehiclesPage() {
           </div>
         )}
 
+        {/* Add / Edit Vehicle Modal */}
         {(modalOpen === 'add' || modalOpen === 'edit') && (
           <div className="sm-overlay" onClick={() => setModalOpen(null)}>
             <div className="sm-modal" onClick={e => e.stopPropagation()}>
@@ -412,18 +509,20 @@ export default function ServiceManagerVehiclesPage() {
                     <div className="sm-field"><label>Purchase Date</label><input type="date" value={form.purchase_date} onChange={e => setForm(f => ({ ...f, purchase_date: e.target.value }))} /></div>
                     <div className="sm-field"><label>Current KM</label><input type="number" min={0} value={form.current_km} onChange={e => setForm(f => ({ ...f, current_km: parseInt(e.target.value, 10) || 0 }))} /></div>
                   </div>
-                  <div className="sm-field"><label>POI</label><input value={form.poi} onChange={e => setForm(f => ({ ...f, poi: e.target.value }))} /></div>
+                  <div className="sm-field"><label>PDI</label><input value={form.pdi} onChange={e => setForm(f => ({ ...f, pdi: e.target.value }))} /></div>
+                  <div className="sm-field"><label>Speak With / Follow-up Notes</label><textarea value={form.speak_with} onChange={e => setForm(f => ({ ...f, speak_with: e.target.value }))} placeholder="e.g. Speak with Amtusa for 1st service follow-up" /></div>
                   <div className="sm-field"><label>Remarks</label><textarea value={form.remarks} onChange={e => setForm(f => ({ ...f, remarks: e.target.value }))} /></div>
                 </div>
                 <div className="sm-modal-foot">
                   <button type="button" className="sm-btn" onClick={() => setModalOpen(null)}>Cancel</button>
-                  <button type="submit" className="sm-btn sm-btn-primary" disabled={submitting}>{submitting ? 'Saving…' : 'Save'}</button>
+                  <button type="submit" className="sm-btn sm-btn-primary" style={{ fontSize: 13, padding: '8px 16px' }} disabled={submitting}>{submitting ? 'Saving…' : 'Save'}</button>
                 </div>
               </form>
             </div>
           </div>
         )}
 
+        {/* Mark Service Done Modal */}
         {markDoneService && (
           <div className="sm-overlay" onClick={() => setMarkDoneService(null)}>
             <div className="sm-modal" onClick={e => e.stopPropagation()}>
@@ -433,13 +532,13 @@ export default function ServiceManagerVehiclesPage() {
               </div>
               <form onSubmit={submitMarkDone}>
                 <div className="sm-modal-body">
-                  <div className="sm-field"><label>Actual KM</label><input type="number" min={0} value={markDoneForm.actual_km} onChange={e => setMarkDoneForm(f => ({ ...f, actual_km: e.target.value }))} required /></div>
+                  <div className="sm-field"><label>Actual KM at Service</label><input type="number" min={0} value={markDoneForm.actual_km} onChange={e => setMarkDoneForm(f => ({ ...f, actual_km: e.target.value }))} required /></div>
                   <div className="sm-field"><label>Completion Date</label><input type="date" value={markDoneForm.completion_date} onChange={e => setMarkDoneForm(f => ({ ...f, completion_date: e.target.value }))} /></div>
                   <div className="sm-field"><label>Remarks</label><textarea value={markDoneForm.remarks} onChange={e => setMarkDoneForm(f => ({ ...f, remarks: e.target.value }))} /></div>
                 </div>
                 <div className="sm-modal-foot">
                   <button type="button" className="sm-btn" onClick={() => setMarkDoneService(null)}>Cancel</button>
-                  <button type="submit" className="sm-btn sm-btn-primary" disabled={submitting}>{submitting ? 'Saving…' : 'Mark Done'}</button>
+                  <button type="submit" className="sm-btn sm-btn-primary" style={{ fontSize: 13, padding: '8px 16px' }} disabled={submitting}>{submitting ? 'Saving…' : 'Mark Done'}</button>
                 </div>
               </form>
             </div>

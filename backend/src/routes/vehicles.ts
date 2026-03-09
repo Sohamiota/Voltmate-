@@ -6,6 +6,7 @@ import {
   patchCurrentKm,
   deleteVehicle,
   serviceDashboard,
+  importVehicles,
 } from '../controllers/vehicleController';
 import {
   listServicesForVehicle,
@@ -17,6 +18,7 @@ const router = Router();
 
 router.get('/dashboard', authMiddleware, serviceDashboard);
 router.get('/', authMiddleware, listVehicles);
+router.post('/import', authMiddleware, importVehicles);
 router.post('/', authMiddleware, createVehicle);
 router.get('/:id/services', authMiddleware, listServicesForVehicle);
 router.put('/:id/services/:svcId', authMiddleware, upsertService);
