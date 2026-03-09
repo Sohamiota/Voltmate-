@@ -86,9 +86,16 @@ const PAGE_STYLES = `
   .sm-table th { padding: 10px 12px; text-align: left; font-size: 10px; font-weight: 700; color: #545968; text-transform: uppercase; letter-spacing: 1px; background: #141720; border-bottom: 1px solid #1e2236; white-space: nowrap; }
   .sm-table th.svc-group { background: #101420; text-align: center; border-left: 2px solid #1e2236; }
   .sm-table th.svc-sub { background: #0f1117; font-size: 9px; border-left: 1px solid #1a1e30; text-align: center; }
+  .sm-table th.sm-th-remarks { min-width: 100px; white-space: normal; word-break: break-word; }
+  .sm-table th.sm-th-speak { min-width: 140px; white-space: normal; word-break: break-word; }
+  .sm-table th.sm-th-actions { min-width: 100px; white-space: normal; }
+  .sm-table th.svc-sub-status { min-width: 100px; }
   .sm-table td { padding: 11px 12px; border-bottom: 1px solid rgba(30,34,54,.6); font-size: 12.5px; vertical-align: top; }
-  .sm-table td.svc-cell { border-left: 1px solid rgba(30,34,54,.8); text-align: center; min-width: 90px; }
+  .sm-table td.svc-cell { border-left: 1px solid rgba(30,34,54,.8); text-align: center; min-width: 90px; vertical-align: middle; }
+  .sm-table td.svc-cell-status { min-width: 100px; }
   .sm-table td.svc-group-start { border-left: 2px solid #1e2236; }
+  .sm-table td.sm-td-remarks { max-width: 160px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; word-break: break-word; }
+  .sm-table td.sm-td-actions { min-width: 100px; vertical-align: middle; }
   .sm-table tbody tr:last-child td { border-bottom: none; }
   .sm-badge { display: inline-flex; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; }
   .sm-badge.overdue { background: rgba(244,63,94,.15); color: #f43f5e; }
@@ -121,6 +128,7 @@ const PAGE_STYLES = `
   .sm-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
   .sm-section-title { font-size: 11px; font-weight: 700; color: #545968; text-transform: uppercase; letter-spacing: 1px; margin: 20px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #1e2236; }
   .sm-svc-cell-inner { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 80px; }
+  .sm-svc-status-inner { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 100%; }
   .sm-cell-km { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 600; color: #e8edf5; }
   .sm-cell-date { font-size: 10.5px; color: #8e97ad; }
 `;
@@ -429,22 +437,22 @@ export default function ServiceManagerVehiclesPage() {
                     <th className="svc-group" colSpan={4}>1st Service</th>
                     <th className="svc-group" colSpan={4}>2nd Service</th>
                     <th className="svc-group" colSpan={4}>3rd Service</th>
-                    <th rowSpan={2}>Remarks</th>
-                    <th rowSpan={2}>Speak With / Notes</th>
-                    <th rowSpan={2}>Actions</th>
+                    <th rowSpan={2} className="sm-th-remarks">Remarks</th>
+                    <th rowSpan={2} className="sm-th-speak">Speak With / Notes</th>
+                    <th rowSpan={2} className="sm-th-actions">Actions</th>
                   </tr>
                   <tr>
                     <th className="svc-sub">KM</th>
                     <th className="svc-sub">Date</th>
-                    <th className="svc-sub">Status</th>
+                    <th className="svc-sub svc-sub-status">Status</th>
                     <th className="svc-sub">Cost</th>
                     <th className="svc-sub">KM</th>
                     <th className="svc-sub">Date</th>
-                    <th className="svc-sub">Status</th>
+                    <th className="svc-sub svc-sub-status">Status</th>
                     <th className="svc-sub">Cost</th>
                     <th className="svc-sub">KM</th>
                     <th className="svc-sub">Date</th>
-                    <th className="svc-sub">Status</th>
+                    <th className="svc-sub svc-sub-status">Status</th>
                     <th className="svc-sub">Cost</th>
                   </tr>
                 </thead>
@@ -489,9 +497,9 @@ export default function ServiceManagerVehiclesPage() {
                           <td className="svc-cell">
                             {s1 ? <span className="sm-cell-date">{fmtDate(s1.status === 'done' ? s1.completion_date : s1.due_date)}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
                           </td>
-                          <td className="svc-cell">
+                          <td className="svc-cell svc-cell-status">
                             {s1 ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                              <div className="sm-svc-status-inner">
                                 <span className={`sm-badge ${s1.status === 'done' ? 'done' : 'pending'}`}>{s1.status === 'done' ? 'Done' : 'Pending'}</span>
                                 <button
                                   type="button"
@@ -511,7 +519,7 @@ export default function ServiceManagerVehiclesPage() {
                                 )}
                               </div>
                             ) : (
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                              <div className="sm-svc-status-inner">
                                 <span style={{ color: '#3a3f52' }}>—</span>
                                 <button
                                   type="button"
@@ -534,9 +542,9 @@ export default function ServiceManagerVehiclesPage() {
                           <td className="svc-cell">
                             {s2 ? <span className="sm-cell-date">{fmtDate(s2.status === 'done' ? s2.completion_date : s2.due_date)}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
                           </td>
-                          <td className="svc-cell">
+                          <td className="svc-cell svc-cell-status">
                             {s2 ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                              <div className="sm-svc-status-inner">
                                 <span className={`sm-badge ${s2.status === 'done' ? 'done' : 'pending'}`}>{s2.status === 'done' ? 'Done' : 'Pending'}</span>
                                 <button
                                   type="button"
@@ -556,7 +564,7 @@ export default function ServiceManagerVehiclesPage() {
                                 )}
                               </div>
                             ) : (
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                              <div className="sm-svc-status-inner">
                                 <span style={{ color: '#3a3f52' }}>—</span>
                                 <button
                                   type="button"
@@ -579,9 +587,9 @@ export default function ServiceManagerVehiclesPage() {
                           <td className="svc-cell">
                             {s3 ? <span className="sm-cell-date">{fmtDate(s3.status === 'done' ? s3.completion_date : s3.due_date)}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
                           </td>
-                          <td className="svc-cell">
+                          <td className="svc-cell svc-cell-status">
                             {s3 ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                              <div className="sm-svc-status-inner">
                                 <span className={`sm-badge ${s3.status === 'done' ? 'done' : 'pending'}`}>{s3.status === 'done' ? 'Done' : 'Pending'}</span>
                                 <button
                                   type="button"
@@ -601,7 +609,7 @@ export default function ServiceManagerVehiclesPage() {
                                 )}
                               </div>
                             ) : (
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                              <div className="sm-svc-status-inner">
                                 <span style={{ color: '#3a3f52' }}>—</span>
                                 <button
                                   type="button"
@@ -615,12 +623,12 @@ export default function ServiceManagerVehiclesPage() {
                           </td>
 
                           {/* Remarks */}
-                          <td style={{ maxWidth: 160, fontSize: 12, color: '#8e97ad' }}>{v.remarks || '—'}</td>
+                          <td className="sm-td-remarks" style={{ fontSize: 12, color: '#8e97ad' }}>{v.remarks || '—'}</td>
                           {/* Speak With */}
-                          <td style={{ maxWidth: 180, fontSize: 12, color: '#8e97ad' }}>{v.speak_with || '—'}</td>
+                          <td style={{ maxWidth: 180, fontSize: 12, color: '#8e97ad', minWidth: 140 }}>{v.speak_with || '—'}</td>
                           {/* Actions */}
-                          <td>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                          <td className="sm-td-actions">
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'flex-end' }}>
                               <button type="button" className="sm-btn sm-btn-amber" onClick={() => openEdit(v)}>Edit</button>
                               <button type="button" className="sm-btn sm-btn-red" onClick={() => deleteVehicle(v.id)}>Delete</button>
                             </div>

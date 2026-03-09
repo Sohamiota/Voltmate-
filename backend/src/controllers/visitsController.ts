@@ -85,10 +85,13 @@ export async function listVisits(req: Request, res: Response) {
   try {
     await ensureVisitsCols();
     const r = await query(
-      `SELECT v.*,
+      `SELECT v.id, v.lead_id, v.lead_cust_code, v.salesperson_id, v.vehicle, v.status,
+              v.visit_date, v.next_action, v.next_action_date, v.note, v.phone_no, v.phone_no_2,
+              v.created_by, v.created_at, v.updated_by, v.updated_at,
+              COALESCE(v.lead_type, l.lead_type) AS lead_type,
+              COALESCE(v.connect_date, l.connect_date) AS connect_date,
               l.cust_name,
               l.phone_no AS lead_phone_no,
-              COALESCE(v.lead_type, l.lead_type) AS lead_type,
               u.name  AS salesperson_name,
               uc.name AS created_by_name,
               uu.name AS updated_by_name
@@ -113,7 +116,7 @@ export async function exportVisitsCSV(req: Request, res: Response) {
     await ensureVisitsCols();
     const r = await query(`
       SELECT v.id, v.lead_cust_code, COALESCE(v.lead_type, l.lead_type) AS lead_type,
-             v.connect_date,
+             COALESCE(v.connect_date, l.connect_date) AS connect_date,
              l.cust_name, v.phone_no, v.phone_no_2,
              u.name  AS salesperson_name,
              v.vehicle, v.status, v.visit_date,
