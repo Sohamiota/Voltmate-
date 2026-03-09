@@ -13,6 +13,7 @@ import {
   UserCheck,
   Youtube,
   ClipboardList,
+  Wrench,
 } from 'lucide-react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
@@ -62,6 +63,7 @@ export default function Home() {
     { id: 'attendance', label: 'Attendance', icon: Clock },
     { id: 'task-manager', label: 'Task Manager', icon: ClipboardList },
     { id: 'vehicle-videos', label: 'Vehicle Videos', icon: Youtube },
+    { id: 'service-manager', label: 'Service Manager', icon: Wrench },
   ]
   if (userRole === 'admin') {
     sections.push({ id: 'admin-attendance',   label: 'Admin Attendance',   icon: UserCheck })
@@ -76,6 +78,7 @@ export default function Home() {
     if (id === 'task-manager')       { router.push('/task-manager');          return }
     if (id === 'admin-task-manager') { router.push('/admin/task-manager');    return }
     if (id === 'vehicle-videos')  { router.push('/vehicle-videos');   return }
+    if (id === 'service-manager') { router.push('/service-manager');  return }
   }
 
   const renderSection = () => {

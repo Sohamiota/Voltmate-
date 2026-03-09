@@ -10,6 +10,7 @@ interface Lead {
   cust_name: string;
   phone_no?: string;
   phone_no_2?: string;
+  lead_type?: string;
 }
 
 interface Employee {
@@ -941,6 +942,15 @@ export default function CreateVisitReportPage() {
                       accentColor="var(--teal)"
                       disabled={editTarget !== null}
                     />
+                    {form.lead_id && (() => {
+                      const selected = leads.find(l => String(l.id) === form.lead_id);
+                      if (!selected?.lead_type) return null;
+                      return (
+                        <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text2)' }}>
+                          Lead type: <span style={{ fontWeight: 600, color: selected.lead_type === 'Digital Lead' ? 'var(--accent)' : 'var(--teal)' }}>{selected.lead_type}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="vm-fg">

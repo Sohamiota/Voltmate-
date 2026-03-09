@@ -12,6 +12,7 @@ import opportunitiesRoutes from './routes/opportunities';
 import salesRoutes from './routes/sales';
 import tasksRoutes from './routes/tasks';
 import visitsRoutes from './routes/visits';
+import vehicleRoutes from './routes/vehicles';
 import { listEmployees } from './controllers/authController';
 
 dotenv.config();
@@ -72,6 +73,7 @@ app.use('/api/v1/sales',         salesRoutes);
 app.use('/api/v1/leads',         leadsRoutes);
 app.use('/api/v1/tasks',         tasksRoutes);
 app.use('/api/v1/visits',        visitsRoutes);
+app.use('/api/v1/vehicles',      vehicleRoutes);
 // Expose employees list at a top-level path so frontend calls to /api/v1/employees work
 app.get('/api/v1/employees', authMiddleware, listEmployees);
 

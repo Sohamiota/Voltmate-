@@ -10,6 +10,7 @@ async function ensureVisitsCols() {
     await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS phone_no   TEXT`);
     await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS phone_no_2 TEXT`);
     await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS updated_by INT`);
+    await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS lead_type  TEXT`);
   } catch { /* ignore */ }
   visitsColsReady = true;
 }
@@ -26,17 +27,17 @@ export async function createVisit(req: Request, res: Response) {
 
     if (!lead_id) return res.status(400).json({ error: 'lead_id required' });
 
-    const leadR = await query('SELECT id, cust_code FROM leads WHERE id=$1', [lead_id]);
+    const leadR = await query('SELECT id, cust_code, lead_type FROM leads WHERE id=$1', [lead_id]);
     if (leadR.rowCount === 0) return res.status(404).json({ error: 'lead not found' });
-    const lead = leadR.rows[0];
+    const lead = leadR.rows[0] as { cust_code: string; lead_type?: string };
 
     const r = await query(
       `INSERT INTO visits
-        (lead_id, lead_cust_code, salesperson_id, vehicle, status, visit_date,
+        (lead_id, lead_cust_code, lead_type, salesperson_id, vehicle, status, visit_date,
          next_action, next_action_date, note, phone_no, phone_no_2,
          created_by, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now(),now()) RETURNING *`,
-      [lead_id, lead.cust_code, salesperson_id || null, vehicle || null, status || null,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,now(),now()) RETURNING *`,
+      [lead_id, lead.cust_code, lead.lead_type || null, salesperson_id || null, vehicle || null, status || null,
        visit_date || null, next_action || null, next_action_date || null, note || null,
        phone_no || null, phone_no_2 || null, userId],
     );
@@ -85,6 +86,7 @@ export async function listVisits(req: Request, res: Response) {
       `SELECT v.*,
               l.cust_name,
               l.phone_no AS lead_phone_no,
+              COALESCE(v.lead_type, l.lead_type) AS lead_type,
               u.name  AS salesperson_name,
               uc.name AS created_by_name,
               uu.name AS updated_by_name
@@ -108,7 +110,8 @@ export async function exportVisitsCSV(req: Request, res: Response) {
   try {
     await ensureVisitsCols();
     const r = await query(`
-      SELECT v.id, v.lead_cust_code, l.cust_name, v.phone_no, v.phone_no_2,
+      SELECT v.id, v.lead_cust_code, COALESCE(v.lead_type, l.lead_type) AS lead_type,
+             l.cust_name, v.phone_no, v.phone_no_2,
              u.name  AS salesperson_name,
              v.vehicle, v.status, v.visit_date,
              v.next_action, v.next_action_date, v.note,
@@ -122,7 +125,7 @@ export async function exportVisitsCSV(req: Request, res: Response) {
       ORDER BY v.created_at DESC
     `);
     const rows   = (r as any).rows;
-    const header = ['id','lead_cust_code','cust_name','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','created_by_name','created_at','updated_by_name','updated_at'];
+    const header = ['id','lead_cust_code','lead_type','cust_name','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','created_by_name','created_at','updated_by_name','updated_at'];
     const csv    = [header.join(',')].concat(
       rows.map((row: any) => header.map(h => `"${(row[h] || '').toString().replace(/"/g, '""')}"`).join(',')),
     ).join('\n');

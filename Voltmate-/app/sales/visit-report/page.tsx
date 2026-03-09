@@ -9,6 +9,7 @@ interface Visit {
   lead_id?: number;
   lead_cust_code?: string;
   cust_name?: string;
+  lead_type?: string;
   salesperson_name?: string;
   vehicle?: string;
   status?: string;
@@ -652,6 +653,7 @@ export default function VisitReportPage() {
                   <th>#</th>
                   <th>Cust Code</th>
                   <th className={`sortable ${sortField === 'cust_name' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('cust_name')}>Customer</th>
+                  <th>Lead Type</th>
                   <th className={`sortable ${sortField === 'salesperson_name' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('salesperson_name')}>Salesperson</th>
                   <th>Phone</th>
                   <th>Vehicle</th>
@@ -665,7 +667,7 @@ export default function VisitReportPage() {
                 {loading ? (
                   <SkeletonRows />
                 ) : visits.length === 0 ? (
-                  <tr><td colSpan={10}>
+                  <tr><td colSpan={11}>
                     <div className="vr-empty">
                       <div className="vr-empty-icon">📋</div>
                       <div className="vr-empty-msg">
@@ -681,6 +683,11 @@ export default function VisitReportPage() {
                       <td className="vr-num">{String(i + 1).padStart(2, '0')}</td>
                       <td className="vr-code">{v.lead_cust_code || '—'}</td>
                       <td style={{ fontWeight: 500 }}>{v.cust_name || '—'}</td>
+                      <td>
+                        {v.lead_type ? (
+                          <span className={`vr-badge ${v.lead_type === 'Digital Lead' ? 'testdrive' : 'default'}`}>{v.lead_type}</span>
+                        ) : '—'}
+                      </td>
                       <td style={{ color: 'var(--text2)' }}>{v.salesperson_name || '—'}</td>
                       <td>
                         <div style={{ fontFamily: 'var(--mono)', fontSize: '11.5px', color: 'var(--text2)' }}>{v.phone_no || '—'}</div>
@@ -733,6 +740,14 @@ export default function VisitReportPage() {
                     <div className="vr-pv-field-label">Status</div>
                     <div className="vr-pv-field-val">
                       <span className={`vr-badge ${badgeClass(previewVisit.status)}`}>{previewVisit.status || '—'}</span>
+                    </div>
+                  </div>
+                  <div className="vr-pv-field">
+                    <div className="vr-pv-field-label">Lead Type</div>
+                    <div className="vr-pv-field-val">
+                      {previewVisit.lead_type ? (
+                        <span className={`vr-badge ${previewVisit.lead_type === 'Digital Lead' ? 'testdrive' : 'default'}`}>{previewVisit.lead_type}</span>
+                      ) : '—'}
                     </div>
                   </div>
                   <div className="vr-pv-field">
