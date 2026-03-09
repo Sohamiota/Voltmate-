@@ -26,7 +26,7 @@ export async function upsertService(req: Request, res: Response) {
     if (isNaN(vehicleId)) return res.status(400).json({ error: 'invalid vehicle id' });
 
     const userId = (req as any).user?.sub ?? null;
-    const { service_no, due_km, due_date, actual_km, completion_date, status, remarks } = req.body;
+    const { service_no, due_km, due_date, actual_km, completion_date, status, remarks, cost } = req.body;
 
     const serviceId = serviceIdParam === 'new' ? null : parseInt(serviceIdParam, 10);
     if (serviceIdParam !== 'new' && isNaN(serviceId!)) return res.status(400).json({ error: 'invalid service id' });
@@ -43,12 +43,14 @@ export async function upsertService(req: Request, res: Response) {
     const actualKm = actual_km != null ? parseInt(String(actual_km), 10) : null;
     const newStatus = (status || 'pending').toLowerCase();
 
+    const costNum = cost != null && cost !== '' ? parseFloat(String(cost)) : null;
+
     if (serviceId) {
       await query(
         `UPDATE vehicle_services SET
-          due_km=$1, due_date=$2, actual_km=$3, completion_date=$4, status=$5, remarks=$6, updated_at=now()
-         WHERE id=$7 AND vehicle_id=$8`,
-        [due_km ?? null, due_date ?? null, actualKm, completion_date ?? null, newStatus, remarks ?? null, serviceId, vehicleId],
+          due_km=$1, due_date=$2, actual_km=$3, completion_date=$4, status=$5, remarks=$6, cost=$7, updated_at=now()
+         WHERE id=$8 AND vehicle_id=$9`,
+        [due_km ?? null, due_date ?? null, actualKm, completion_date ?? null, newStatus, remarks ?? null, isNaN(costNum as number) ? null : costNum, serviceId, vehicleId],
       );
 
       if (newStatus === 'done' && actualKm != null && completion_date) {
@@ -79,13 +81,13 @@ export async function upsertService(req: Request, res: Response) {
       );
       const nextServiceNo = targetServiceNo ?? (nextNo as any).rows[0]?.n ?? 1;
       const ins = await query(
-        `INSERT INTO vehicle_services (vehicle_id, service_no, due_km, due_date, actual_km, completion_date, status, remarks, created_by, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now())
+        `INSERT INTO vehicle_services (vehicle_id, service_no, due_km, due_date, actual_km, completion_date, status, remarks, cost, created_by, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), now())
          ON CONFLICT (vehicle_id, service_no) DO UPDATE SET
           due_km=EXCLUDED.due_km, due_date=EXCLUDED.due_date, actual_km=EXCLUDED.actual_km,
-          completion_date=EXCLUDED.completion_date, status=EXCLUDED.status, remarks=EXCLUDED.remarks, updated_at=now()
+          completion_date=EXCLUDED.completion_date, status=EXCLUDED.status, remarks=EXCLUDED.remarks, cost=EXCLUDED.cost, updated_at=now()
          RETURNING *`,
-        [vehicleId, nextServiceNo, due_km ?? null, due_date ?? null, actualKm, completion_date ?? null, newStatus, remarks ?? null, userId],
+        [vehicleId, nextServiceNo, due_km ?? null, due_date ?? null, actualKm, completion_date ?? null, newStatus, remarks ?? null, isNaN(costNum as number) ? null : costNum, userId],
       );
       const row = (ins as any).rows[0];
       if (row && newStatus === 'done' && actualKm != null && completion_date) {

@@ -9,6 +9,7 @@ interface Visit {
   lead_id?: number;
   lead_cust_code?: string;
   cust_name?: string;
+  connect_date?: string;
   lead_type?: string;
   salesperson_name?: string;
   vehicle?: string;
@@ -654,6 +655,7 @@ export default function VisitReportPage() {
                   <th>Cust Code</th>
                   <th className={`sortable ${sortField === 'cust_name' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('cust_name')}>Customer</th>
                   <th>Lead Type</th>
+                  <th>Connect Date</th>
                   <th className={`sortable ${sortField === 'salesperson_name' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('salesperson_name')}>Salesperson</th>
                   <th>Phone</th>
                   <th>Vehicle</th>
@@ -688,6 +690,7 @@ export default function VisitReportPage() {
                           <span className={`vr-badge ${v.lead_type === 'Digital Lead' ? 'testdrive' : 'default'}`}>{v.lead_type}</span>
                         ) : '—'}
                       </td>
+                      <td className="vr-date">{fmtDate(v.connect_date)}</td>
                       <td style={{ color: 'var(--text2)' }}>{v.salesperson_name || '—'}</td>
                       <td>
                         <div style={{ fontFamily: 'var(--mono)', fontSize: '11.5px', color: 'var(--text2)' }}>{v.phone_no || '—'}</div>
@@ -732,6 +735,10 @@ export default function VisitReportPage() {
               <div>
                 <div className="vr-pv-section-title">Visit Details</div>
                 <div className="vr-pv-grid">
+                  <div className="vr-pv-field">
+                    <div className="vr-pv-field-label">Connect Date</div>
+                    <div className="vr-pv-field-val mono">{fmtDate(previewVisit.connect_date)}</div>
+                  </div>
                   <div className="vr-pv-field">
                     <div className="vr-pv-field-label">Visit Date</div>
                     <div className="vr-pv-field-val mono">{fmtDate(previewVisit.visit_date)}</div>

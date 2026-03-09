@@ -11,6 +11,7 @@ interface Lead {
   phone_no?: string;
   phone_no_2?: string;
   lead_type?: string;
+  connect_date?: string;
 }
 
 interface Employee {
@@ -22,6 +23,7 @@ interface Visit {
   id?: string | number;
   lead_cust_code?: string;
   cust_name?: string;
+  connect_date?: string;
   salesperson_name?: string;
   vehicle?: string;
   status?: string;
@@ -38,6 +40,7 @@ interface Visit {
 
 interface FormState {
   lead_id: string;
+  connect_date: string;
   salesperson_id: string;
   vehicle: string;
   status: string;
@@ -165,6 +168,7 @@ const NEXT_ACTIONS = [...STATUSES];
 
 const EMPTY_FORM: FormState = {
   lead_id: '',
+  connect_date: '',
   salesperson_id: '',
   vehicle: '',
   status: '',
@@ -610,13 +614,14 @@ export default function CreateVisitReportPage() {
   // ── Form change ────────────────────────────────────────────────────────────
   function handleFormChange<K extends keyof FormState>(key: K, value: FormState[K]) {
     if (key === 'lead_id') {
-      // Always pull phone numbers directly from the selected lead
+      // Pull phone numbers and connect_date from the selected lead
       const selected = leads.find(l => String(l.id) === String(value));
       setForm(f => ({
         ...f,
-        lead_id:    value as string,
-        phone_no:   selected?.phone_no   || '',
-        phone_no_2: selected?.phone_no_2 || '',
+        lead_id:      value as string,
+        phone_no:     selected?.phone_no     || '',
+        phone_no_2:   selected?.phone_no_2   || '',
+        connect_date: selected?.connect_date   ? selected.connect_date.slice(0, 10) : '',
       }));
     } else {
       setForm(f => ({ ...f, [key]: value }));
@@ -637,6 +642,7 @@ export default function CreateVisitReportPage() {
     const v = visit as any;
     setForm({
       lead_id:          String(v.lead_id || ''),
+      connect_date:     v.connect_date      ? v.connect_date.slice(0, 10) : '',
       salesperson_id:   String(v.salesperson_id || ''),
       vehicle:          v.vehicle          || '',
       status:           v.status           || '',
@@ -951,6 +957,23 @@ export default function CreateVisitReportPage() {
                         </div>
                       );
                     })()}
+                  </div>
+
+                  <div className="vm-fg">
+                    <label className="vm-label" htmlFor="f-connect-date">Connect Date</label>
+                    <input
+                      id="f-connect-date"
+                      type="date"
+                      className="vm-field"
+                      value={form.connect_date}
+                      onChange={e => handleFormChange('connect_date', e.target.value)}
+                      readOnly={!!form.lead_id && editTarget === null}
+                      style={!!form.lead_id && editTarget === null ? { opacity: 0.9, cursor: 'default' } : undefined}
+                      title={form.lead_id && editTarget === null ? 'Fetched from lead — change lead to update' : undefined}
+                    />
+                    {form.lead_id && !form.connect_date && (
+                      <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text3)' }}>No connect date on lead</div>
+                    )}
                   </div>
 
                   <div className="vm-fg">

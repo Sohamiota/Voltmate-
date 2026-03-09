@@ -34,9 +34,9 @@ interface Vehicle {
   speak_with?: string;
   remarks?: string;
   // inline service data
-  s1_id?: number; s1_due_km?: number; s1_due_date?: string; s1_actual_km?: number; s1_completion_date?: string; s1_status?: string;
-  s2_id?: number; s2_due_km?: number; s2_due_date?: string; s2_actual_km?: number; s2_completion_date?: string; s2_status?: string;
-  s3_id?: number; s3_due_km?: number; s3_due_date?: string; s3_actual_km?: number; s3_completion_date?: string; s3_status?: string;
+  s1_id?: number; s1_due_km?: number; s1_due_date?: string; s1_actual_km?: number; s1_completion_date?: string; s1_status?: string; s1_cost?: number | string;
+  s2_id?: number; s2_due_km?: number; s2_due_date?: string; s2_actual_km?: number; s2_completion_date?: string; s2_status?: string; s2_cost?: number | string;
+  s3_id?: number; s3_due_km?: number; s3_due_date?: string; s3_actual_km?: number; s3_completion_date?: string; s3_status?: string; s3_cost?: number | string;
   next_service_no?: number;
   next_due_km?: number;
   next_due_date?: string;
@@ -53,6 +53,7 @@ interface VehicleService {
   completion_date?: string;
   status?: string;
   remarks?: string;
+  cost?: number | string;
 }
 
 const EMPTY_VEHICLE: Record<string, string | number> = {
@@ -136,6 +137,7 @@ function svcObj(v: Vehicle, n: 1 | 2 | 3): VehicleService | null {
     actual_km: v[`s${n}_actual_km` as keyof Vehicle] as number | undefined,
     completion_date: v[`s${n}_completion_date` as keyof Vehicle] as string | undefined,
     status: v[`s${n}_status` as keyof Vehicle] as string | undefined,
+    cost: v[`s${n}_cost` as keyof Vehicle] as number | string | undefined,
   };
 }
 
@@ -149,7 +151,7 @@ export default function ServiceManagerVehiclesPage() {
   const [markDoneService, setMarkDoneService] = useState<{ vehicleId: number; service: VehicleService } | null>(null);
   const [markDoneForm, setMarkDoneForm] = useState({ actual_km: '', completion_date: '', remarks: '' });
   const [editServiceState, setEditServiceState] = useState<{ vehicle: Vehicle; serviceNo: 1 | 2 | 3; service: VehicleService | null } | null>(null);
-  const [editServiceForm, setEditServiceForm] = useState({ due_km: '', due_date: '', actual_km: '', completion_date: '', status: 'pending', remarks: '' });
+  const [editServiceForm, setEditServiceForm] = useState({ due_km: '', due_date: '', actual_km: '', completion_date: '', status: 'pending', remarks: '', cost: '' });
   const [submitting, setSubmitting] = useState(false);
 
   const fetchVehicles = useCallback(async () => {
@@ -292,6 +294,7 @@ export default function ServiceManagerVehiclesPage() {
       completion_date: svc?.completion_date ? svc.completion_date.slice(0, 10) : '',
       status: svc?.status ?? 'pending',
       remarks: svc?.remarks ?? '',
+      cost: svc?.cost != null && svc?.cost !== '' ? String(svc.cost) : '',
     });
   }
 
@@ -304,6 +307,7 @@ export default function ServiceManagerVehiclesPage() {
       const token = getToken();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
+      const costVal = editServiceForm.cost.trim() ? parseFloat(editServiceForm.cost) : null;
       const body = {
         service_no: service?.service_no ?? serviceNo,
         due_km: editServiceForm.due_km ? parseInt(editServiceForm.due_km, 10) : null,
@@ -312,6 +316,7 @@ export default function ServiceManagerVehiclesPage() {
         completion_date: editServiceForm.completion_date || null,
         status: editServiceForm.status || 'pending',
         remarks: editServiceForm.remarks || null,
+        cost: costVal != null && !isNaN(costVal) ? costVal : null,
       };
       const svcId = service ? service.id : 'new';
       const res = await fetch(`${API_BASE}/api/v1/vehicles/${vehicle.id}/services/${svcId}`, {
@@ -340,6 +345,24 @@ export default function ServiceManagerVehiclesPage() {
       await fetchVehicles();
     } catch (err: any) {
       alert(err?.message || 'Delete failed');
+    }
+  }
+
+  async function handleExportCSV() {
+    try {
+      const token = getToken();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/api/v1/vehicles/export/csv`, { headers });
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `vehicles-services_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (err: any) {
+      alert(err?.message || 'Export failed');
     }
   }
 
@@ -390,6 +413,7 @@ export default function ServiceManagerVehiclesPage() {
           <div className="sm-table-card">
             <div className="sm-table-header">
               <div className="sm-table-title">{vehicles.length} Vehicles</div>
+              <button type="button" className="sm-btn" onClick={handleExportCSV}>↓ Export CSV</button>
             </div>
             <div className="sm-table-outer">
               <table className="sm-table">
@@ -402,9 +426,9 @@ export default function ServiceManagerVehiclesPage() {
                     <th rowSpan={2}>Driver Name & No.</th>
                     <th rowSpan={2}>Purchase Date</th>
                     <th rowSpan={2}>PDI</th>
-                    <th className="svc-group" colSpan={3}>1st Service</th>
-                    <th className="svc-group" colSpan={3}>2nd Service</th>
-                    <th className="svc-group" colSpan={3}>3rd Service</th>
+                    <th className="svc-group" colSpan={4}>1st Service</th>
+                    <th className="svc-group" colSpan={4}>2nd Service</th>
+                    <th className="svc-group" colSpan={4}>3rd Service</th>
                     <th rowSpan={2}>Remarks</th>
                     <th rowSpan={2}>Speak With / Notes</th>
                     <th rowSpan={2}>Actions</th>
@@ -413,17 +437,20 @@ export default function ServiceManagerVehiclesPage() {
                     <th className="svc-sub">KM</th>
                     <th className="svc-sub">Date</th>
                     <th className="svc-sub">Status</th>
+                    <th className="svc-sub">Cost</th>
                     <th className="svc-sub">KM</th>
                     <th className="svc-sub">Date</th>
                     <th className="svc-sub">Status</th>
+                    <th className="svc-sub">Cost</th>
                     <th className="svc-sub">KM</th>
                     <th className="svc-sub">Date</th>
                     <th className="svc-sub">Status</th>
+                    <th className="svc-sub">Cost</th>
                   </tr>
                 </thead>
                 <tbody>
                   {vehicles.length === 0 ? (
-                    <tr><td colSpan={20} className="sm-empty">No vehicles. Click + Add Vehicle to add one.</td></tr>
+                    <tr><td colSpan={23} className="sm-empty">No vehicles. Click + Add Vehicle to add one.</td></tr>
                   ) : (
                     vehicles.map(v => {
                       const s1 = svcObj(v, 1);
@@ -455,7 +482,7 @@ export default function ServiceManagerVehiclesPage() {
                           {/* PDI */}
                           <td style={{ maxWidth: 100 }}>{v.pdi || '—'}</td>
 
-                          {/* 1st Service: KM | Date | Status */}
+                          {/* 1st Service: KM | Date | Status | Cost */}
                           <td className="svc-cell svc-group-start">
                             {s1 ? <span className="sm-cell-km">{s1.status === 'done' ? (s1.actual_km ?? '—') : (s1.due_km ?? '—')}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
                           </td>
@@ -495,6 +522,9 @@ export default function ServiceManagerVehiclesPage() {
                                 </button>
                               </div>
                             )}
+                          </td>
+                          <td className="svc-cell">
+                            {s1?.cost != null && s1.cost !== '' ? <span className="sm-mono">₹{Number(s1.cost).toLocaleString('en-IN')}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
                           </td>
 
                           {/* 2nd Service */}
@@ -537,6 +567,9 @@ export default function ServiceManagerVehiclesPage() {
                                 </button>
                               </div>
                             )}
+                          </td>
+                          <td className="svc-cell">
+                            {s2?.cost != null && s2.cost !== '' ? <span className="sm-mono">₹{Number(s2.cost).toLocaleString('en-IN')}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
                           </td>
 
                           {/* 3rd Service */}
@@ -728,12 +761,23 @@ export default function ServiceManagerVehiclesPage() {
                       </select>
                     </div>
                     <div className="sm-field">
-                      <label>Remarks</label>
-                      <textarea
-                        value={editServiceForm.remarks}
-                        onChange={e => setEditServiceForm(f => ({ ...f, remarks: e.target.value }))}
+                      <label>Cost (₹)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        placeholder="Service cost"
+                        value={editServiceForm.cost}
+                        onChange={e => setEditServiceForm(f => ({ ...f, cost: e.target.value }))}
                       />
                     </div>
+                  </div>
+                  <div className="sm-field">
+                    <label>Remarks</label>
+                    <textarea
+                      value={editServiceForm.remarks}
+                      onChange={e => setEditServiceForm(f => ({ ...f, remarks: e.target.value }))}
+                    />
                   </div>
                 </div>
                 <div className="sm-modal-foot">

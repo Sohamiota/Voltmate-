@@ -64,6 +64,13 @@ async function ensureTables() {
         END IF;
       END $$
     `).catch(() => {});
+    await query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'vehicle_services' AND column_name = 'cost')
+        THEN ALTER TABLE vehicle_services ADD COLUMN cost NUMERIC(12,2);
+        END IF;
+      END $$
+    `).catch(() => {});
   } catch (e) {
     console.error('ensureTables vehicles', e);
   }
@@ -95,6 +102,7 @@ export async function listVehicles(req: Request, res: Response) {
              s1.completion_date AS s1_completion_date,
              s1.status      AS s1_status,
              s1.remarks     AS s1_remarks,
+             s1.cost        AS s1_cost,
 
              s2.id          AS s2_id,
              s2.due_km      AS s2_due_km,
@@ -103,6 +111,7 @@ export async function listVehicles(req: Request, res: Response) {
              s2.completion_date AS s2_completion_date,
              s2.status      AS s2_status,
              s2.remarks     AS s2_remarks,
+             s2.cost        AS s2_cost,
 
              s3.id          AS s3_id,
              s3.due_km      AS s3_due_km,
@@ -111,6 +120,7 @@ export async function listVehicles(req: Request, res: Response) {
              s3.completion_date AS s3_completion_date,
              s3.status      AS s3_status,
              s3.remarks     AS s3_remarks,
+             s3.cost        AS s3_cost,
 
              nxt.service_no AS next_service_no,
              nxt.due_km     AS next_due_km,
@@ -413,6 +423,59 @@ export async function serviceDashboard(req: Request, res: Response) {
     });
   } catch (e) {
     console.error('serviceDashboard', e);
+    res.status(500).json({ error: 'failed' });
+  }
+}
+
+/** CSV export: owner name, owner phone, and all 1st/2nd/3rd service fields (km, date, status, cost) */
+export async function exportVehiclesCSV(req: Request, res: Response) {
+  try {
+    await ensureTables();
+    const r = await query(`
+      SELECT v.owner_name, v.owner_phone,
+             s1.due_km AS s1_due_km, s1.due_date AS s1_due_date, s1.actual_km AS s1_actual_km, s1.completion_date AS s1_completion_date, s1.status AS s1_status, s1.cost AS s1_cost,
+             s2.due_km AS s2_due_km, s2.due_date AS s2_due_date, s2.actual_km AS s2_actual_km, s2.completion_date AS s2_completion_date, s2.status AS s2_status, s2.cost AS s2_cost,
+             s3.due_km AS s3_due_km, s3.due_date AS s3_due_date, s3.actual_km AS s3_actual_km, s3.completion_date AS s3_completion_date, s3.status AS s3_status, s3.cost AS s3_cost
+      FROM vehicles v
+      LEFT JOIN vehicle_services s1 ON s1.vehicle_id = v.id AND s1.service_no = 1
+      LEFT JOIN vehicle_services s2 ON s2.vehicle_id = v.id AND s2.service_no = 2
+      LEFT JOIN vehicle_services s3 ON s3.vehicle_id = v.id AND s3.service_no = 3
+      ORDER BY v.created_at DESC
+    `);
+    const rows = (r as any).rows;
+    const header = [
+      'owner_name', 'owner_phone',
+      '1st_service_km', '1st_service_date', '1st_service_status', '1st_service_cost',
+      '2nd_service_km', '2nd_service_date', '2nd_service_status', '2nd_service_cost',
+      '3rd_service_km', '3rd_service_date', '3rd_service_status', '3rd_service_cost',
+    ];
+    const csvRows = rows.map((row: any) => {
+      const s1Done = row.s1_status === 'done';
+      const s2Done = row.s2_status === 'done';
+      const s3Done = row.s3_status === 'done';
+      return [
+        row.owner_name ?? '',
+        row.owner_phone ?? '',
+        (s1Done ? row.s1_actual_km : row.s1_due_km) ?? '',
+        (s1Done ? row.s1_completion_date : row.s1_due_date) ?? '',
+        row.s1_status ?? '',
+        row.s1_cost ?? '',
+        (s2Done ? row.s2_actual_km : row.s2_due_km) ?? '',
+        (s2Done ? row.s2_completion_date : row.s2_due_date) ?? '',
+        row.s2_status ?? '',
+        row.s2_cost ?? '',
+        (s3Done ? row.s3_actual_km : row.s3_due_km) ?? '',
+        (s3Done ? row.s3_completion_date : row.s3_due_date) ?? '',
+        row.s3_status ?? '',
+        row.s3_cost ?? '',
+      ].map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',');
+    });
+    const csv = [header.join(',')].concat(csvRows).join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="vehicles-services.csv"');
+    res.send(csv);
+  } catch (e) {
+    console.error('exportVehiclesCSV', e);
     res.status(500).json({ error: 'failed' });
   }
 }

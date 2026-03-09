@@ -7,6 +7,7 @@ import {
   deleteVehicle,
   serviceDashboard,
   importVehicles,
+  exportVehiclesCSV,
 } from '../controllers/vehicleController';
 import {
   listServicesForVehicle,
@@ -17,6 +18,7 @@ import { authMiddleware } from '../middlewares/auth';
 const router = Router();
 
 router.get('/dashboard', authMiddleware, serviceDashboard);
+router.get('/export/csv', authMiddleware, exportVehiclesCSV);
 router.get('/', authMiddleware, listVehicles);
 router.post('/import', authMiddleware, importVehicles);
 router.post('/', authMiddleware, createVehicle);
