@@ -90,12 +90,14 @@ const PAGE_STYLES = `
   .sm-table th.sm-th-speak { min-width: 140px; white-space: normal; word-break: break-word; }
   .sm-table th.sm-th-actions { min-width: 100px; white-space: normal; }
   .sm-table th.svc-sub-status { min-width: 100px; }
-  .sm-table td { padding: 11px 12px; border-bottom: 1px solid rgba(30,34,54,.6); font-size: 12.5px; vertical-align: top; }
-  .sm-table td.svc-cell { border-left: 1px solid rgba(30,34,54,.8); text-align: center; min-width: 90px; vertical-align: middle; }
+  .sm-table td { padding: 11px 12px; border-bottom: 1px solid rgba(30,34,54,.6); font-size: 12.5px; vertical-align: middle; }
+  .sm-table td.svc-cell { border-left: 1px solid rgba(30,34,54,.8); text-align: center; min-width: 90px; }
   .sm-table td.svc-cell-status { min-width: 100px; }
+  .sm-table td.svc-cell-cost { min-width: 72px; max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
   .sm-table td.svc-group-start { border-left: 2px solid #1e2236; }
-  .sm-table td.sm-td-remarks { max-width: 160px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; word-break: break-word; }
-  .sm-table td.sm-td-actions { min-width: 100px; vertical-align: middle; }
+  .sm-table td.sm-td-remarks { max-width: 160px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; word-break: break-word; vertical-align: middle; }
+  .sm-table td.sm-td-speak { min-width: 140px; max-width: 180px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; word-break: break-word; vertical-align: middle; }
+  .sm-table td.sm-td-actions { min-width: 100px; }
   .sm-table tbody tr:last-child td { border-bottom: none; }
   .sm-badge { display: inline-flex; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; }
   .sm-badge.overdue { background: rgba(244,63,94,.15); color: #f43f5e; }
@@ -129,6 +131,7 @@ const PAGE_STYLES = `
   .sm-section-title { font-size: 11px; font-weight: 700; color: #545968; text-transform: uppercase; letter-spacing: 1px; margin: 20px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #1e2236; }
   .sm-svc-cell-inner { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 80px; }
   .sm-svc-status-inner { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 100%; }
+  .sm-svc-status-inner .sm-btn { align-self: center; }
   .sm-cell-km { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 600; color: #e8edf5; }
   .sm-cell-date { font-size: 10.5px; color: #8e97ad; }
 `;
@@ -458,7 +461,7 @@ export default function ServiceManagerVehiclesPage() {
                 </thead>
                 <tbody>
                   {vehicles.length === 0 ? (
-                    <tr><td colSpan={23} className="sm-empty">No vehicles. Click + Add Vehicle to add one.</td></tr>
+                    <tr><td colSpan={22} className="sm-empty">No vehicles. Click + Add Vehicle to add one.</td></tr>
                   ) : (
                     vehicles.map(v => {
                       const s1 = svcObj(v, 1);
@@ -531,7 +534,7 @@ export default function ServiceManagerVehiclesPage() {
                               </div>
                             )}
                           </td>
-                          <td className="svc-cell">
+                          <td className="svc-cell svc-cell-cost">
                             {s1?.cost != null && s1.cost !== '' ? <span className="sm-mono">₹{Number(s1.cost).toLocaleString('en-IN')}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
                           </td>
 
@@ -576,7 +579,7 @@ export default function ServiceManagerVehiclesPage() {
                               </div>
                             )}
                           </td>
-                          <td className="svc-cell">
+                          <td className="svc-cell svc-cell-cost">
                             {s2?.cost != null && s2.cost !== '' ? <span className="sm-mono">₹{Number(s2.cost).toLocaleString('en-IN')}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
                           </td>
 
@@ -621,11 +624,14 @@ export default function ServiceManagerVehiclesPage() {
                               </div>
                             )}
                           </td>
+                          <td className="svc-cell svc-cell-cost">
+                            {s3?.cost != null && s3.cost !== '' ? <span className="sm-mono">₹{Number(s3.cost).toLocaleString('en-IN')}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
+                          </td>
 
                           {/* Remarks */}
                           <td className="sm-td-remarks" style={{ fontSize: 12, color: '#8e97ad' }}>{v.remarks || '—'}</td>
                           {/* Speak With */}
-                          <td style={{ maxWidth: 180, fontSize: 12, color: '#8e97ad', minWidth: 140 }}>{v.speak_with || '—'}</td>
+                          <td className="sm-td-speak" style={{ fontSize: 12, color: '#8e97ad' }}>{v.speak_with || '—'}</td>
                           {/* Actions */}
                           <td className="sm-td-actions">
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'flex-end' }}>
