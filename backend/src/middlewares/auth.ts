@@ -15,13 +15,14 @@ declare global {
 }
 
 // ─── FIX #2: Fail fast at startup if JWT_SECRET is missing ───────────────────
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
+const rawSecret = process.env.JWT_SECRET;
+if (!rawSecret) {
   throw new Error(
     '[auth] JWT_SECRET environment variable is not set. ' +
     'Server cannot start without a secure secret.'
   );
 }
+const JWT_SECRET: string = rawSecret;
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   // ─── FIX #1 (preflight): Allow OPTIONS through — auth not needed ───────────
