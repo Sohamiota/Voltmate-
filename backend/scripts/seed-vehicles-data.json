@@ -1,0 +1,220 @@
+[
+  {
+    "vehicle_number": "MD06EMVDL2SL217224",
+    "chassis_number": "MD06EMVDL2SL217224",
+    "vehicle_type": "Turbo V1",
+    "owner_name": "Rajesh Kumar Goenka",
+    "owner_phone": "9017873606",
+    "location": "Hutanpur, Dubraj, Birbhum",
+    "driver_name": "Krishna",
+    "driver_phone": "9134757316",
+    "purchase_date": "08-12-2005",
+    "current_km": 1800,
+    "pdi": "Done",
+    "remarks": "Speak with for 1st service. 1st service not done due to not complete 1st service km. Now 1800km as on 28/1/2026",
+    "services": [
+      { "service_no": 1, "due_km": 3000, "due_date": "25/2/2026", "actual_km": null, "completion_date": null, "status": "not done", "remarks": null }
+    ]
+  },
+  {
+    "vehicle_number": "WB1955031",
+    "chassis_number": "WB1955031",
+    "vehicle_type": "Hi Load",
+    "owner_name": "Volt Wheels",
+    "owner_phone": null,
+    "location": "PAHARPUR, Kolkata",
+    "driver_name": "PINTU HALDER",
+    "driver_phone": "9038010431",
+    "purchase_date": null,
+    "current_km": 6496,
+    "pdi": "Done",
+    "remarks": "1ST SERVICE DONE AND 2ND SERVICE WILL BE AT AFTER 10K KM NOW AT 6496 KM",
+    "services": [
+      { "service_no": 1, "due_km": 2000, "due_date": null, "actual_km": 2000, "completion_date": "27/3/2026", "status": "DONE", "remarks": null },
+      { "service_no": 2, "due_km": 10000, "due_date": null, "actual_km": null, "completion_date": null, "status": "NOT DONE", "remarks": null }
+    ]
+  },
+  {
+    "vehicle_number": "WB1955075",
+    "chassis_number": "WB1955075",
+    "vehicle_type": "Hi Load",
+    "owner_name": "Volt Wheels",
+    "owner_phone": null,
+    "location": "PARK CIRCUS",
+    "driver_name": "Pabir",
+    "driver_phone": "727875572",
+    "purchase_date": null,
+    "current_km": 7000,
+    "pdi": "Done",
+    "remarks": "5130 km 1st service done. NOW AT 7000KM AT 28/1/2026",
+    "services": [
+      { "service_no": 1, "due_km": 2000, "due_date": null, "actual_km": 5130, "completion_date": null, "status": "DONE", "remarks": null }
+    ]
+  },
+  {
+    "vehicle_number": "WB19G9371",
+    "chassis_number": "WB19G9371",
+    "vehicle_type": "Hi Load",
+    "owner_name": "Volt Wheels",
+    "owner_phone": null,
+    "location": "CHINNER PARK",
+    "driver_name": "Gajendra Singh",
+    "driver_phone": "6289559472",
+    "purchase_date": null,
+    "current_km": 3524,
+    "pdi": "Done",
+    "remarks": "NO ISSUES FOUND",
+    "services": [
+      { "service_no": 1, "due_km": 2000, "due_date": null, "actual_km": null, "completion_date": null, "status": "DONE", "remarks": null }
+    ]
+  },
+  {
+    "vehicle_number": "WB19T2572",
+    "chassis_number": "WB19T2572",
+    "vehicle_type": "Hi Load",
+    "owner_name": "Volt Wheels",
+    "owner_phone": null,
+    "location": "BELGHARIA",
+    "driver_name": "AKASH",
+    "driver_phone": "9875953703",
+    "purchase_date": null,
+    "current_km": 3524,
+    "pdi": "Done",
+    "remarks": "NOW AT 3524KM AT 28/1/2026",
+    "services": [
+      { "service_no": 1, "due_km": 2000, "due_date": null, "actual_km": null, "completion_date": null, "status": "DONE", "remarks": null }
+    ]
+  },
+  {
+    "vehicle_number": "WB39F7219",
+    "chassis_number": "WB39F7219",
+    "vehicle_type": "Turbo",
+    "owner_name": "Volt Wheels",
+    "owner_phone": null,
+    "location": "Durgapur",
+    "driver_name": null,
+    "driver_phone": null,
+    "purchase_date": null,
+    "current_km": 3946,
+    "pdi": "Done",
+    "remarks": "NOW AT 3946KM AT 28/1/2026. NOW AT 2125 KM NO ISSUES FOUND",
+    "services": [
+      { "service_no": 1, "due_km": 3000, "due_date": null, "actual_km": null, "completion_date": null, "status": "DONE", "remarks": null }
+    ]
+  },
+  {
+    "vehicle_number": "WB1955038",
+    "chassis_number": "WB1955038",
+    "vehicle_type": "Hi Load",
+    "owner_name": "Volt Wheels",
+    "owner_phone": null,
+    "location": "Durgapur",
+    "driver_name": null,
+    "driver_phone": null,
+    "purchase_date": null,
+    "current_km": 10000,
+    "pdi": "Done",
+    "remarks": "NOW AT 10000 KM AT 28/1/2026",
+    "services": [
+      { "service_no": 1, "due_km": 3000, "due_date": null, "actual_km": null, "completion_date": null, "status": "DONE", "remarks": null }
+    ]
+  },
+  {
+    "vehicle_number": "WB1955018",
+    "chassis_number": "WB1955018",
+    "vehicle_type": "3W",
+    "owner_name": "Volt Wheels",
+    "owner_phone": null,
+    "location": "DUNLOP",
+    "driver_name": null,
+    "driver_phone": "7688059441",
+    "purchase_date": null,
+    "current_km": 0,
+    "pdi": "Done",
+    "remarks": "Monday 2nd service",
+    "services": [
+      { "service_no": 1, "due_km": 2000, "due_date": null, "actual_km": null, "completion_date": null, "status": "DONE", "remarks": null }
+    ]
+  },
+  {
+    "vehicle_number": "TBD",
+    "chassis_number": "TBD-Storm-Durgapur",
+    "vehicle_type": "Storm",
+    "owner_name": "Volt Wheels",
+    "owner_phone": null,
+    "location": "Durgapur",
+    "driver_name": null,
+    "driver_phone": null,
+    "purchase_date": null,
+    "current_km": 2278,
+    "pdi": "Done",
+    "remarks": "2278 km",
+    "services": [
+      { "service_no": 1, "due_km": 3000, "due_date": null, "actual_km": null, "completion_date": null, "status": "DONE", "remarks": null }
+    ]
+  },
+  {
+    "vehicle_number": "MD06EMVOL25M217173",
+    "chassis_number": "MD06EMVOL25M217173",
+    "vehicle_type": "Turbo",
+    "owner_name": "Barun Patra",
+    "owner_phone": null,
+    "location": "Bankura",
+    "driver_name": null,
+    "driver_phone": "9800005890",
+    "purchase_date": null,
+    "current_km": 858,
+    "pdi": "Done",
+    "remarks": "858km",
+    "services": [
+      { "service_no": 1, "due_km": 3000, "due_date": null, "actual_km": null, "completion_date": null, "status": "DONE", "remarks": null }
+    ]
+  },
+  {
+    "vehicle_number": "MD0EMHDL2SA217037",
+    "chassis_number": "MD0EMHDL2SA217037",
+    "vehicle_type": "Hiload",
+    "owner_name": "Bapi Sarkar",
+    "owner_phone": null,
+    "location": "Durgapur",
+    "driver_name": null,
+    "driver_phone": "9434008168",
+    "purchase_date": null,
+    "current_km": 1140,
+    "pdi": "Done",
+    "remarks": "1140km",
+    "services": [
+      { "service_no": 1, "due_km": 2000, "due_date": null, "actual_km": null, "completion_date": null, "status": "DONE", "remarks": null }
+    ]
+  },
+  {
+    "vehicle_number": "MD0EMHDL2SM217072",
+    "chassis_number": "MD0EMHDL2SM217072",
+    "vehicle_type": "Hiload",
+    "owner_name": "Mouri",
+    "owner_phone": null,
+    "location": "Asansol",
+    "driver_name": null,
+    "driver_phone": "9742769590",
+    "purchase_date": null,
+    "current_km": 0,
+    "pdi": "Done",
+    "remarks": null,
+    "services": []
+  },
+  {
+    "vehicle_number": "MD0EMHDL2SK217066",
+    "chassis_number": "MD0EMHDL2SK217066",
+    "vehicle_type": "Hiload",
+    "owner_name": "Rohit Bora",
+    "owner_phone": null,
+    "location": "Durgapur",
+    "driver_name": null,
+    "driver_phone": "9126102584",
+    "purchase_date": null,
+    "current_km": 58,
+    "pdi": "Done",
+    "remarks": "Car problem, 58km",
+    "services": []
+  }
+]

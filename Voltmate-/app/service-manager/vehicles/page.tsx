@@ -148,6 +148,8 @@ export default function ServiceManagerVehiclesPage() {
   const [editId, setEditId] = useState<number | null>(null);
   const [markDoneService, setMarkDoneService] = useState<{ vehicleId: number; service: VehicleService } | null>(null);
   const [markDoneForm, setMarkDoneForm] = useState({ actual_km: '', completion_date: '', remarks: '' });
+  const [editServiceState, setEditServiceState] = useState<{ vehicle: Vehicle; serviceNo: 1 | 2 | 3; service: VehicleService | null } | null>(null);
+  const [editServiceForm, setEditServiceForm] = useState({ due_km: '', due_date: '', actual_km: '', completion_date: '', status: 'pending', remarks: '' });
   const [submitting, setSubmitting] = useState(false);
 
   const fetchVehicles = useCallback(async () => {
@@ -275,6 +277,53 @@ export default function ServiceManagerVehiclesPage() {
       await fetchVehicles();
     } catch (err: any) {
       alert(err?.message || 'Update failed');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function openEditService(vehicle: Vehicle, serviceNo: 1 | 2 | 3) {
+    const svc = svcObj(vehicle, serviceNo);
+    setEditServiceState({ vehicle, serviceNo, service: svc });
+    setEditServiceForm({
+      due_km: svc?.due_km != null ? String(svc.due_km) : '',
+      due_date: svc?.due_date ? svc.due_date.slice(0, 10) : '',
+      actual_km: svc?.actual_km != null ? String(svc.actual_km) : '',
+      completion_date: svc?.completion_date ? svc.completion_date.slice(0, 10) : '',
+      status: svc?.status ?? 'pending',
+      remarks: svc?.remarks ?? '',
+    });
+  }
+
+  async function submitEditService(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editServiceState) return;
+    setSubmitting(true);
+    try {
+      const { vehicle, serviceNo, service } = editServiceState;
+      const token = getToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const body = {
+        service_no: service?.service_no ?? serviceNo,
+        due_km: editServiceForm.due_km ? parseInt(editServiceForm.due_km, 10) : null,
+        due_date: editServiceForm.due_date || null,
+        actual_km: editServiceForm.actual_km ? parseInt(editServiceForm.actual_km, 10) : null,
+        completion_date: editServiceForm.completion_date || null,
+        status: editServiceForm.status || 'pending',
+        remarks: editServiceForm.remarks || null,
+      };
+      const svcId = service ? service.id : 'new';
+      const res = await fetch(`${API_BASE}/api/v1/vehicles/${vehicle.id}/services/${svcId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setEditServiceState(null);
+      await fetchVehicles();
+    } catch (err: any) {
+      alert(err?.message || 'Save failed');
     } finally {
       setSubmitting(false);
     }
@@ -415,13 +464,37 @@ export default function ServiceManagerVehiclesPage() {
                           </td>
                           <td className="svc-cell">
                             {s1 ? (
-                              s1.status === 'done'
-                                ? <span className="sm-badge done">Done</span>
-                                : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                                    <span className="sm-badge pending">Pending</span>
-                                    <button type="button" className="sm-btn sm-btn-primary" onClick={() => openMarkDone(v.id, s1)}>Mark Done</button>
-                                  </div>
-                            ) : <span style={{ color: '#3a3f52' }}>—</span>}
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                <span className={`sm-badge ${s1.status === 'done' ? 'done' : 'pending'}`}>{s1.status === 'done' ? 'Done' : 'Pending'}</span>
+                                <button
+                                  type="button"
+                                  className="sm-btn"
+                                  onClick={() => openEditService(v, 1)}
+                                >
+                                  Edit
+                                </button>
+                                {s1.status !== 'done' && (
+                                  <button
+                                    type="button"
+                                    className="sm-btn sm-btn-primary"
+                                    onClick={() => openMarkDone(v.id, s1)}
+                                  >
+                                    Mark Done
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                <span style={{ color: '#3a3f52' }}>—</span>
+                                <button
+                                  type="button"
+                                  className="sm-btn"
+                                  onClick={() => openEditService(v, 1)}
+                                >
+                                  Add
+                                </button>
+                              </div>
+                            )}
                           </td>
 
                           {/* 2nd Service */}
@@ -433,13 +506,37 @@ export default function ServiceManagerVehiclesPage() {
                           </td>
                           <td className="svc-cell">
                             {s2 ? (
-                              s2.status === 'done'
-                                ? <span className="sm-badge done">Done</span>
-                                : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                                    <span className="sm-badge pending">Pending</span>
-                                    <button type="button" className="sm-btn sm-btn-primary" onClick={() => openMarkDone(v.id, s2)}>Mark Done</button>
-                                  </div>
-                            ) : <span style={{ color: '#3a3f52' }}>—</span>}
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                <span className={`sm-badge ${s2.status === 'done' ? 'done' : 'pending'}`}>{s2.status === 'done' ? 'Done' : 'Pending'}</span>
+                                <button
+                                  type="button"
+                                  className="sm-btn"
+                                  onClick={() => openEditService(v, 2)}
+                                >
+                                  Edit
+                                </button>
+                                {s2.status !== 'done' && (
+                                  <button
+                                    type="button"
+                                    className="sm-btn sm-btn-primary"
+                                    onClick={() => openMarkDone(v.id, s2)}
+                                  >
+                                    Mark Done
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                <span style={{ color: '#3a3f52' }}>—</span>
+                                <button
+                                  type="button"
+                                  className="sm-btn"
+                                  onClick={() => openEditService(v, 2)}
+                                >
+                                  Add
+                                </button>
+                              </div>
+                            )}
                           </td>
 
                           {/* 3rd Service */}
@@ -451,13 +548,37 @@ export default function ServiceManagerVehiclesPage() {
                           </td>
                           <td className="svc-cell">
                             {s3 ? (
-                              s3.status === 'done'
-                                ? <span className="sm-badge done">Done</span>
-                                : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                                    <span className="sm-badge pending">Pending</span>
-                                    <button type="button" className="sm-btn sm-btn-primary" onClick={() => openMarkDone(v.id, s3)}>Mark Done</button>
-                                  </div>
-                            ) : <span style={{ color: '#3a3f52' }}>—</span>}
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                <span className={`sm-badge ${s3.status === 'done' ? 'done' : 'pending'}`}>{s3.status === 'done' ? 'Done' : 'Pending'}</span>
+                                <button
+                                  type="button"
+                                  className="sm-btn"
+                                  onClick={() => openEditService(v, 3)}
+                                >
+                                  Edit
+                                </button>
+                                {s3.status !== 'done' && (
+                                  <button
+                                    type="button"
+                                    className="sm-btn sm-btn-primary"
+                                    onClick={() => openMarkDone(v.id, s3)}
+                                  >
+                                    Mark Done
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                <span style={{ color: '#3a3f52' }}>—</span>
+                                <button
+                                  type="button"
+                                  className="sm-btn"
+                                  onClick={() => openEditService(v, 3)}
+                                >
+                                  Add
+                                </button>
+                              </div>
+                            )}
                           </td>
 
                           {/* Remarks */}
@@ -539,6 +660,92 @@ export default function ServiceManagerVehiclesPage() {
                 <div className="sm-modal-foot">
                   <button type="button" className="sm-btn" onClick={() => setMarkDoneService(null)}>Cancel</button>
                   <button type="submit" className="sm-btn sm-btn-primary" style={{ fontSize: 13, padding: '8px 16px' }} disabled={submitting}>{submitting ? 'Saving…' : 'Mark Done'}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Add / Edit Individual Service Modal */}
+        {editServiceState && (
+          <div className="sm-overlay" onClick={() => setEditServiceState(null)}>
+            <div className="sm-modal" onClick={e => e.stopPropagation()}>
+              <div className="sm-modal-head">
+                <div className="sm-modal-title">
+                  {editServiceState.service ? `Edit Service #${editServiceState.service.service_no}` : `Add Service #${editServiceState.serviceNo}`}
+                </div>
+                <button type="button" className="sm-modal-close" onClick={() => setEditServiceState(null)}>✕</button>
+              </div>
+              <form onSubmit={submitEditService}>
+                <div className="sm-modal-body">
+                  <div className="sm-grid2">
+                    <div className="sm-field">
+                      <label>Due KM</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={editServiceForm.due_km}
+                        onChange={e => setEditServiceForm(f => ({ ...f, due_km: e.target.value }))}
+                      />
+                    </div>
+                    <div className="sm-field">
+                      <label>Due Date</label>
+                      <input
+                        type="date"
+                        value={editServiceForm.due_date}
+                        onChange={e => setEditServiceForm(f => ({ ...f, due_date: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="sm-grid2">
+                    <div className="sm-field">
+                      <label>Actual KM</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={editServiceForm.actual_km}
+                        onChange={e => setEditServiceForm(f => ({ ...f, actual_km: e.target.value }))}
+                      />
+                    </div>
+                    <div className="sm-field">
+                      <label>Completion Date</label>
+                      <input
+                        type="date"
+                        value={editServiceForm.completion_date}
+                        onChange={e => setEditServiceForm(f => ({ ...f, completion_date: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="sm-grid2">
+                    <div className="sm-field">
+                      <label>Status</label>
+                      <select
+                        value={editServiceForm.status}
+                        onChange={e => setEditServiceForm(f => ({ ...f, status: e.target.value }))}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="done">Done</option>
+                      </select>
+                    </div>
+                    <div className="sm-field">
+                      <label>Remarks</label>
+                      <textarea
+                        value={editServiceForm.remarks}
+                        onChange={e => setEditServiceForm(f => ({ ...f, remarks: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="sm-modal-foot">
+                  <button type="button" className="sm-btn" onClick={() => setEditServiceState(null)}>Cancel</button>
+                  <button
+                    type="submit"
+                    className="sm-btn sm-btn-primary"
+                    style={{ fontSize: 13, padding: '8px 16px' }}
+                    disabled={submitting}
+                  >
+                    {submitting ? 'Saving…' : 'Save Service'}
+                  </button>
                 </div>
               </form>
             </div>
