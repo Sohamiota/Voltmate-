@@ -23,19 +23,30 @@ const app = express();
 // app.use(cors()) already handles OPTIONS preflight automatically.
 // The extra app.options('*', cors()) call has been removed.
 const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
+const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || '';
 
-// Allow both www and non-www variants of the configured origin
-const allowedOrigins = [
-  allowedOrigin,
-  allowedOrigin.replace('https://', 'https://www.'),
-  allowedOrigin.replace('https://www.', 'https://'),
-  'http://localhost:3000',
-];
+function addOriginWithVariants(list: Set<string>, url: string) {
+  if (!url || !url.startsWith('http')) return;
+  list.add(url);
+  list.add(url.replace(/^https:\/\//, 'https://www.'));
+  list.add(url.replace(/^https:\/\/www\./, 'https://'));
+  list.add(url.replace(/^http:\/\//, 'http://www.'));
+  list.add(url.replace(/^http:\/\/www\./, 'http://'));
+}
+
+const allowedOriginsSet = new Set<string>(['http://localhost:3000']);
+addOriginWithVariants(allowedOriginsSet, allowedOrigin);
+allowedOriginsEnv.split(',').map(s => s.trim()).forEach(s => addOriginWithVariants(allowedOriginsSet, s));
+// Allow both voltwheelsin.com and voltwheelsind.com when either is configured (common production domains)
+if ([allowedOrigin, ...allowedOriginsEnv.split(',')].some(s => /voltwheel/.test(s))) {
+  ['https://voltwheelsin.com', 'https://www.voltwheelsin.com', 'https://voltwheelsind.com', 'https://www.voltwheelsind.com'].forEach(o => allowedOriginsSet.add(o));
+}
+const allowedOrigins = Array.from(allowedOriginsSet);
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
+      callback(null, origin || true);
     } else {
       callback(new Error(`CORS blocked: ${origin}`));
     }
