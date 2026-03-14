@@ -366,6 +366,8 @@ const PAGE_STYLES = `
   .vm-btn-ghost:hover { border-color: var(--border-hover); color: var(--text); }
   .vm-btn-amber { background: rgba(245,158,11,.08); color: #f59e0b; border: 1px solid rgba(245,158,11,.22); }
   .vm-btn-amber:hover { background: rgba(245,158,11,.16); }
+  .vm-btn-red { background: rgba(239,68,68,.08); color: #ef4444; border: 1px solid rgba(239,68,68,.22); }
+  .vm-btn-red:hover { background: rgba(239,68,68,.16); }
   /* ── Audit / Logged-By cell ── */
   .vm-audit-cell { display: flex; flex-direction: column; gap: 3px; min-width: 130px; }
   .vm-audit-row  { display: flex; align-items: center; gap: 4px; font-size: 11px; line-height: 1.3; white-space: nowrap; }
@@ -637,6 +639,29 @@ export default function CreateVisitReportPage() {
     setOpen(true);
   }
 
+  async function handleDeleteVisit(visit: Visit) {
+    const id = visit.id;
+    if (id == null) return;
+    if (!confirm(`Delete this visit for ${visit.cust_name || visit.lead_cust_code || 'this customer'}? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/visits/${id}`, { method: 'DELETE', headers: authHeaders() });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast((err as { error?: string }).error || 'Failed to delete visit', 'error');
+        return;
+      }
+      if (editTarget && String((editTarget as Visit).id) === String(id)) {
+        setEditTarget(null);
+        setOpen(false);
+      }
+      showToast('Visit deleted', 'success');
+      await fetchVisits();
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to delete visit', 'error');
+    }
+  }
+
   function openEditModal(visit: Visit) {
     setEditTarget(visit);
     const v = visit as any;
@@ -885,13 +910,24 @@ export default function CreateVisitReportPage() {
                         </div>
                       </td>
                       <td>
-                        <button
-                          className="vm-btn vm-btn-amber"
-                          style={{ fontSize: 12, padding: '5px 12px' }}
-                          onClick={() => openEditModal(v)}
-                        >
-                          Edit
-                        </button>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            className="vm-btn vm-btn-amber"
+                            style={{ fontSize: 12, padding: '5px 12px' }}
+                            onClick={() => openEditModal(v)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="vm-btn vm-btn-red"
+                            style={{ fontSize: 12, padding: '5px 12px' }}
+                            onClick={() => handleDeleteVisit(v)}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

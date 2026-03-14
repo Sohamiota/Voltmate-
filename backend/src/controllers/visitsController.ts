@@ -79,6 +79,22 @@ export async function updateVisit(req: Request, res: Response) {
   }
 }
 
+export async function deleteVisit(req: Request, res: Response) {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+    const userId = (req as any).user?.sub ?? null;
+    const r = await query('DELETE FROM visits WHERE id = $1 RETURNING id, lead_cust_code', [id]);
+    if ((r as any).rowCount === 0) return res.status(404).json({ error: 'visit not found' });
+    const row = (r as any).rows[0];
+    await logActivity('visit', id, row?.lead_cust_code || String(id), 'delete', userId, 'Visit deleted');
+    res.status(204).send();
+  } catch (e) {
+    console.error('deleteVisit error:', (e as any)?.stack || e);
+    res.status(500).json({ error: 'failed' });
+  }
+}
+
 export async function listVisits(req: Request, res: Response) {
   const limit  = Math.min(parseInt((req.query.limit  as string) || '100', 10), 1000);
   const offset = parseInt((req.query.offset as string) || '0', 10);

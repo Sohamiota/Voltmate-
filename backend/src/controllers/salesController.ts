@@ -5,8 +5,8 @@ export async function salesByEmployee(req: Request, res: Response) {
   try {
     const sql = `
       SELECT u.id as user_id, u.name,
-             COALESCE(SUM(o.amount),0)::numeric AS sales,
-             COUNT(o.id) AS deals
+            COALESCE(SUM(o.amount),0)::numeric AS sales,
+            COUNT(o.id) AS deals
       FROM users u
       LEFT JOIN opportunities o ON (o.connected_person = u.name OR o.salesforce_id IS NOT NULL AND o.connected_person = u.name)
       GROUP BY u.id, u.name

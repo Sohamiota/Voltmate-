@@ -6,6 +6,12 @@ This document explains how to execute the project, the overall workflow, per-fil
 
 ---
 
+## Project understanding (in brief)
+
+**Voltwheels EMS** is a full-stack **Enterprise Management System** for sales and operations. The **frontend** (Next.js in `Voltmate-/`) lets users manage **leads** and **visit reports**, track **attendance**, handle **tasks**, and use **admin** and **service-manager** modules (e.g. vehicle service tracking). The **backend** (Express in `backend/`) exposes REST APIs under `/api/v1/` (leads, visits, tasks, auth, attendance, vehicles, etc.), uses **JWT** in the `Authorization` header for auth, and talks to **PostgreSQL** via a shared pool. Data flow: browser → Next.js (fetch with token) → Express routes → controllers → `pg` → Postgres; responses are JSON. Controllers often ensure tables/columns exist and use parameterized SQL. The app is built for deployment with the frontend on Vercel and the backend on a service like Render, using env vars for API URL and CORS origins (e.g. voltwheelsin.com / voltwheelsind.com).
+
+---
+
 ## Table of contents
 - Overview
 - Repository layout

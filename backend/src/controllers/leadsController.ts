@@ -32,7 +32,7 @@ export async function createLead(req: Request, res: Response) {
       `INSERT INTO leads (cust_code, connect_date, cust_name, business, phone_no, phone_no_2, lead_type, note, location, created_by, created_at, updated_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now(),now()) RETURNING *`,
       [cust_code, connect_date || null, cust_name, business || null, phone_no || null,
-       phone_no_2 || null, lead_type || null, note || null, location || null, userId],
+      phone_no_2 || null, lead_type || null, note || null, location || null, userId],
     );
     const newLead = (r as any).rows[0];
     await logActivity('lead', newLead.id, cust_code, 'create', userId, `Lead created: ${cust_name}`);
@@ -53,11 +53,11 @@ export async function updateLead(req: Request, res: Response) {
     if (!cust_name) return res.status(400).json({ error: 'cust_name required' });
     const r = await query(
       `UPDATE leads
-       SET connect_date=$1, cust_name=$2, business=$3, phone_no=$4, phone_no_2=$5,
-           lead_type=$6, note=$7, location=$8, updated_by=$9, updated_at=now()
+      SET connect_date=$1, cust_name=$2, business=$3, phone_no=$4, phone_no_2=$5,
+          lead_type=$6, note=$7, location=$8, updated_by=$9, updated_at=now()
        WHERE id=$10 RETURNING *`,
       [connect_date || null, cust_name, business || null, phone_no || null,
-       phone_no_2 || null, lead_type || null, note || null, location || null, userId, id],
+      phone_no_2 || null, lead_type || null, note || null, location || null, userId, id],
     );
     if ((r as any).rowCount === 0) return res.status(404).json({ error: 'lead not found' });
     const updated = (r as any).rows[0];
@@ -88,8 +88,8 @@ export async function listLeads(req: Request, res: Response) {
 
     let sql = `
       SELECT l.*,
-             uc.name AS created_by_name,
-             uu.name AS updated_by_name
+            uc.name AS created_by_name,
+            uu.name AS updated_by_name
       FROM leads l
       LEFT JOIN users uc ON uc.id = l.created_by
       LEFT JOIN users uu ON uu.id = l.updated_by
@@ -133,9 +133,9 @@ export async function exportLeadsCSV(req: Request, res: Response) {
     await ensureLeadsCols();
     const r = await query(`
       SELECT l.id, l.cust_code, l.connect_date, l.cust_name, l.business,
-             l.phone_no, l.phone_no_2, l.lead_type, l.location, l.note,
-             uc.name AS created_by_name, l.created_at,
-             uu.name AS updated_by_name, l.updated_at
+            l.phone_no, l.phone_no_2, l.lead_type, l.location, l.note,
+            uc.name AS created_by_name, l.created_at,
+            uu.name AS updated_by_name, l.updated_at
       FROM leads l
       LEFT JOIN users uc ON uc.id = l.created_by
       LEFT JOIN users uu ON uu.id = l.updated_by
