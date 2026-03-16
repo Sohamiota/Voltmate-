@@ -1,6 +1,7 @@
 'use client'
 
 import { Menu, X, Bell, User } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -8,6 +9,16 @@ interface HeaderProps {
 }
 
 export default function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
+  const router = useRouter()
+
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('token')
+    }
+    router.push('/login')
+  }
+
   return (
     <header className="bg-card border-b border-border flex-shrink-0">
       <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
@@ -53,9 +64,15 @@ export default function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full"></span>
           </button>
 
-          <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center cursor-pointer hover:shadow-lg hover:shadow-primary/50 transition-shadow flex-shrink-0">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center cursor-pointer hover:shadow-lg hover:shadow-primary/50 transition-shadow flex-shrink-0"
+            aria-label="Account menu, click to logout"
+            title="Logout"
+          >
             <User className="w-4 h-4 text-primary-foreground" />
-          </div>
+          </button>
         </div>
       </div>
     </header>
