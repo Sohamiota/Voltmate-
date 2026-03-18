@@ -127,6 +127,53 @@ export async function listVisits(req: Request, res: Response) {
   }
 }
 
+// Visits visible in the "Visit Report" view (restricted statuses are hidden everywhere).
+// Restricted statuses:
+// - Lost (any): v.status LIKE 'Lost%'
+// - Loan Processing
+// - Booking Amount Received
+// - Anything after booking: Order Confirmed, Delivery Scheduled, Delivered (Closed - Won)
+export async function listVisibleVisits(req: Request, res: Response) {
+  const limit  = Math.min(parseInt((req.query.limit  as string) || '100', 10), 1000);
+  const offset = parseInt((req.query.offset as string) || '0', 10);
+  try {
+    await ensureVisitsCols();
+    const r = await query(
+      `SELECT v.id, v.lead_id, v.lead_cust_code, v.salesperson_id, v.vehicle, v.status,
+              v.visit_date, v.next_action, v.next_action_date, v.note, v.phone_no, v.phone_no_2,
+              v.created_by, v.created_at, v.updated_by, v.updated_at,
+              COALESCE(v.lead_type, l.lead_type) AS lead_type,
+              COALESCE(v.connect_date, l.connect_date) AS connect_date,
+              l.cust_name,
+              l.phone_no AS lead_phone_no,
+              u.name  AS salesperson_name,
+              uc.name AS created_by_name,
+              uu.name AS updated_by_name
+       FROM visits v
+       LEFT JOIN leads  l  ON l.id  = v.lead_id
+       LEFT JOIN users  u  ON u.id  = v.salesperson_id
+       LEFT JOIN users  uc ON uc.id = v.created_by
+       LEFT JOIN users  uu ON uu.id = v.updated_by
+       WHERE
+         v.status IS NULL OR (
+           v.status NOT ILIKE 'Lost%' AND
+           v.status NOT ILIKE 'Loan Processing' AND
+           v.status NOT ILIKE 'Booking Amount Received' AND
+           v.status NOT ILIKE 'Order Confirmed' AND
+           v.status NOT ILIKE 'Delivery Scheduled' AND
+           v.status NOT ILIKE 'Delivered (Closed%'
+         )
+       ORDER BY v.created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset],
+    );
+    res.json({ visits: (r as any).rows, limit, offset });
+  } catch (e) {
+    console.error('listVisibleVisits error:', e);
+    res.status(500).json({ error: 'failed' });
+  }
+}
+
 export async function exportVisitsCSV(req: Request, res: Response) {
   try {
     await ensureVisitsCols();
@@ -153,6 +200,48 @@ export async function exportVisitsCSV(req: Request, res: Response) {
     ).join('\n');
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="visits.csv"');
+    res.send(csv);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'failed' });
+  }
+}
+
+export async function exportVisibleVisitsCSV(req: Request, res: Response) {
+  try {
+    await ensureVisitsCols();
+    const r = await query(`
+      SELECT v.id, v.lead_cust_code, COALESCE(v.lead_type, l.lead_type) AS lead_type,
+             COALESCE(v.connect_date, l.connect_date) AS connect_date,
+             l.cust_name, v.phone_no, v.phone_no_2,
+             u.name  AS salesperson_name,
+             v.vehicle, v.status, v.visit_date,
+             v.next_action, v.next_action_date, v.note,
+             uc.name AS created_by_name, v.created_at,
+             uu.name AS updated_by_name, v.updated_at
+      FROM visits v
+      LEFT JOIN leads l  ON l.id  = v.lead_id
+      LEFT JOIN users u  ON u.id  = v.salesperson_id
+      LEFT JOIN users uc ON uc.id = v.created_by
+      LEFT JOIN users uu ON uu.id = v.updated_by
+      WHERE
+        v.status IS NULL OR (
+          v.status NOT ILIKE 'Lost%' AND
+          v.status NOT ILIKE 'Loan Processing' AND
+          v.status NOT ILIKE 'Booking Amount Received' AND
+          v.status NOT ILIKE 'Order Confirmed' AND
+          v.status NOT ILIKE 'Delivery Scheduled' AND
+          v.status NOT ILIKE 'Delivered (Closed%'
+        )
+      ORDER BY v.created_at DESC
+    `);
+    const rows   = (r as any).rows;
+    const header = ['id','lead_cust_code','lead_type','connect_date','cust_name','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','created_by_name','created_at','updated_by_name','updated_at'];
+    const csv    = [header.join(',')].concat(
+      rows.map((row: any) => header.map(h => `"${(row[h] || '').toString().replace(/"/g, '""')}"`).join(',')),
+    ).join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="visible_visits.csv"');
     res.send(csv);
   } catch (e) {
     console.error(e);

@@ -44,12 +44,19 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
     : 'http://localhost:8081')).replace(/\/api\/v1\/?$/, '');
 
 const STATUSES = [
-  'New Lead', 'Attempted Contact', 'Connected', 'Requirement Identified',
-  'Qualified Lead', 'Demo Scheduled', 'Demo Completed', 'Quotation Shared',
-  'Demo Follow Up', 'Follow-Up 2', 'Negotiation', 'Loan Processing',
-  'Booking Amount Received', 'Order Confirmed', 'Delivery Scheduled',
-  'Delivered (Closed – Won)', 'Lost – Price Issue', 'Lost – Competitor',
-  'Lost – No Response', 'Lost – Not Interested',
+  // Restricted statuses (Lost*, Loan Processing, Booking Amount Received,
+  // and everything after booking) are intentionally hidden in this page.
+  'New Lead',
+  'Attempted Contact',
+  'Connected',
+  'Requirement Identified',
+  'Qualified Lead',
+  'Demo Scheduled',
+  'Demo Completed',
+  'Quotation Shared',
+  'Demo Follow Up',
+  'Follow-Up 2',
+  'Negotiation',
 ];
 
 function getToken(): string {
@@ -428,7 +435,7 @@ export default function VisitReportPage() {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(`${API_BASE}/api/v1/visits`, { headers });
+      const res = await fetch(`${API_BASE}/api/v1/visits/report`, { headers });
       if (!res.ok) {
         const txt = await res.text().catch(() => '');
         throw new Error(`API error ${res.status}${txt ? ': ' + txt : ''}`);
@@ -558,7 +565,7 @@ export default function VisitReportPage() {
       const token = getToken();
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE}/api/v1/visits/export/csv`, { headers });
+      const res = await fetch(`${API_BASE}/api/v1/visits/report/export/csv`, { headers });
       if (!res.ok) { alert('Export failed'); return; }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
