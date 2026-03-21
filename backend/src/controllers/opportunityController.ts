@@ -36,6 +36,10 @@ export async function getOpportunity(req: Request, res: Response) {
 
 export async function updateOpportunity(req: Request, res: Response) {
   try {
+    const requester = (req as any).user;
+    if (requester?.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can modify opportunities' });
+    }
     const id = parseInt(req.params.id, 10);
     if (Number.isNaN(id)) return res.status(400).json({ error: 'invalid id' });
     const payload = req.body || {};

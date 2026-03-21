@@ -46,9 +46,15 @@ export async function createLead(req: Request, res: Response) {
 export async function updateLead(req: Request, res: Response) {
   try {
     await ensureLeadsCols();
-    const id = parseInt(req.params.id, 10);
+    const id        = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
-    const userId = (req as any).user?.sub ?? null;
+    const requester = (req as any).user;
+    const userId    = requester?.sub ?? null;
+
+    // Verify the lead exists before updating
+    const existing = await query('SELECT id FROM leads WHERE id=$1', [id]);
+    if ((existing as any).rowCount === 0) return res.status(404).json({ error: 'lead not found' });
+
     const { connect_date, cust_name, business, phone_no, phone_no_2, lead_type, note, location } = req.body;
     if (!cust_name) return res.status(400).json({ error: 'cust_name required' });
     const r = await query(
@@ -59,7 +65,6 @@ export async function updateLead(req: Request, res: Response) {
       [connect_date || null, cust_name, business || null, phone_no || null,
       phone_no_2 || null, lead_type || null, note || null, location || null, userId, id],
     );
-    if ((r as any).rowCount === 0) return res.status(404).json({ error: 'lead not found' });
     const updated = (r as any).rows[0];
     await logActivity('lead', id, updated.cust_code || String(id), 'update', userId, `Lead updated: ${cust_name}`);
     res.json(updated);
@@ -108,11 +113,15 @@ export async function listLeads(req: Request, res: Response) {
 
 export async function deleteLead(req: Request, res: Response) {
   try {
-    const id     = parseInt(req.params.id, 10);
-    const userId = (req as any).user?.sub ?? null;
-    // Fetch before deleting for the log
+    const id        = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+    const requester = (req as any).user;
+    const userId    = requester?.sub ?? null;
+
     const pre = await query('SELECT cust_code, cust_name FROM leads WHERE id=$1', [id]);
+    if ((pre as any).rowCount === 0) return res.status(404).json({ error: 'lead not found' });
     const row = (pre as any).rows[0];
+
     await query('DELETE FROM leads WHERE id=$1', [id]);
     await logActivity(
       'lead', id,

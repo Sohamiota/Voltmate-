@@ -55,9 +55,15 @@ export async function createVisit(req: Request, res: Response) {
 export async function updateVisit(req: Request, res: Response) {
   try {
     await ensureVisitsCols();
-    const id     = parseInt(req.params.id, 10);
+    const id       = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
-    const userId = (req as any).user?.sub ?? null;
+    const requester = (req as any).user;
+    const userId    = requester?.sub ?? null;
+
+    // Verify the visit exists before updating
+    const existing = await query('SELECT id FROM visits WHERE id=$1', [id]);
+    if ((existing as any).rowCount === 0) return res.status(404).json({ error: 'visit not found' });
+
     const { vehicle, salesperson_id, status, visit_date, next_action, next_action_date, note, phone_no, phone_no_2, connect_date } = req.body;
     const r = await query(
       `UPDATE visits
@@ -69,7 +75,6 @@ export async function updateVisit(req: Request, res: Response) {
        next_action || null, next_action_date || null, note || null,
        phone_no || null, phone_no_2 || null, connect_date ?? null, userId, id],
     );
-    if ((r as any).rowCount === 0) return res.status(404).json({ error: 'visit not found' });
     const updated = (r as any).rows[0];
     await logActivity('visit', id, updated.lead_cust_code || String(id), 'update', userId, `Visit updated`);
     res.json(updated);
@@ -81,12 +86,15 @@ export async function updateVisit(req: Request, res: Response) {
 
 export async function deleteVisit(req: Request, res: Response) {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id        = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
-    const userId = (req as any).user?.sub ?? null;
-    const r = await query('DELETE FROM visits WHERE id = $1 RETURNING id, lead_cust_code', [id]);
-    if ((r as any).rowCount === 0) return res.status(404).json({ error: 'visit not found' });
-    const row = (r as any).rows[0];
+    const requester = (req as any).user;
+    const userId    = requester?.sub ?? null;
+
+    const existing = await query('SELECT lead_cust_code FROM visits WHERE id=$1', [id]);
+    if ((existing as any).rowCount === 0) return res.status(404).json({ error: 'visit not found' });
+    const row = (existing as any).rows[0];
+    await query('DELETE FROM visits WHERE id = $1', [id]);
     await logActivity('visit', id, row?.lead_cust_code || String(id), 'delete', userId, 'Visit deleted');
     res.status(204).send();
   } catch (e) {

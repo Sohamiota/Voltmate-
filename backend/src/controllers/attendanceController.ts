@@ -170,10 +170,16 @@ export async function attendanceStats(req: Request, res: Response) {
 
 export async function getAttendance(req: Request, res: Response) {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id        = parseInt(req.params.id, 10);
+    const requester = (req as any).user;
     const r = await query('SELECT * FROM attendance WHERE id=$1', [id]);
     if ((r as any).rowCount === 0) return res.status(404).json({ error: 'not found' });
-    res.json((r as any).rows[0]);
+    const record = (r as any).rows[0];
+    // Non-admins may only read their own attendance records
+    if (requester?.role !== 'admin' && String(record.user_id) !== String(requester?.sub)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    res.json(record);
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'failed' });

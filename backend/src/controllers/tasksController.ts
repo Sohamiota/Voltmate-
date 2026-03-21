@@ -240,7 +240,17 @@ export async function listTasks(req: Request, res: Response) {
 export async function getTaskHistory(req: Request, res: Response) {
   try {
     await ensureTables();
-    const id = parseInt(req.params.id, 10);
+    const id        = parseInt(req.params.id, 10);
+    const requester = (req as any).user;
+
+    // Verify the task exists and the caller owns it (or is admin)
+    const taskRow = await query('SELECT user_id FROM tasks WHERE id=$1', [id]);
+    if ((taskRow as any).rowCount === 0) return res.status(404).json({ error: 'task not found' });
+    const taskOwnerId = (taskRow as any).rows[0].user_id;
+    if (requester?.role !== 'admin' && String(taskOwnerId) !== String(requester?.sub)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
     const r = await query(
       `SELECT te.*, u.name AS edited_by_name
        FROM task_edits te
