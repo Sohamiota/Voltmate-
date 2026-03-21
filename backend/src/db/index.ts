@@ -22,3 +22,7 @@ export async function query(text: string, params?: any[]) {
   const res = await pool.query(text, params);
   return res;
 }
+
+export async function healthCheck() {
+  return pool.query('SELECT 1');
+}
