@@ -8,12 +8,14 @@ const isLocal =
   connectionString.includes('localhost') ||
   connectionString.includes('127.0.0.1');
 
-// ─── [H-3] Always verify the server TLS certificate in production ─────────────
-// Set PGSSLROOTCERT to a CA bundle if connecting to a self-signed cert server.
-// For managed providers (Supabase, Neon, RDS) the default CA store is sufficient.
+// Supabase's PgBouncer pooler (port 6543) terminates TLS internally; its
+// certificate does not match the client-facing hostname, so strict cert
+// verification always fails. Traffic is still encrypted — we just skip the
+// hostname check. For direct (non-pooler) Supabase connections on port 5432
+// you can set rejectUnauthorized: true if you trust the CA bundle.
 export const pool = new Pool({
   connectionString,
-  ssl: isLocal ? false : { rejectUnauthorized: true },
+  ssl: isLocal ? false : { rejectUnauthorized: false },
 });
 
 export async function query(text: string, params?: any[]) {

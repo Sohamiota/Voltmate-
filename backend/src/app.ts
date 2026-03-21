@@ -1,5 +1,5 @@
+import 'dotenv/config';   // must be first — loads .env before any other module reads process.env
 import cors from 'cors';
-import dotenv from 'dotenv';
 import express, { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 
@@ -15,8 +15,6 @@ import tasksRoutes       from './routes/tasks';
 import visitsRoutes      from './routes/visits';
 import vehicleRoutes     from './routes/vehicles';
 import { listEmployees } from './controllers/authController';
-
-dotenv.config();
 
 const app = express();
 
