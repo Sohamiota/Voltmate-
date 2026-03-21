@@ -4,6 +4,7 @@ import express, { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 
 import { authMiddleware } from './middlewares/auth';
+import { apiLimiter, writeLimiter, deleteLimiter } from './middlewares/rateLimits';
 import activityRoutes    from './routes/activity';
 import activityLogRoutes from './routes/activityLog';
 import attendanceRoutes  from './routes/attendance';
@@ -17,6 +18,11 @@ import vehicleRoutes     from './routes/vehicles';
 import { listEmployees } from './controllers/authController';
 
 const app = express();
+
+// Trust the first proxy hop (Render / Cloudflare) so req.ip is the real client
+// IP rather than the load-balancer address. Required for per-IP rate limiting
+// to work correctly in production.
+app.set('trust proxy', 1);
 
 // ─── [M-1] Security headers via helmet ───────────────────────────────────────
 app.use(helmet({
@@ -80,6 +86,14 @@ app.use('/api/v1/auth', authRoutes);
 
 // ─── All routes below require a valid JWT ─────────────────────────────────────
 app.use(authMiddleware);
+
+// ─── Abuse protection: tiered rate limits applied to all authenticated routes ─
+// Tier 1 – global cap (stops scrapers / scanners)
+app.use(apiLimiter);
+// Tier 2 – write cap: POST / PUT / PATCH / DELETE (stops bulk-write bots)
+app.use(writeLimiter);
+// Tier 3 – delete cap: DELETE only (extra brake on destructive ops)
+app.use(deleteLimiter);
 
 app.use('/api/v1/activity',      activityRoutes);
 app.use('/api/v1/activity-log',  activityLogRoutes);
