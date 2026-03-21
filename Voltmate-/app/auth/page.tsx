@@ -14,7 +14,13 @@ export default function AuthPage() {
     password: '',
     confirmPassword: '',
   })
-  const [errors, setErrors] = useState({})
+  const [errors, setErrors] = useState<{
+    fullName?: string;
+    email?: string;
+    mobileNumber?: string;
+    password?: string;
+    confirmPassword?: string;
+  }>({})
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target

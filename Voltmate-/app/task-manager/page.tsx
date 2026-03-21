@@ -24,7 +24,7 @@ function approvalStyle(s: string): React.CSSProperties {
 
 function tok() {
   if (typeof window === 'undefined') return '';
-  return localStorage.getItem('auth_token') || localStorage.getItem('token') || '';
+  return localStorage.getItem('auth_token') || '';
 }
 function authHdr(extra: Record<string, string> = {}) {
   return { Authorization: `Bearer ${tok()}`, ...extra };

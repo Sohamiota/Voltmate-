@@ -98,7 +98,7 @@ function isValidPhoneOptional(v: string) { return v.trim() === '' || isValidPhon
 // ─── Auth helper (module-level, not recreated per render) ─────────────────────
 function getToken(): string {
   if (typeof window === 'undefined') return '';
-  return localStorage.getItem('token') || localStorage.getItem('auth_token') || '';
+  return localStorage.getItem('auth_token') || '';
 }
 
 function buildHeaders(withJson = false): Record<string, string> {

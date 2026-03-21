@@ -24,7 +24,7 @@ export default function AttendancePage() {
   const [search,  setSearch]  = useState('');
 
   const token = typeof window !== 'undefined'
-    ? (localStorage.getItem('token') || localStorage.getItem('auth_token'))
+    ? localStorage.getItem('auth_token')
     : null;
 
   useEffect(() => {

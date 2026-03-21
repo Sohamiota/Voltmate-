@@ -48,6 +48,30 @@ docker-compose.override.yml
 .cache/
 coverage/
 
+# ── Sample / demo code (not the production Voltmate app) ─────────────────────
+frontend-samples/
+
+# ── Local-only test / debug scripts (DB checks, one-off API calls, hash tools) ─
+backend/check_pass.js
+backend/scripts/test_db.js
+backend/scripts/clear-test-data.ts
+backend/scripts/debug_stats.js
+backend/scripts/call_stats.js
+backend/scripts/generate_hash.js
+
+# ── Sample seed data & SQL (keep migrate + seed-vehicles.js in repo; data optional)
+backend/scripts/seed-vehicles-data.json
+backend/seed_admin.sql
+
+backend-node/scripts/generate_hash.js
+backend-node/scripts/insert_user.js
+
+# ── Test runner output (no source)
+**/test-results/
+**/playwright-report/
+**/cypress/videos/
+**/cypress/screenshots/
+
 # Additional ignores
 tmp/
 *.sqlite

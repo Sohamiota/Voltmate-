@@ -2,6 +2,7 @@
 
 import { Menu, X, Bell, User } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { clearToken } from '@/src/api/client'
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -12,10 +13,8 @@ export default function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
   const router = useRouter()
 
   const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_token')
-      localStorage.removeItem('token')
-    }
+    // ─── [M-6] Use canonical clearToken() — removes the single 'auth_token' key
+    clearToken()
     router.push('/login')
   }
 

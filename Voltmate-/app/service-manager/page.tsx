@@ -10,7 +10,7 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
 
 function getToken(): string {
   if (typeof window === 'undefined') return '';
-  return localStorage.getItem('auth_token') || localStorage.getItem('token') || '';
+  return localStorage.getItem('auth_token') || '';
 }
 
 function fmtDate(d?: string | null) {

@@ -16,7 +16,7 @@ const APPROVAL_FILTERS                = ['All', 'Pending', 'Approved', 'Rejected
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function tok() {
   if (typeof window === 'undefined') return '';
-  return localStorage.getItem('auth_token') || localStorage.getItem('token') || '';
+  return localStorage.getItem('auth_token') || '';
 }
 function hdr(extra: Record<string, string> = {}) {
   return { Authorization: `Bearer ${tok()}`, ...extra };

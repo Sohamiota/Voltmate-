@@ -13,7 +13,7 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
 
 function tok() {
   if (typeof window === 'undefined') return ''
-  return localStorage.getItem('auth_token') || localStorage.getItem('token') || ''
+  return localStorage.getItem('auth_token') || ''
 }
 
 function authHdr() {

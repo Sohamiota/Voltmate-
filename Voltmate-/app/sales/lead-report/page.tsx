@@ -51,7 +51,7 @@ const BUSINESS_CATEGORIES = [
 
 function getToken(): string {
   if (typeof window === 'undefined') return '';
-  return localStorage.getItem('auth_token') || localStorage.getItem('token') || '';
+  return localStorage.getItem('auth_token') || '';
 }
 
 function fmtDate(d?: string) {

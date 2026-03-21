@@ -2,23 +2,37 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock } from 'lucide-react';
-import { post } from '../../src/api/client';
+import { post, storeToken } from '../../src/api/client';
 import dynamic from 'next/dynamic';
 const AuthTabs = dynamic(() => import('../../src/components/AuthTabs').then(m => m.Tabs), { ssr: false });
 
-export default function LoginPage()  {
+// ─── [M-7] Client-side password strength (mirrors backend rules) ──────────────
+function validatePassword(pw: string): string | null {
+  if (pw.length < 8)          return 'At least 8 characters required';
+  if (!/[A-Z]/.test(pw))      return 'Must include an uppercase letter';
+  if (!/[a-z]/.test(pw))      return 'Must include a lowercase letter';
+  if (!/[0-9]/.test(pw))      return 'Must include a number';
+  return null;
+}
+
+export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [email, setEmail]   = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [name, setName]     = useState('');
   const [confirm, setConfirm] = useState('');
-  const [role, setRole] = useState('');
-  const [mode, setMode] = useState<'login' | 'register' | 'verify'>('login');
-  const [otp, setOtp] = useState('');
+  const [mode, setMode]     = useState<'login' | 'register' | 'verify'>('login');
+  const [otp, setOtp]       = useState('');
   const [registeredEmail, setRegisteredEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [error, setError]   = useState<string | null>(null);
+  const [theme, setTheme]   = useState<'light' | 'dark'>('dark');
+  const [pwError, setPwError] = useState<string | null>(null);
+
+  function handlePasswordChange(val: string) {
+    setPassword(val);
+    if (mode === 'register') setPwError(validatePassword(val));
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -27,33 +41,33 @@ export default function LoginPage()  {
     try {
       if (mode === 'login') {
         const resp = await post('/auth/login', { email, password });
-        if (resp && resp.token) {
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('auth_token', resp.token);
-          }
+        if (resp?.token) {
+          // ─── [M-6] Use storeToken helper — single canonical key ───────────
+          storeToken(resp.token);
           router.push('/');
         } else {
           setError('Unexpected response from server');
         }
       } else {
-        // register flow (client-side validation)
         if (password !== confirm) {
           setError('Passwords do not match');
           setLoading(false);
           return;
         }
-        const payload: any = { name, email, password };
-        if (role) payload.role = role;
-        const resp = await post('/auth/register', payload);
+        // ─── [M-7] Block weak passwords before hitting the network ────────
+        const pwErr = validatePassword(password);
+        if (pwErr) { setError(pwErr); setLoading(false); return; }
+
+        // ─── [C-2] Never send role — backend always assigns 'employee' ─────
+        const resp = await post('/auth/register', { name, email, password });
         if (resp) {
-          // Registration complete — switch directly to login
-          setMode('login');
-          setError('Account created! You can now log in.');
+          setRegisteredEmail(email);
+          setMode('verify');
+          setError('Account created! Check your email for the verification code.');
         }
       }
-      
     } catch (err: any) {
-      setError((err as any)?.message || 'Login failed');
+      setError(err?.message || 'Request failed');
     } finally {
       setLoading(false);
     }
@@ -118,11 +132,15 @@ export default function LoginPage()  {
                 type='password'
                 required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => handlePasswordChange(e.target.value)}
                 className='w-full pl-10 pr-3 py-2 bg-white/6 dark:bg-slate-800 border border-white/6 dark:border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:shadow-lg transition-all duration-150'
                 placeholder='••••••••'
               />
             </div>
+            {/* [M-7] Live password strength feedback in register mode */}
+            {mode === 'register' && pwError && (
+              <p className='mt-1 text-xs text-amber-400'>{pwError}</p>
+            )}
           </label>
           {mode === 'register' && (
             <>
@@ -130,19 +148,8 @@ export default function LoginPage()  {
                 <span className='text-sm text-gray-300'>Full name</span>
                 <input id='reg-name' value={name} onChange={(e) => setName(e.target.value)} className='mt-1 w-full pl-3 pr-3 py-2 rounded-md bg-white/6 dark:bg-slate-800 border border-white/6 dark:border-gray-700 text-white transition-all duration-150 focus:shadow-lg' placeholder='Full name' />
               </label>
-              <label className='block mt-2'>
-                <span className='text-sm text-gray-300'>Select role</span>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className='mt-1 w-full pl-3 pr-3 py-2 rounded-md bg-white/6 dark:bg-slate-800 border border-white/6 dark:border-gray-700 text-white transition-all duration-150 focus:shadow-lg'
-                >
-                  <option value=''>Select role</option>
-                  <option value='admin'>Admin</option>
-                  <option value='sales'>Sales</option>
-                  <option value='service'>Service</option>
-                </select>
-              </label>
+              {/* [C-2] Role dropdown removed — backend always assigns 'employee'.
+                  Admins promote users via the admin panel after approval. */}
               <label className='block mt-2'>
                 <span className='text-sm text-gray-300'>Confirm password</span>
                 <input id='reg-confirm' type='password' value={confirm} onChange={(e) => setConfirm(e.target.value)} className='mt-1 w-full pl-3 pr-3 py-2 rounded-md bg-white/6 dark:bg-slate-800 border border-white/6 dark:border-gray-700 text-white transition-all duration-150 focus:shadow-lg' placeholder='Confirm password' />

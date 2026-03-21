@@ -15,7 +15,7 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
 
 function getToken() {
   if (typeof window === 'undefined') return '';
-  return localStorage.getItem('auth_token') || localStorage.getItem('token') || '';
+  return localStorage.getItem('auth_token') || '';
 }
 
 const CHART_COLORS = ['#00d9ff', '#7c3aed', '#22c55e', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#f97316'];

@@ -188,11 +188,7 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
 // ─── Token helper (module-level, not recreated per render) ────────────────────
 function getAuthToken(): string {
   if (typeof window === 'undefined') return '';
-  return (
-    localStorage.getItem('token') ||
-    localStorage.getItem('auth_token') ||
-    ''
-  );
+  return localStorage.getItem('auth_token') || '';
 }
 
 function authHeaders(): Record<string, string> {

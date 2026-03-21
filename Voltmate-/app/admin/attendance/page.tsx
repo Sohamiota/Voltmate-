@@ -71,7 +71,7 @@ export default function AdminAttendancePage() {
   const [search, setSearch]   = useState('');
   const [filter, setFilter]   = useState('all');
   const token = typeof window !== 'undefined'
-    ? (localStorage.getItem('auth_token') || localStorage.getItem('token'))
+    ? localStorage.getItem('auth_token')
     : null;
 
   const fetchList = useCallback(async () => {

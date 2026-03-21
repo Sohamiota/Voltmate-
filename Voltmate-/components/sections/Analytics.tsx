@@ -79,7 +79,7 @@ const renderPieLabel = ({ name, percent }: any) => `${name} ${(percent * 100).to
 
 export default function Analytics() {
   const token = typeof window !== 'undefined'
-    ? (localStorage.getItem('auth_token') || localStorage.getItem('token') || '')
+    ? (localStorage.getItem('auth_token') || '')
     : ''
 
   const [employees,  setEmployees]  = useState<any[]>([])

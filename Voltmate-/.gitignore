@@ -9,3 +9,8 @@ node_modules/
 .env*.local
 .DS_Store
 .vercel
+
+# Test / E2E output (not source)
+coverage/
+test-results/
+playwright-report/
