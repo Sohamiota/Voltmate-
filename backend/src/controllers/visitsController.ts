@@ -1,6 +1,10 @@
 import { Request, Response } from 'express';
 import { query } from '../db';
 import { logActivity } from '../utils/activityLog';
+import {
+  reqId, optId, optStr, optPhone, optDate, optEnum,
+  collectErrors, parsePagination, VISIT_STATUSES,
+} from '../utils/validate';
 
 // Auto-add phone + audit columns to visits table if not present
 let visitsColsReady = false;
@@ -20,18 +24,33 @@ export async function createVisit(req: Request, res: Response) {
   try {
     await ensureVisitsCols();
     const userId = (req as any).user?.sub ?? null;
-    const {
-      lead_id, vehicle, salesperson_id, status,
-      visit_date, next_action, next_action_date, note,
-      phone_no, phone_no_2, connect_date: body_connect_date,
-    } = req.body;
+    const body   = req.body || {};
 
-    if (!lead_id) return res.status(400).json({ error: 'lead_id required' });
+    const vLeadId      = reqId(body.lead_id);
+    const vSalesperson = optId(body.salesperson_id);
+    const vVehicle     = optStr(body.vehicle, 200);
+    const vStatus      = optEnum(body.status, VISIT_STATUSES);
+    const vNextAction  = optEnum(body.next_action, VISIT_STATUSES);
+    const vVisitDate   = optDate(body.visit_date);
+    const vNextDate    = optDate(body.next_action_date);
+    const vConnDate    = optDate(body.connect_date);
+    const vNote        = optStr(body.note, 2000);
+    const vPhone       = optPhone(body.phone_no);
+    const vPhone2      = optPhone(body.phone_no_2);
 
-    const leadR = await query('SELECT id, cust_code, lead_type, connect_date FROM leads WHERE id=$1', [lead_id]);
+    const fieldErr = collectErrors({
+      lead_id: vLeadId.error, salesperson_id: vSalesperson.error,
+      vehicle: vVehicle.error, status: vStatus.error, next_action: vNextAction.error,
+      visit_date: vVisitDate.error, next_action_date: vNextDate.error,
+      connect_date: vConnDate.error, note: vNote.error,
+      phone_no: vPhone.error, phone_no_2: vPhone2.error,
+    });
+    if (fieldErr) return res.status(400).json({ error: fieldErr });
+
+    const leadR = await query('SELECT id, cust_code, lead_type, connect_date FROM leads WHERE id=$1', [vLeadId.value]);
     if (leadR.rowCount === 0) return res.status(404).json({ error: 'lead not found' });
     const lead = leadR.rows[0] as { cust_code: string; lead_type?: string; connect_date?: string };
-    const connect_date = body_connect_date != null ? body_connect_date : (lead.connect_date || null);
+    const connect_date = vConnDate.value ?? lead.connect_date ?? null;
 
     const r = await query(
       `INSERT INTO visits
@@ -39,9 +58,10 @@ export async function createVisit(req: Request, res: Response) {
          next_action, next_action_date, note, phone_no, phone_no_2,
          created_by, created_at, updated_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now(),now()) RETURNING *`,
-      [lead_id, lead.cust_code, lead.lead_type || null, connect_date, salesperson_id || null, vehicle || null, status || null,
-       visit_date || null, next_action || null, next_action_date || null, note || null,
-       phone_no || null, phone_no_2 || null, userId],
+      [vLeadId.value, lead.cust_code, lead.lead_type || null, connect_date,
+       vSalesperson.value, vVehicle.value, vStatus.value,
+       vVisitDate.value, vNextAction.value, vNextDate.value, vNote.value,
+       vPhone.value, vPhone2.value, userId],
     );
     const newVisit = (r as any).rows[0];
     await logActivity('visit', newVisit.id, lead.cust_code, 'create', userId, `Visit created for ${lead.cust_code}`);
@@ -55,25 +75,44 @@ export async function createVisit(req: Request, res: Response) {
 export async function updateVisit(req: Request, res: Response) {
   try {
     await ensureVisitsCols();
-    const id       = parseInt(req.params.id, 10);
-    if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
-    const requester = (req as any).user;
-    const userId    = requester?.sub ?? null;
+    const vId = reqId(req.params.id);
+    if (vId.error) return res.status(400).json({ error: 'invalid id' });
+    const id      = vId.value;
+    const userId  = (req as any).user?.sub ?? null;
+    const body    = req.body || {};
 
-    // Verify the visit exists before updating
+    const vSalesperson = optId(body.salesperson_id);
+    const vVehicle     = optStr(body.vehicle, 200);
+    const vStatus      = optEnum(body.status, VISIT_STATUSES);
+    const vNextAction  = optEnum(body.next_action, VISIT_STATUSES);
+    const vVisitDate   = optDate(body.visit_date);
+    const vNextDate    = optDate(body.next_action_date);
+    const vConnDate    = optDate(body.connect_date);
+    const vNote        = optStr(body.note, 2000);
+    const vPhone       = optPhone(body.phone_no);
+    const vPhone2      = optPhone(body.phone_no_2);
+
+    const fieldErr = collectErrors({
+      salesperson_id: vSalesperson.error, vehicle: vVehicle.error,
+      status: vStatus.error, next_action: vNextAction.error,
+      visit_date: vVisitDate.error, next_action_date: vNextDate.error,
+      connect_date: vConnDate.error, note: vNote.error,
+      phone_no: vPhone.error, phone_no_2: vPhone2.error,
+    });
+    if (fieldErr) return res.status(400).json({ error: fieldErr });
+
     const existing = await query('SELECT id FROM visits WHERE id=$1', [id]);
     if ((existing as any).rowCount === 0) return res.status(404).json({ error: 'visit not found' });
 
-    const { vehicle, salesperson_id, status, visit_date, next_action, next_action_date, note, phone_no, phone_no_2, connect_date } = req.body;
     const r = await query(
       `UPDATE visits
        SET vehicle=$1, salesperson_id=$2, status=$3, visit_date=$4,
            next_action=$5, next_action_date=$6, note=$7,
            phone_no=$8, phone_no_2=$9, connect_date=$10, updated_by=$11, updated_at=now()
        WHERE id=$12 RETURNING *`,
-      [vehicle || null, salesperson_id || null, status || null, visit_date || null,
-       next_action || null, next_action_date || null, note || null,
-       phone_no || null, phone_no_2 || null, connect_date ?? null, userId, id],
+      [vVehicle.value, vSalesperson.value, vStatus.value, vVisitDate.value,
+       vNextAction.value, vNextDate.value, vNote.value,
+       vPhone.value, vPhone2.value, vConnDate.value ?? null, userId, id],
     );
     const updated = (r as any).rows[0];
     await logActivity('visit', id, updated.lead_cust_code || String(id), 'update', userId, `Visit updated`);
@@ -86,8 +125,9 @@ export async function updateVisit(req: Request, res: Response) {
 
 export async function deleteVisit(req: Request, res: Response) {
   try {
-    const id        = parseInt(req.params.id, 10);
-    if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+    const vId = reqId(req.params.id);
+    if (vId.error) return res.status(400).json({ error: 'invalid id' });
+    const id = vId.value;
     const requester = (req as any).user;
     const userId    = requester?.sub ?? null;
 
@@ -104,8 +144,7 @@ export async function deleteVisit(req: Request, res: Response) {
 }
 
 export async function listVisits(req: Request, res: Response) {
-  const limit  = Math.min(parseInt((req.query.limit  as string) || '100', 10), 1000);
-  const offset = parseInt((req.query.offset as string) || '0', 10);
+  const { limit, offset } = parsePagination(req.query.limit, req.query.offset);
   try {
     await ensureVisitsCols();
     const r = await query(
@@ -142,8 +181,7 @@ export async function listVisits(req: Request, res: Response) {
 // - Booking Amount Received
 // - Anything after booking: Order Confirmed, Delivery Scheduled, Delivered (Closed - Won)
 export async function listVisibleVisits(req: Request, res: Response) {
-  const limit  = Math.min(parseInt((req.query.limit  as string) || '100', 10), 1000);
-  const offset = parseInt((req.query.offset as string) || '0', 10);
+  const { limit, offset } = parsePagination(req.query.limit, req.query.offset);
   try {
     await ensureVisitsCols();
     const r = await query(

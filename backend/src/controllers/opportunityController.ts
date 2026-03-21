@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { query } from '../db';
+import { reqId, optStr, parsePagination, sanitizeSearch } from '../utils/validate';
 
 const ALLOWED_FIELDS = [
   'sl_no',
@@ -23,8 +24,9 @@ const ALLOWED_FIELDS = [
 
 export async function getOpportunity(req: Request, res: Response) {
   try {
-    const id = parseInt(req.params.id, 10);
-    if (Number.isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+    const vId = reqId(req.params.id);
+    if (vId.error) return res.status(400).json({ error: 'invalid id' });
+    const id = vId.value;
     const r = await query('SELECT * FROM opportunities WHERE id=$1', [id]);
     if ((r as any).rowCount === 0) return res.status(404).json({ error: 'not found' });
     res.json((r as any).rows[0]);
@@ -40,18 +42,24 @@ export async function updateOpportunity(req: Request, res: Response) {
     if (requester?.role !== 'admin') {
       return res.status(403).json({ error: 'Only admins can modify opportunities' });
     }
-    const id = parseInt(req.params.id, 10);
-    if (Number.isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+    const vId = reqId(req.params.id);
+    if (vId.error) return res.status(400).json({ error: 'invalid id' });
+    const id      = vId.value;
     const payload = req.body || {};
-    const keys = Object.keys(payload).filter(k => ALLOWED_FIELDS.includes(k));
+    const keys    = Object.keys(payload).filter(k => ALLOWED_FIELDS.includes(k));
     if (keys.length === 0) return res.status(400).json({ error: 'no valid fields to update' });
 
     const setClauses: string[] = [];
     const values: any[] = [];
-    keys.forEach((k, i) => {
+    for (let i = 0; i < keys.length; i++) {
+      const k   = keys[i];
+      const raw = payload[k];
+      // Sanitize every text value: strip HTML tags, cap at 500 chars
+      const vVal = optStr(raw, 500);
+      if (vVal.error) return res.status(400).json({ error: `${k}: ${vVal.error}` });
       setClauses.push(`${k} = $${i + 1}`);
-      values.push(payload[k]);
-    });
+      values.push(vVal.value);
+    }
     setClauses.push(`updated_at = now()`);
     const sql = `UPDATE opportunities SET ${setClauses.join(', ')} WHERE id = $${values.length + 1} RETURNING *`;
     values.push(id);
@@ -66,17 +74,19 @@ export async function updateOpportunity(req: Request, res: Response) {
 
 export async function listOpportunities(req: Request, res: Response) {
   try {
-    const q = (req.query.q as string) || '';
-    const limit = Math.min(parseInt((req.query.limit as string) || '50', 10), 100);
-    const offset = parseInt((req.query.offset as string) || '0', 10);
-    const source = (req.query.source as string) || '';
+    const q      = sanitizeSearch(req.query.q);
+    const { limit, offset } = parsePagination(req.query.limit, req.query.offset, 100);
+    // Only accept the two known source filter values; anything else is ignored
+    const rawSource = req.query.source as string | undefined;
+    const source = rawSource === 'salesforce' || rawSource === 'non-salesforce'
+      ? rawSource : '';
 
     let sql: string;
     let params: any[] = [];
     const where: string[] = [];
-    if (q && q.trim().length > 0) {
+    if (q.length > 0) {
       where.push(`(opportunity_name ILIKE $${params.length + 1} OR phone_no ILIKE $${params.length + 1})`);
-      params.push(`%${q}%`);
+      params.push(`%${q}%`);  // q is already sanitized by sanitizeSearch()
     }
     if (source === 'salesforce') {
       where.push(`source = 'salesforce'`);

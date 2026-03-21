@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import sgMail from '@sendgrid/mail';
+import { reqStr, reqEmail, collectErrors, optEnum } from '../utils/validate';
 
 if (process.env.SENDGRID_API_KEY) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -33,9 +34,20 @@ function validatePassword(password: string): string | null {
 
 export async function register(req: Request, res: Response) {
   try {
-    const { name, email, password } = req.body;
-    if (!name || !email || !password)
-      return res.status(400).json({ error: 'name, email and password are required' });
+    const body = req.body || {};
+
+    const vName  = reqStr(body.name, 100);
+    const vEmail = reqEmail(body.email);
+    // Password is validated by validatePassword(); cap at 128 chars to prevent
+    // bcrypt DoS (bcrypt truncates at 72 bytes — very long inputs waste CPU).
+    const vPw    = reqStr(body.password, 128);
+
+    const fieldErr = collectErrors({ name: vName.error, email: vEmail.error, password: vPw.error });
+    if (fieldErr) return res.status(400).json({ error: fieldErr });
+
+    const name     = vName.value as string;
+    const email    = vEmail.value as string;
+    const password = vPw.value as string;
 
     // ─── [M-7] Enforce password strength ─────────────────────────────────────
     const pwErr = validatePassword(password);
@@ -90,8 +102,17 @@ export async function register(req: Request, res: Response) {
 
 export async function verify(req: Request, res: Response) {
   try {
-    const { email, otp } = req.body;
-    if (!email || !otp) return res.status(400).json({ error: 'email and otp are required' });
+    const body   = req.body || {};
+    const vEmail = reqEmail(body.email);
+    const vOtp   = reqStr(body.otp, 6);
+    const fieldErr = collectErrors({ email: vEmail.error, otp: vOtp.error });
+    if (fieldErr) return res.status(400).json({ error: fieldErr });
+
+    const email = vEmail.value;
+    const otp   = (vOtp.value as string).trim();
+    // OTP must be exactly 6 digits
+    if (!/^\d{6}$/.test(otp))
+      return res.status(400).json({ error: 'otp must be a 6-digit number' });
 
     const r = await query(
       `UPDATE users
@@ -113,9 +134,14 @@ export async function verify(req: Request, res: Response) {
 
 export async function login(req: Request, res: Response) {
   try {
-    const { email, password } = req.body;
-    if (!email || !password)
-      return res.status(400).json({ error: 'email and password are required' });
+    const body   = req.body || {};
+    const vEmail = reqEmail(body.email);
+    const vPw    = reqStr(body.password, 128);
+    const fieldErr = collectErrors({ email: vEmail.error, password: vPw.error });
+    if (fieldErr) return res.status(400).json({ error: fieldErr });
+
+    const email    = vEmail.value as string;
+    const password = vPw.value as string;
 
     const r = await query(
       'SELECT id, email, password_hash, is_verified, is_approved, role FROM users WHERE email=$1',
@@ -199,10 +225,11 @@ export async function adminChangeRole(req: Request, res: Response) {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: 'Invalid user id' });
 
-    const { role } = req.body;
-    const ALLOWED = ['admin', 'sales', 'service', 'employee'];
-    if (!ALLOWED.includes(role))
+    const ALLOWED = ['admin', 'sales', 'service', 'employee'] as const;
+    const vRole = optEnum(req.body?.role, ALLOWED);
+    if (vRole.error || !vRole.value)
       return res.status(400).json({ error: `role must be one of: ${ALLOWED.join(', ')}` });
+    const role = vRole.value;
 
     await query('UPDATE users SET role=$1 WHERE id=$2', [role, id]);
     res.json({ message: 'Role updated' });

@@ -1,6 +1,10 @@
 import { Request, Response } from 'express';
 import { query } from '../db';
 import { logActivity } from '../utils/activityLog';
+import {
+  reqStr, optStr, optPhone, optDate, optEnum, reqId,
+  collectErrors, parsePagination, sanitizeSearch, LEAD_TYPES,
+} from '../utils/validate';
 
 // Auto-add extra columns if not already present
 let leadsColsReady = false;
@@ -18,8 +22,24 @@ export async function createLead(req: Request, res: Response) {
   try {
     await ensureLeadsCols();
     const userId = (req as any).user?.sub ?? null;
-    const { connect_date, cust_name, business, phone_no, phone_no_2, lead_type, note, location } = req.body;
-    if (!cust_name) return res.status(400).json({ error: 'cust_name required' });
+    const body   = req.body || {};
+
+    const vName     = reqStr(body.cust_name, 200);
+    const vBusiness = optStr(body.business, 200);
+    const vPhone    = optPhone(body.phone_no);
+    const vPhone2   = optPhone(body.phone_no_2);
+    const vLeadType = optEnum(body.lead_type, LEAD_TYPES);
+    const vNote     = optStr(body.note, 2000);
+    const vLocation = optStr(body.location, 300);
+    const vConnDate = optDate(body.connect_date);
+
+    const fieldErr = collectErrors({
+      cust_name: vName.error, business: vBusiness.error,
+      phone_no: vPhone.error, phone_no_2: vPhone2.error,
+      lead_type: vLeadType.error, note: vNote.error,
+      location: vLocation.error, connect_date: vConnDate.error,
+    });
+    if (fieldErr) return res.status(400).json({ error: fieldErr });
 
     function generateCustCode() {
       const time = Date.now().toString(36).toUpperCase();
@@ -31,11 +51,11 @@ export async function createLead(req: Request, res: Response) {
     const r = await query(
       `INSERT INTO leads (cust_code, connect_date, cust_name, business, phone_no, phone_no_2, lead_type, note, location, created_by, created_at, updated_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now(),now()) RETURNING *`,
-      [cust_code, connect_date || null, cust_name, business || null, phone_no || null,
-      phone_no_2 || null, lead_type || null, note || null, location || null, userId],
+      [cust_code, vConnDate.value, vName.value, vBusiness.value, vPhone.value,
+       vPhone2.value, vLeadType.value, vNote.value, vLocation.value, userId],
     );
     const newLead = (r as any).rows[0];
-    await logActivity('lead', newLead.id, cust_code, 'create', userId, `Lead created: ${cust_name}`);
+    await logActivity('lead', newLead.id, cust_code, 'create', userId, `Lead created: ${vName.value}`);
     res.status(201).json(newLead);
   } catch (e) {
     console.error(e);
@@ -46,27 +66,42 @@ export async function createLead(req: Request, res: Response) {
 export async function updateLead(req: Request, res: Response) {
   try {
     await ensureLeadsCols();
-    const id        = parseInt(req.params.id, 10);
-    if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
-    const requester = (req as any).user;
-    const userId    = requester?.sub ?? null;
+    const vId = reqId(req.params.id);
+    if (vId.error) return res.status(400).json({ error: 'invalid id' });
+    const id      = vId.value;
+    const userId  = (req as any).user?.sub ?? null;
+    const body    = req.body || {};
 
-    // Verify the lead exists before updating
+    const vName     = reqStr(body.cust_name, 200);
+    const vBusiness = optStr(body.business, 200);
+    const vPhone    = optPhone(body.phone_no);
+    const vPhone2   = optPhone(body.phone_no_2);
+    const vLeadType = optEnum(body.lead_type, LEAD_TYPES);
+    const vNote     = optStr(body.note, 2000);
+    const vLocation = optStr(body.location, 300);
+    const vConnDate = optDate(body.connect_date);
+
+    const fieldErr = collectErrors({
+      cust_name: vName.error, business: vBusiness.error,
+      phone_no: vPhone.error, phone_no_2: vPhone2.error,
+      lead_type: vLeadType.error, note: vNote.error,
+      location: vLocation.error, connect_date: vConnDate.error,
+    });
+    if (fieldErr) return res.status(400).json({ error: fieldErr });
+
     const existing = await query('SELECT id FROM leads WHERE id=$1', [id]);
     if ((existing as any).rowCount === 0) return res.status(404).json({ error: 'lead not found' });
 
-    const { connect_date, cust_name, business, phone_no, phone_no_2, lead_type, note, location } = req.body;
-    if (!cust_name) return res.status(400).json({ error: 'cust_name required' });
     const r = await query(
       `UPDATE leads
       SET connect_date=$1, cust_name=$2, business=$3, phone_no=$4, phone_no_2=$5,
           lead_type=$6, note=$7, location=$8, updated_by=$9, updated_at=now()
        WHERE id=$10 RETURNING *`,
-      [connect_date || null, cust_name, business || null, phone_no || null,
-      phone_no_2 || null, lead_type || null, note || null, location || null, userId, id],
+      [vConnDate.value, vName.value, vBusiness.value, vPhone.value,
+       vPhone2.value, vLeadType.value, vNote.value, vLocation.value, userId, id],
     );
     const updated = (r as any).rows[0];
-    await logActivity('lead', id, updated.cust_code || String(id), 'update', userId, `Lead updated: ${cust_name}`);
+    await logActivity('lead', id, updated.cust_code || String(id), 'update', userId, `Lead updated: ${vName.value}`);
     res.json(updated);
   } catch (e) {
     console.error(e);
@@ -75,21 +110,23 @@ export async function updateLead(req: Request, res: Response) {
 }
 
 export async function listLeads(req: Request, res: Response) {
-  const limit  = Math.min(parseInt((req.query.limit  as string) || '100', 10), 1000);
-  const offset = parseInt((req.query.offset as string) || '0', 10);
+  const { limit, offset } = parsePagination(req.query.limit, req.query.offset);
   try {
     await ensureLeadsCols();
-    const q     = (req.query.q         as string) || '';
-    const start = req.query.startDate  as string | undefined;
-    const end   = req.query.endDate    as string | undefined;
+    const q     = sanitizeSearch(req.query.q);
+    const start = optDate(req.query.startDate);
+    const end   = optDate(req.query.endDate);
+    if (start.error) return res.status(400).json({ error: `startDate: ${start.error}` });
+    if (end.error)   return res.status(400).json({ error: `endDate: ${end.error}` });
+
     const where: string[] = [];
     const params: any[]   = [];
     if (q) {
       params.push(`%${q}%`);
       where.push(`(l.cust_code ILIKE $${params.length} OR l.cust_name ILIKE $${params.length} OR l.phone_no ILIKE $${params.length} OR l.location ILIKE $${params.length})`);
     }
-    if (start) { params.push(start); where.push(`l.connect_date >= $${params.length}`); }
-    if (end)   { params.push(end);   where.push(`l.connect_date <= $${params.length}`); }
+    if (start.value) { params.push(start.value); where.push(`l.connect_date >= $${params.length}`); }
+    if (end.value)   { params.push(end.value);   where.push(`l.connect_date <= $${params.length}`); }
 
     let sql = `
       SELECT l.*,
@@ -113,8 +150,9 @@ export async function listLeads(req: Request, res: Response) {
 
 export async function deleteLead(req: Request, res: Response) {
   try {
-    const id        = parseInt(req.params.id, 10);
-    if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+    const vId = reqId(req.params.id);
+    if (vId.error) return res.status(400).json({ error: 'invalid id' });
+    const id = vId.value;
     const requester = (req as any).user;
     const userId    = requester?.sub ?? null;
 

@@ -78,6 +78,12 @@ tmp/
 *.pem
 *.key
 /.vercel
+
+# Credential / test-payload files — must never be committed
+tmp_login.json
+tmp_register.json
+**/tmp_login.json
+**/tmp_register.json
 backend/node_modules/
 frontend/node_modules/
 Voltmate-/node_modules/
