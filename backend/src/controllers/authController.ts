@@ -38,16 +38,20 @@ export async function register(req: Request, res: Response) {
 
     const vName  = reqStr(body.name, 100);
     const vEmail = reqEmail(body.email);
-    // Password is validated by validatePassword(); cap at 128 chars to prevent
-    // bcrypt DoS (bcrypt truncates at 72 bytes — very long inputs waste CPU).
-    const vPw    = reqStr(body.password, 128);
 
-    const fieldErr = collectErrors({ name: vName.error, email: vEmail.error, password: vPw.error });
+    // Passwords must never be stripped/transformed before hashing.
+    // Only check presence and cap length to prevent bcrypt DoS.
+    const rawPw = typeof body.password === 'string' ? body.password : '';
+    const fieldErr = collectErrors({
+      name:  vName.error,
+      email: vEmail.error,
+      password: !rawPw ? 'required' : rawPw.length > 128 ? 'too long (max 128)' : null,
+    });
     if (fieldErr) return res.status(400).json({ error: fieldErr });
 
     const name     = vName.value as string;
     const email    = vEmail.value as string;
-    const password = vPw.value as string;
+    const password = rawPw;
 
     // ─── [M-7] Enforce password strength ─────────────────────────────────────
     const pwErr = validatePassword(password);
@@ -136,15 +140,22 @@ export async function login(req: Request, res: Response) {
   try {
     const body   = req.body || {};
     const vEmail = reqEmail(body.email);
-    const vPw    = reqStr(body.password, 128);
-    const fieldErr = collectErrors({ email: vEmail.error, password: vPw.error });
-    if (fieldErr) return res.status(400).json({ error: fieldErr });
 
-    const email    = vEmail.value as string;
-    const password = vPw.value as string;
+    // Passwords must NEVER be stripped/transformed before bcrypt.compare() —
+    // doing so would corrupt the credential check. Only enforce presence and
+    // an upper-bound length to prevent bcrypt DoS (72-byte truncation issue).
+    const rawPw = typeof body.password === 'string' ? body.password : '';
+    if (!rawPw)          return res.status(400).json({ error: 'password: required' });
+    if (rawPw.length > 128) return res.status(400).json({ error: 'password: too long' });
+    if (vEmail.error)    return res.status(400).json({ error: `email: ${vEmail.error}` });
 
+    const email    = vEmail.value as string;  // already lowercased by reqEmail
+    const password = rawPw;
+
+    // Use LOWER(email) so existing users whose email was stored with mixed
+    // casing can still log in after we started normalising to lowercase.
     const r = await query(
-      'SELECT id, email, password_hash, is_verified, is_approved, role FROM users WHERE email=$1',
+      'SELECT id, email, password_hash, is_verified, is_approved, role FROM users WHERE LOWER(email)=$1',
       [email],
     );
 
