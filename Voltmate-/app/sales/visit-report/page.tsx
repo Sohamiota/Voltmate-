@@ -563,21 +563,49 @@ export default function VisitReportPage() {
     else { setSortField(field); setSortDir('asc'); }
   }
 
-  async function exportCSV() {
-    try {
-      const token = getToken();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE}/api/v1/visits/report/export/csv`, { headers });
-      if (!res.ok) { alert('Export failed'); return; }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `visit-report_${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) { console.error('export error:', err); alert('Export failed'); }
+  function exportCSV() {
+    const cols: { key: keyof Visit | 'phone'; label: string }[] = [
+      { key: 'lead_cust_code',    label: 'Cust Code' },
+      { key: 'cust_name',         label: 'Customer Name' },
+      { key: 'lead_type',         label: 'Lead Type' },
+      { key: 'connect_date',      label: 'Connect Date' },
+      { key: 'salesperson_name',  label: 'Salesperson' },
+      { key: 'phone',             label: 'Phone' },
+      { key: 'vehicle',           label: 'Vehicle' },
+      { key: 'status',            label: 'Status' },
+      { key: 'visit_date',        label: 'Visit Date' },
+      { key: 'next_action',       label: 'Next Action' },
+      { key: 'next_action_date',  label: 'Next Action Date' },
+      { key: 'note',              label: 'Note' },
+    ];
+
+    function esc(val: any): string {
+      const s = (val == null ? '' : String(val)).replace(/"/g, '""');
+      return `"${s}"`;
+    }
+
+    function fmt(v: Visit, key: keyof Visit | 'phone'): string {
+      if (key === 'phone') {
+        return esc([v.phone_no, v.phone_no_2].filter(Boolean).join(' / '));
+      }
+      const raw = v[key as keyof Visit];
+      if ((key === 'connect_date' || key === 'visit_date' || key === 'next_action_date') && raw) {
+        return esc(fmtDate(raw as string));
+      }
+      return esc(raw);
+    }
+
+    const header = cols.map(c => `"${c.label}"`).join(',');
+    const rows   = visits.map(v => cols.map(c => fmt(v, c.key)).join(','));
+    const csv    = [header, ...rows].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `visit-report_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
