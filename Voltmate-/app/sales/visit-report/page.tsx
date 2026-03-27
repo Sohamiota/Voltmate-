@@ -70,15 +70,7 @@ function fmtDate(d?: string) {
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-/** Returns the number of calendar days the follow-up is past due (positive = overdue, 0 or negative = fine). */
-function daysOverdue(dateStr?: string): number {
-  if (!dateStr) return 0;
-  const due  = new Date(dateStr);
-  due.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.floor((today.getTime() - due.getTime()) / 86_400_000);
-}
+
 function fmtDateTime(d?: string) {
   if (!d) return '—';
   return new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -239,18 +231,6 @@ const PAGE_STYLES = `
   tbody tr:last-child td { border-bottom: none; }
   tbody tr { transition: background .1s; }
   tbody tr:hover { background: rgba(255,255,255,0.02); }
-  tbody tr.vr-row-amber { background: rgba(251,191,36,0.06); }
-  tbody tr.vr-row-red   { background: rgba(244,63,94,0.08); }
-  tbody tr.vr-row-amber:hover { background: rgba(251,191,36,0.11); }
-  tbody tr.vr-row-red:hover   { background: rgba(244,63,94,0.13); }
-
-  .vr-overdue-badge {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 2px 7px; border-radius: 20px; font-size: 10px; font-weight: 700;
-    white-space: nowrap; margin-left: 6px; vertical-align: middle;
-  }
-  .vr-overdue-badge.amber { background: rgba(251,191,36,0.12); color: var(--amber); border: 1px solid rgba(251,191,36,0.3); }
-  .vr-overdue-badge.red   { background: rgba(244,63,94,0.12);  color: var(--red);   border: 1px solid rgba(244,63,94,0.3); }
 
   .vr-num { font-family: var(--mono); font-size: 11px; color: var(--text3); }
   .vr-code { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--accent); }
@@ -710,12 +690,8 @@ export default function VisitReportPage() {
                     </div>
                   </td></tr>
                 ) : (
-                  visits.map((v, i) => {
-                    const overdueDays = daysOverdue(v.next_action_date);
-                    const rowCls = overdueDays >= 7 ? 'vr-row-red' : overdueDays > 0 ? 'vr-row-amber' : '';
-                    const badgeCls = overdueDays >= 7 ? 'red' : 'amber';
-                    return (
-                      <tr key={v.id ?? i} className={rowCls}>
+                  visits.map((v, i) => (
+                      <tr key={v.id ?? i}>
                         <td className="vr-num">{String(i + 1).padStart(2, '0')}</td>
                         <td className="vr-code">{v.lead_cust_code || '—'}</td>
                         <td style={{ fontWeight: 500 }}>{v.cust_name || '—'}</td>
@@ -736,13 +712,8 @@ export default function VisitReportPage() {
                         <td style={{ color: 'var(--text2)' }}>
                           {v.next_action || '—'}
                           {v.next_action_date && (
-                            <span style={{ display: 'block', marginTop: 2, fontFamily: 'var(--mono)', fontSize: '11px', color: overdueDays > 0 ? (overdueDays >= 7 ? 'var(--red)' : 'var(--amber)') : 'var(--text3)' }}>
+                            <span style={{ display: 'block', marginTop: 2, fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--text3)' }}>
                               {fmtDate(v.next_action_date)}
-                              {overdueDays > 0 && (
-                                <span className={`vr-overdue-badge ${badgeCls}`}>
-                                  {overdueDays}d overdue
-                                </span>
-                              )}
                             </span>
                           )}
                         </td>
@@ -752,8 +723,7 @@ export default function VisitReportPage() {
                           </button>
                         </td>
                       </tr>
-                    );
-                  })
+                  ))
                 )}
               </tbody>
             </table>
