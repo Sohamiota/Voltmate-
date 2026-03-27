@@ -563,49 +563,53 @@ export default function VisitReportPage() {
     else { setSortField(field); setSortDir('asc'); }
   }
 
-  function exportCSV() {
-    const cols: { key: keyof Visit | 'phone'; label: string }[] = [
-      { key: 'lead_cust_code',    label: 'Cust Code' },
-      { key: 'cust_name',         label: 'Customer Name' },
-      { key: 'lead_type',         label: 'Lead Type' },
-      { key: 'connect_date',      label: 'Connect Date' },
-      { key: 'salesperson_name',  label: 'Salesperson' },
-      { key: 'phone',             label: 'Phone' },
-      { key: 'vehicle',           label: 'Vehicle' },
-      { key: 'status',            label: 'Status' },
-      { key: 'visit_date',        label: 'Visit Date' },
-      { key: 'next_action',       label: 'Next Action' },
-      { key: 'next_action_date',  label: 'Next Action Date' },
-      { key: 'note',              label: 'Note' },
-    ];
+  async function exportCSV() {
+    try {
+      const token = getToken();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    function esc(val: any): string {
-      const s = (val == null ? '' : String(val)).replace(/"/g, '""');
-      return `"${s}"`;
-    }
+      const res = await fetch(`${API_BASE}/api/v1/visits/report/export/csv`, { headers });
+      if (!res.ok) { alert('Export failed'); return; }
 
-    function fmt(v: Visit, key: keyof Visit | 'phone'): string {
-      if (key === 'phone') {
-        return esc([v.phone_no, v.phone_no_2].filter(Boolean).join(' / '));
+      const raw = await res.text();
+      const lines = raw.split('\n');
+      if (lines.length === 0) { alert('No data to export'); return; }
+
+      // Parse the header row to find the index of the "status" column
+      const headerCols = lines[0].split(',').map(c => c.replace(/^"|"$/g, '').trim().toLowerCase());
+      const statusIdx  = headerCols.indexOf('status');
+
+      // Keep the header + only rows whose status is in the visible allow-list (or empty)
+      const allowedSet = new Set(STATUSES.map(s => s.toLowerCase()));
+      const filtered = [lines[0]];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.trim()) continue;
+        if (statusIdx === -1) {
+          // No status column found – keep everything
+          filtered.push(line);
+          continue;
+        }
+        // Split CSV row respecting quoted fields
+        const fields = line.match(/("(?:[^"]|"")*"|[^,]*)/g) ?? [];
+        const statusVal = (fields[statusIdx] ?? '').replace(/^"|"$/g, '').trim().toLowerCase();
+        if (!statusVal || allowedSet.has(statusVal)) {
+          filtered.push(line);
+        }
       }
-      const raw = v[key as keyof Visit];
-      if ((key === 'connect_date' || key === 'visit_date' || key === 'next_action_date') && raw) {
-        return esc(fmtDate(raw as string));
-      }
-      return esc(raw);
+
+      const blob = new Blob([filtered.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `visit-report_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('export error:', err);
+      alert('Export failed');
     }
-
-    const header = cols.map(c => `"${c.label}"`).join(',');
-    const rows   = visits.map(v => cols.map(c => fmt(v, c.key)).join(','));
-    const csv    = [header, ...rows].join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `visit-report_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
