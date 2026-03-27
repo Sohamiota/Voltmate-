@@ -152,6 +152,7 @@ const STATUSES = [
   'Demo Follow Up',
   'Follow-Up 2',
   'Negotiation',
+  'Booking Date Confirmed',
   'Loan Processing',
   'Booking Amount Received',
   'Order Confirmed',

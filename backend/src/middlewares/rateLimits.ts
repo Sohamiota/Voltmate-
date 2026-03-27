@@ -2,17 +2,21 @@ import rateLimit from 'express-rate-limit';
 import { Request } from 'express';
 
 // Prefer authenticated user ID as the rate-limit key so office networks sharing
-// one IP are not collectively penalised. Falls back to IP for unauthenticated
-// requests (login / register — handled separately in routes/auth.ts).
+// one IP are not collectively penalised. Falls back to raw socket IP for
+// unauthenticated requests (login / register handled separately in routes/auth.ts).
 //
-// The key is always prefixed with "uid:" or "ip:" — it is never a raw IP
-// address, so express-rate-limit's IPv6 helper is not needed here.
-// skipFailedRequests / validate.ip is set to false to suppress the
-// ERR_ERL_KEY_GEN_IPV6 warning that fires when a custom keyGenerator
-// touches req.ip without going through ipKeyGenerator().
+// We read the IP directly from the socket / X-Forwarded-For header instead
+// of req.ip to avoid the ERR_ERL_KEY_GEN_IPV6 warning that fires when a
+// custom keyGenerator touches req.ip without going through ipKeyGenerator().
+function clientIp(req: Request): string {
+  const fwd = req.headers['x-forwarded-for'];
+  if (typeof fwd === 'string') return fwd.split(',')[0].trim();
+  return req.socket?.remoteAddress ?? 'unknown';
+}
+
 const userOrIpKey = (req: Request): string => {
   const uid = (req as any).user?.sub;
-  return uid ? `uid:${uid}` : `ip:${req.ip ?? 'unknown'}`;
+  return uid ? `uid:${uid}` : `ip:${clientIp(req)}`;
 };
 
 // ── Tier 1 – Global authenticated API ────────────────────────────────────────
@@ -24,7 +28,6 @@ export const apiLimiter = rateLimit({
   keyGenerator:    userOrIpKey,
   standardHeaders: true,
   legacyHeaders:   false,
-  validate:        { ip: false },
   message: { error: 'Rate limit exceeded. Please slow down.' },
 });
 
@@ -37,7 +40,6 @@ export const writeLimiter = rateLimit({
   keyGenerator:    userOrIpKey,
   standardHeaders: true,
   legacyHeaders:   false,
-  validate:        { ip: false },
   skip:            (req: Request) => !['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method),
   message: { error: 'Too many write requests. Please slow down.' },
 });
@@ -50,7 +52,6 @@ export const deleteLimiter = rateLimit({
   keyGenerator:    userOrIpKey,
   standardHeaders: true,
   legacyHeaders:   false,
-  validate:        { ip: false },
   skip:            (req: Request) => req.method !== 'DELETE',
   message: { error: 'Too many delete requests. Please wait before deleting more.' },
 });
@@ -63,6 +64,5 @@ export const exportLimiter = rateLimit({
   keyGenerator:    userOrIpKey,
   standardHeaders: true,
   legacyHeaders:   false,
-  validate:        { ip: false },
   message: { error: 'Export limit reached. You can export up to 20 times per hour.' },
 });

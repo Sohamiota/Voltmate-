@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, PieChart, Pie, Cell,
 } from 'recharts';
-import { TrendingUp, Award, Target, FileText, RefreshCw, Users } from 'lucide-react';
+import { TrendingUp, Award, Target, FileText, RefreshCw, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
@@ -21,11 +21,12 @@ function getToken() {
 const CHART_COLORS = ['#00d9ff', '#7c3aed', '#22c55e', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#f97316'];
 
 const STATUS_BADGE: Record<string, string> = {
-  'Booking Amount Received': 'bg-green-500/15 text-green-400 border-green-500/25',
-  'Negotiation':             'bg-yellow-500/15 text-yellow-400 border-yellow-500/25',
-  'Quotation Shared':        'bg-blue-500/15 text-blue-400 border-blue-500/25',
-  'Demo Completed':          'bg-purple-500/15 text-purple-400 border-purple-500/25',
-  'New Lead':                'bg-gray-500/15 text-gray-400 border-gray-500/25',
+  'Booking Amount Received':  'bg-green-500/15 text-green-400 border-green-500/25',
+  'Booking Date Confirmed':   'bg-teal-500/15 text-teal-400 border-teal-500/25',
+  'Negotiation':              'bg-yellow-500/15 text-yellow-400 border-yellow-500/25',
+  'Quotation Shared':         'bg-blue-500/15 text-blue-400 border-blue-500/25',
+  'Demo Completed':           'bg-purple-500/15 text-purple-400 border-purple-500/25',
+  'New Lead':                 'bg-gray-500/15 text-gray-400 border-gray-500/25',
 };
 function statusClass(s: string) {
   return STATUS_BADGE[s] || 'bg-gray-500/15 text-gray-400 border-gray-500/25';
@@ -44,6 +45,7 @@ const tooltipStyle = {
 export default function SalesPerformance() {
   const [leads,   setLeads]   = useState<any[]>([]);
   const [visits,  setVisits]  = useState<any[]>([]);
+  const [overdue, setOverdue] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
 
@@ -52,13 +54,15 @@ export default function SalesPerformance() {
     setLoading(true);
     setError('');
     try {
-      const [leadsRes, visitsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/v1/leads?limit=500`,  { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_BASE}/api/v1/visits?limit=500`, { headers: { Authorization: `Bearer ${token}` } }),
+      const [leadsRes, visitsRes, overdueRes] = await Promise.all([
+        fetch(`${API_BASE}/api/v1/leads?limit=500`,   { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE}/api/v1/visits?limit=500`,  { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE}/api/v1/visits/overdue`,    { headers: { Authorization: `Bearer ${token}` } }),
       ]);
-      const [lj, vj] = await Promise.all([leadsRes.json(), visitsRes.json()]);
-      setLeads(lj.leads   || []);
-      setVisits(vj.visits || []);
+      const [lj, vj, oj] = await Promise.all([leadsRes.json(), visitsRes.json(), overdueRes.json()]);
+      setLeads(lj.leads     || []);
+      setVisits(vj.visits   || []);
+      setOverdue(oj.overdue || []);
     } catch (e: any) {
       setError(e?.message || 'Failed to load data');
     } finally {
@@ -67,6 +71,9 @@ export default function SalesPerformance() {
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // Set of overdue visit IDs for O(1) lookup when rendering rows
+  const overdueIds = useMemo(() => new Set(overdue.map((o: any) => o.id)), [overdue]);
 
   // ── Derived data ─────────────────────────────────────────────────────────────
 
@@ -140,9 +147,17 @@ export default function SalesPerformance() {
       </div>
 
       {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Sales Performance</h1>
-        <p className="text-muted-foreground text-sm mt-1">Live data from lead reports and visit reports</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Sales Performance</h1>
+          <p className="text-muted-foreground text-sm mt-1">Live data from lead reports and visit reports</p>
+        </div>
+        {!loading && overdue.length > 0 && (
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/30">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            {overdue.length} overdue follow-up{overdue.length !== 1 ? 's' : ''}
+          </span>
+        )}
       </div>
 
       {error && (
@@ -150,7 +165,7 @@ export default function SalesPerformance() {
       )}
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
         <div className="bg-card border border-border rounded-xl p-3 sm:p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Leads</p>
@@ -193,6 +208,17 @@ export default function SalesPerformance() {
           </div>
           <p className="text-3xl font-bold text-green-400">{loading ? '…' : `${conversionRate}%`}</p>
           <p className="text-xs text-muted-foreground mt-1">{leadsWithVisits} of {leads.length} leads visited</p>
+        </div>
+
+        <div className={`bg-card border rounded-xl p-5 ${!loading && overdue.length > 0 ? 'border-red-500/40' : 'border-border'}`}>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Overdue</p>
+            <AlertTriangle className={`w-4 h-4 ${!loading && overdue.length > 0 ? 'text-red-400' : 'text-muted-foreground'}`} />
+          </div>
+          <p className={`text-3xl font-bold ${!loading && overdue.length > 0 ? 'text-red-400' : 'text-muted-foreground'}`}>
+            {loading ? '…' : overdue.length}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">Follow-ups past due date</p>
         </div>
       </div>
 
@@ -299,7 +325,14 @@ export default function SalesPerformance() {
       {/* Recent Visit Report table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border">
-          <h2 className="text-sm sm:text-base font-semibold text-foreground">Recent Visit Reports</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm sm:text-base font-semibold text-foreground">Recent Visit Reports</h2>
+            {!loading && overdue.length > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/30">
+                <AlertTriangle className="w-3 h-3" />{overdue.length} overdue
+              </span>
+            )}
+          </div>
           <Link href="/sales/visit-report" className="text-xs text-primary hover:underline">View all →</Link>
         </div>
         <div className="overflow-x-auto">
@@ -317,21 +350,105 @@ export default function SalesPerformance() {
                 </tr>
               </thead>
               <tbody>
-                {recentVisits.map((v, i) => (
-                  <tr key={v.id} className={`${i !== recentVisits.length - 1 ? 'border-b border-border/50' : ''} hover:bg-secondary/30 transition-colors`}>
-                    <td className="px-4 py-3 font-medium text-foreground text-sm whitespace-nowrap">{v.cust_name || '—'}</td>
-                    <td className="px-4 py-3 text-xs font-mono text-muted-foreground whitespace-nowrap">{v.lead_cust_code || '—'}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{v.salesperson_name || '—'}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{v.vehicle || '—'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs border whitespace-nowrap ${statusClass(v.status || '')}`}>
-                        {v.status || '—'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{fmtDate(v.visit_date)}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground max-w-[160px] truncate" title={v.next_action || ''}>{v.next_action || '—'}</td>
-                  </tr>
-                ))}
+                {recentVisits.map((v, i) => {
+                  const isOverdue = overdueIds.has(v.id);
+                  return (
+                    <tr key={v.id}
+                      className={`${i !== recentVisits.length - 1 ? 'border-b border-border/50' : ''} transition-colors`}
+                      style={isOverdue ? { background: 'rgba(239,68,68,0.07)' } : undefined}>
+                      <td className="px-4 py-3 font-medium text-foreground text-sm whitespace-nowrap">
+                        {isOverdue && <AlertTriangle className="w-3.5 h-3.5 text-red-400 inline mr-1.5 flex-shrink-0" />}
+                        {v.cust_name || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs font-mono text-muted-foreground whitespace-nowrap">{v.lead_cust_code || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{v.salesperson_name || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{v.vehicle || '—'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs border whitespace-nowrap ${statusClass(v.status || '')}`}>
+                          {v.status || '—'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{fmtDate(v.visit_date)}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground max-w-[160px] truncate" title={v.next_action || ''}>{v.next_action || '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* ── Overdue Follow-ups Panel ─────────────────────────────────────────── */}
+      <div className={`border rounded-xl overflow-hidden ${overdue.length > 0 ? 'border-red-500/30 bg-red-500/5' : 'border-border bg-card'}`}>
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className={`w-4 h-4 ${overdue.length > 0 ? 'text-red-400' : 'text-muted-foreground'}`} />
+            <h2 className="text-sm sm:text-base font-semibold text-foreground">Overdue Follow-ups</h2>
+            {!loading && overdue.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-500/15 text-red-400 border border-red-500/30">
+                {overdue.length}
+              </span>
+            )}
+          </div>
+          <Link href="/sales/visit-report" className="text-xs text-primary hover:underline">
+            View in Visit Report →
+          </Link>
+        </div>
+
+        <div className="overflow-x-auto">
+          {loading ? (
+            <div className="py-10 text-center text-muted-foreground text-sm">Loading…</div>
+          ) : overdue.length === 0 ? (
+            <div className="py-12 text-center">
+              <div className="text-2xl mb-2">✅</div>
+              <p className="text-sm text-muted-foreground">No overdue follow-ups — all leads are on track.</p>
+            </div>
+          ) : (
+            <table className="w-full" style={{ minWidth: 700 }}>
+              <thead>
+                <tr className="border-b border-border bg-secondary/40">
+                  {['Customer','Cust Code','Salesperson','Current Status','Last Visit','Follow-up Was Due','Next Action'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {overdue.map((v: any, i: number) => {
+                  const dueDays = Math.floor(
+                    (Date.now() - new Date(v.next_action_date).setHours(0,0,0,0)) / 86_400_000
+                  );
+                  const isVeryLate = dueDays >= 7;
+                  return (
+                    <tr key={v.id}
+                      className={`${i !== overdue.length - 1 ? 'border-b border-border/50' : ''} transition-colors`}
+                      style={{ background: isVeryLate ? 'rgba(239,68,68,0.08)' : 'rgba(251,191,36,0.06)' }}>
+                      <td className="px-4 py-3 font-medium text-foreground text-sm whitespace-nowrap">
+                        <AlertTriangle className={`w-3.5 h-3.5 inline mr-1.5 flex-shrink-0 ${isVeryLate ? 'text-red-400' : 'text-amber-400'}`} />
+                        {v.cust_name || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs font-mono text-muted-foreground whitespace-nowrap">{v.lead_cust_code || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{v.salesperson_name || '—'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs border whitespace-nowrap ${statusClass(v.status || '')}`}>
+                          {v.status || '—'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{fmtDate(v.visit_date)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="text-sm font-mono text-muted-foreground">{fmtDate(v.next_action_date)}</span>
+                        <span className={`ml-2 inline-block px-2 py-0.5 rounded-full text-xs font-bold border whitespace-nowrap ${
+                          isVeryLate
+                            ? 'bg-red-500/15 text-red-400 border-red-500/30'
+                            : 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                        }`}>
+                          {dueDays}d overdue
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground max-w-[180px] truncate" title={v.next_action || ''}>{v.next_action || '—'}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

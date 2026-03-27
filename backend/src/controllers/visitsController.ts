@@ -200,15 +200,20 @@ export async function listVisibleVisits(req: Request, res: Response) {
        LEFT JOIN users  u  ON u.id  = v.salesperson_id
        LEFT JOIN users  uc ON uc.id = v.created_by
        LEFT JOIN users  uu ON uu.id = v.updated_by
-       WHERE
-         v.status IS NULL OR (
-           v.status NOT ILIKE 'Lost%' AND
-           v.status NOT ILIKE 'Loan Processing' AND
-           v.status NOT ILIKE 'Booking Amount Received' AND
-           v.status NOT ILIKE 'Order Confirmed' AND
-           v.status NOT ILIKE 'Delivery Scheduled' AND
-           v.status NOT ILIKE 'Delivered (Closed%'
-         )
+       WHERE v.status IS NULL OR v.status IN (
+         'New Lead',
+         'Attempted Contact',
+         'Connected',
+         'Requirement Identified',
+         'Qualified Lead',
+         'Demo Scheduled',
+         'Demo Completed',
+         'Quotation Shared',
+         'Demo Follow Up',
+         'Follow-Up 2',
+         'Negotiation',
+         'Booking Date Confirmed'
+       )
        ORDER BY v.created_at DESC
        LIMIT $1 OFFSET $2`,
       [limit, offset],
@@ -253,9 +258,41 @@ export async function exportVisitsCSV(req: Request, res: Response) {
   }
 }
 
+// Returns visits where next_action_date is in the past and the lead is still
+// in an active pipeline stage. Used by the dashboard to highlight overdue rows.
+export async function listOverdueVisits(_req: Request, res: Response) {
+  try {
+    await ensureVisitsCols();
+    const r = await query(`
+      SELECT v.id, v.lead_cust_code, v.status, v.next_action,
+             v.next_action_date, v.visit_date,
+             l.cust_name, u.name AS salesperson_name
+      FROM visits v
+      LEFT JOIN leads l ON l.id  = v.lead_id
+      LEFT JOIN users u ON u.id  = v.salesperson_id
+      WHERE v.next_action_date < CURRENT_DATE
+        AND (v.status IS NULL OR (
+              v.status NOT ILIKE 'Lost%'
+          AND v.status NOT ILIKE 'Delivered%'
+          AND v.status NOT ILIKE 'Booking Amount%'
+          AND v.status NOT ILIKE 'Order Confirmed%'
+          AND v.status NOT ILIKE 'Delivery Scheduled%'
+        ))
+      ORDER BY v.next_action_date ASC
+      LIMIT 100
+    `);
+    res.json({ overdue: (r as any).rows });
+  } catch (e) {
+    console.error('listOverdueVisits error:', e);
+    res.status(500).json({ error: 'failed' });
+  }
+}
+
 export async function exportVisibleVisitsCSV(req: Request, res: Response) {
   try {
     await ensureVisitsCols();
+    // Only export visits whose status is in the visible pipeline stages
+    // (mirrors the STATUSES allow-list used in the Visit Report page).
     const r = await query(`
       SELECT v.id, v.lead_cust_code, COALESCE(v.lead_type, l.lead_type) AS lead_type,
              COALESCE(v.connect_date, l.connect_date) AS connect_date,
@@ -270,15 +307,20 @@ export async function exportVisibleVisitsCSV(req: Request, res: Response) {
       LEFT JOIN users u  ON u.id  = v.salesperson_id
       LEFT JOIN users uc ON uc.id = v.created_by
       LEFT JOIN users uu ON uu.id = v.updated_by
-      WHERE
-        v.status IS NULL OR (
-          v.status NOT ILIKE 'Lost%' AND
-          v.status NOT ILIKE 'Loan Processing' AND
-          v.status NOT ILIKE 'Booking Amount Received' AND
-          v.status NOT ILIKE 'Order Confirmed' AND
-          v.status NOT ILIKE 'Delivery Scheduled' AND
-          v.status NOT ILIKE 'Delivered (Closed%'
-        )
+      WHERE v.status IS NULL OR v.status IN (
+        'New Lead',
+        'Attempted Contact',
+        'Connected',
+        'Requirement Identified',
+        'Qualified Lead',
+        'Demo Scheduled',
+        'Demo Completed',
+        'Quotation Shared',
+        'Demo Follow Up',
+        'Follow-Up 2',
+        'Negotiation',
+        'Booking Date Confirmed'
+      )
       ORDER BY v.created_at DESC
     `);
     const rows   = (r as any).rows;

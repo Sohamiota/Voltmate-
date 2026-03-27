@@ -146,8 +146,8 @@ export function collectErrors(checks: Record<string, string | null>): string | n
 
 export const VISIT_STATUSES = [
   'New Lead', 'Demo Scheduled', 'Demo Completed', 'Quotation Shared',
-  'Demo Follow Up', 'Follow-Up 2', 'Negotiation', 'Loan Processing',
-  'Booking Amount Received', 'Order Confirmed', 'Delivery Scheduled',
+  'Demo Follow Up', 'Follow-Up 2', 'Negotiation', 'Booking Date Confirmed',
+  'Loan Processing', 'Booking Amount Received', 'Order Confirmed', 'Delivery Scheduled',
   'Delivered (Closed \u2013 Won)',
   'Lost \u2013 Price Issue', 'Lost \u2013 Competitor',
   'Lost \u2013 No Response', 'Lost \u2013 Not Interested',
