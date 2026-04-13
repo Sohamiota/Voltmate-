@@ -154,6 +154,7 @@ export async function listVisits(req: Request, res: Response) {
               COALESCE(v.lead_type, l.lead_type) AS lead_type,
               COALESCE(v.connect_date, l.connect_date) AS connect_date,
               l.cust_name,
+              l.location AS lead_location,
               l.phone_no AS lead_phone_no,
               u.name  AS salesperson_name,
               uc.name AS created_by_name,
@@ -191,6 +192,7 @@ export async function listVisibleVisits(req: Request, res: Response) {
               COALESCE(v.lead_type, l.lead_type) AS lead_type,
               COALESCE(v.connect_date, l.connect_date) AS connect_date,
               l.cust_name,
+              l.location AS lead_location,
               l.phone_no AS lead_phone_no,
               u.name  AS salesperson_name,
               uc.name AS created_by_name,
@@ -231,7 +233,7 @@ export async function exportVisitsCSV(req: Request, res: Response) {
     const r = await query(`
       SELECT v.id, v.lead_cust_code, COALESCE(v.lead_type, l.lead_type) AS lead_type,
              COALESCE(v.connect_date, l.connect_date) AS connect_date,
-             l.cust_name, v.phone_no, v.phone_no_2,
+             l.cust_name, l.location AS lead_location, v.phone_no, v.phone_no_2,
              u.name  AS salesperson_name,
              v.vehicle, v.status, v.visit_date,
              v.next_action, v.next_action_date, v.note,
@@ -245,7 +247,7 @@ export async function exportVisitsCSV(req: Request, res: Response) {
       ORDER BY v.created_at DESC
     `);
     const rows   = (r as any).rows;
-    const header = ['id','lead_cust_code','lead_type','connect_date','cust_name','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','created_by_name','created_at','updated_by_name','updated_at'];
+    const header = ['id','lead_cust_code','lead_type','connect_date','cust_name','lead_location','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','created_by_name','created_at','updated_by_name','updated_at'];
     const csv    = [header.join(',')].concat(
       rows.map((row: any) => header.map(h => `"${(row[h] || '').toString().replace(/"/g, '""')}"`).join(',')),
     ).join('\n');
@@ -296,7 +298,7 @@ export async function exportVisibleVisitsCSV(req: Request, res: Response) {
     const r = await query(`
       SELECT v.id, v.lead_cust_code, COALESCE(v.lead_type, l.lead_type) AS lead_type,
              COALESCE(v.connect_date, l.connect_date) AS connect_date,
-             l.cust_name, v.phone_no, v.phone_no_2,
+             l.cust_name, l.location AS lead_location, v.phone_no, v.phone_no_2,
              u.name  AS salesperson_name,
              v.vehicle, v.status, v.visit_date,
              v.next_action, v.next_action_date, v.note,
@@ -324,7 +326,7 @@ export async function exportVisibleVisitsCSV(req: Request, res: Response) {
       ORDER BY v.created_at DESC
     `);
     const rows   = (r as any).rows;
-    const header = ['id','lead_cust_code','lead_type','connect_date','cust_name','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','created_by_name','created_at','updated_by_name','updated_at'];
+    const header = ['id','lead_cust_code','lead_type','connect_date','cust_name','lead_location','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','created_by_name','created_at','updated_by_name','updated_at'];
     const csv    = [header.join(',')].concat(
       rows.map((row: any) => header.map(h => `"${(row[h] || '').toString().replace(/"/g, '""')}"`).join(',')),
     ).join('\n');

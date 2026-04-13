@@ -9,6 +9,8 @@ interface Visit {
   lead_id?: number;
   lead_cust_code?: string;
   cust_name?: string;
+  /** Lead address/location from `leads.location` (joined on report API). */
+  lead_location?: string | null;
   connect_date?: string;
   lead_type?: string;
   salesperson_name?: string;
@@ -204,7 +206,7 @@ const PAGE_STYLES = `
   .vr-btn-preview:hover { background: rgba(0,217,255,.12); }
 
   .vr-table-outer { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; min-width: 960px; }
+  table { width: 100%; border-collapse: collapse; min-width: 1080px; }
   thead tr { background: var(--surface2); }
   th {
     padding: 11px 16px; text-align: left;
@@ -396,7 +398,7 @@ function SkeletonRows() {
     <>
       {[1, 2, 3, 4, 5, 6].map(n => (
         <tr key={n} className="vr-skel-row">
-          {[26, 88, 120, 110, 90, 160, 110, 90, 100, 60].map((w, i) => (
+          {[26, 88, 120, 110, 140, 90, 160, 110, 90, 100, 85, 70, 60].map((w, i) => (
             <td key={i}><div className="vr-skel" style={{ width: w }} /></td>
           ))}
         </tr>
@@ -520,7 +522,8 @@ export default function VisitReportPage() {
         (v.cust_name || '').toLowerCase().includes(q) ||
         (v.lead_cust_code || '').toLowerCase().includes(q) ||
         (v.salesperson_name || '').toLowerCase().includes(q) ||
-        (v.vehicle || '').toLowerCase().includes(q)
+        (v.vehicle || '').toLowerCase().includes(q) ||
+        (v.lead_location || '').toLowerCase().includes(q)
       );
     }
     if (filterStatus) filtered = filtered.filter(v => v.status === filterStatus);
@@ -647,7 +650,7 @@ export default function VisitReportPage() {
           <div className="vr-filters-grid">
             <div className="vr-fg">
               <label className="vr-label">Search</label>
-              <input className="vr-field" placeholder="Customer, code, salesperson..." onChange={handleSearch} />
+              <input className="vr-field" placeholder="Customer, code, location, salesperson..." onChange={handleSearch} />
             </div>
             <div className="vr-fg">
               <label className="vr-label">Status</label>
@@ -697,6 +700,7 @@ export default function VisitReportPage() {
                   <th>Cust Code</th>
                   <th className={`sortable ${sortField === 'cust_name' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('cust_name')}>Customer</th>
                   <th>Lead Type</th>
+                  <th>Location</th>
                   <th>Connect Date</th>
                   <th className={`sortable ${sortField === 'salesperson_name' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('salesperson_name')}>Salesperson</th>
                   <th>Phone</th>
@@ -711,7 +715,7 @@ export default function VisitReportPage() {
                 {loading ? (
                   <SkeletonRows />
                 ) : visits.length === 0 ? (
-                  <tr><td colSpan={11}>
+                  <tr><td colSpan={13}>
                     <div className="vr-empty">
                       <div className="vr-empty-icon">📋</div>
                       <div className="vr-empty-msg">
@@ -731,6 +735,18 @@ export default function VisitReportPage() {
                           {v.lead_type ? (
                             <span className={`vr-badge ${v.lead_type === 'Digital Lead' ? 'testdrive' : 'default'}`}>{v.lead_type}</span>
                           ) : '—'}
+                        </td>
+                        <td
+                          style={{
+                            color: 'var(--text2)',
+                            maxWidth: 200,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={v.lead_location || undefined}
+                        >
+                          {v.lead_location?.trim() ? v.lead_location : '—'}
                         </td>
                         <td className="vr-date">{fmtDate(v.connect_date)}</td>
                         <td style={{ color: 'var(--text2)' }}>{v.salesperson_name || '—'}</td>
@@ -805,6 +821,10 @@ export default function VisitReportPage() {
                         <span className={`vr-badge ${previewVisit.lead_type === 'Digital Lead' ? 'testdrive' : 'default'}`}>{previewVisit.lead_type}</span>
                       ) : '—'}
                     </div>
+                  </div>
+                  <div className="vr-pv-field full">
+                    <div className="vr-pv-field-label">Lead location</div>
+                    <div className="vr-pv-field-val">{previewVisit.lead_location?.trim() ? previewVisit.lead_location : '—'}</div>
                   </div>
                   <div className="vr-pv-field">
                     <div className="vr-pv-field-label">Salesperson</div>
