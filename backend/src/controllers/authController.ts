@@ -189,7 +189,15 @@ export async function login(req: Request, res: Response) {
 }
 
 export async function me(req: Request, res: Response) {
-  res.json({ ok: true, user: (req as any).user });
+  try {
+    const u = (req as any).user;
+    const r = await query('SELECT is_on_probation FROM users WHERE id=$1', [u.sub]);
+    const is_on_probation = (r && (r as any).rows[0]?.is_on_probation) ?? false;
+    res.json({ ok: true, user: { ...u, is_on_probation } });
+  } catch (err) {
+    console.error('[me]', err);
+    res.json({ ok: true, user: (req as any).user });
+  }
 }
 
 // ─── Expose only non-sensitive fields ─────────────────────────────────────────
