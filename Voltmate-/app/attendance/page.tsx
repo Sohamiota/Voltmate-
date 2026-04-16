@@ -132,7 +132,7 @@ export default function AttendancePage() {
   const [loading,     setLoading]     = useState(true);
   const [history,     setHistory]     = useState<any[]>([]);
   const [busy,        setBusy]        = useState(false);
-  const [me,          setMe]          = useState<{ name: string; email: string; role?: string; is_on_probation?: boolean } | null>(null);
+  const [me,          setMe]          = useState<{ sub?: number; name: string; email: string; role?: string; is_on_probation?: boolean } | null>(null);
   const [elapsed,     setElapsed]     = useState('00:00:00');
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
@@ -150,6 +150,7 @@ export default function AttendancePage() {
       if (res.ok) {
         const j = await res.json();
         setMe({
+          sub:             j.user?.sub,
           name:            j.user?.name || j.user?.email || '',
           email:           j.user?.email || '',
           role:            j.user?.role,
@@ -167,8 +168,13 @@ export default function AttendancePage() {
 
   const fetchHistory = useCallback(async () => {
     if (!token) return;
-    const res = await fetch(`${API}/api/v1/attendance?limit=200`, { headers: { Authorization: `Bearer ${token}` } });
-    const j = await res.json();
+    // Always scope to the current user's own records.
+    // Without userId, admins would receive all employees' records.
+    const jwt   = token ? JSON.parse(atob(token.split('.')[1])) : null;
+    const myId  = jwt?.sub;
+    const qs    = myId ? `?limit=200&userId=${myId}` : '?limit=200';
+    const res   = await fetch(`${API}/api/v1/attendance${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+    const j     = await res.json();
     setHistory(j.attendance || []);
   }, [token]);
 
