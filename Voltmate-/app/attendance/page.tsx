@@ -33,7 +33,9 @@ function fmtTime(iso: string | null | undefined): string {
 }
 
 function fmtDate(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-IN', {
+  // Accept full ISO strings or plain YYYY-MM-DD; always parse as local date
+  const plain = dateStr.length > 10 ? dateStr.substring(0, 10) : dateStr;
+  return new Date(plain + 'T00:00:00').toLocaleDateString('en-IN', {
     day: '2-digit', month: 'short', year: 'numeric',
   });
 }
@@ -226,13 +228,38 @@ export default function AttendancePage() {
     else setViewMonth(m => m + 1);
   }
 
+  // Normalize any date value (Date object, ISO timestamp, or plain YYYY-MM-DD) → "YYYY-MM-DD"
+  function toDateKey(val: unknown): string {
+    if (!val) return '';
+    const s = String(val);
+    // Already YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // ISO timestamp — take the first 10 chars
+    if (s.length >= 10) return s.substring(0, 10);
+    return s;
+  }
+
   // Build date → record map for O(1) calendar lookups
   const dayMap: Record<string, any> = {};
-  history.forEach(a => { if (a.date) dayMap[a.date] = a; });
+  history.forEach(a => {
+    const key = toDateKey(a.date);
+    if (key) dayMap[key] = { ...a, _dateKey: key };
+  });
+
+  // Today as YYYY-MM-DD (local time)
+  const todayStr = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+  ].join('-');
+
+  // Has the user already completed a full clock-in/out cycle today?
+  const todayRecord      = dayMap[todayStr];
+  const hasCompletedToday = !!(todayRecord?.clock_out_at);
 
   // Stats for the currently viewed month
   const monthPrefix   = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
-  const monthRecords  = history.filter(a => (a.date || '').startsWith(monthPrefix));
+  const monthRecords  = history.filter(a => toDateKey(a.date).startsWith(monthPrefix));
   const presentCount  = monthRecords.filter(a => a.status === 'approved').length;
   const absentCount   = monthRecords.filter(a => a.status === 'rejected' || a.status === 'absent').length;
   const leaveCount    = monthRecords.filter(a => a.status === 'leave').length;
@@ -240,12 +267,6 @@ export default function AttendancePage() {
   // Calendar geometry
   const daysInMonth    = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Sun
-
-  const todayStr = [
-    today.getFullYear(),
-    String(today.getMonth() + 1).padStart(2, '0'),
-    String(today.getDate()).padStart(2, '0'),
-  ].join('-');
 
   const selectedRecord = selectedDay ? dayMap[selectedDay] ?? null : null;
   const initials       = me ? getInitials(me.name) : '?';
@@ -288,6 +309,11 @@ export default function AttendancePage() {
                 {busy ? 'Clocking out…' : 'Clock Out'}
               </button>
             </>
+          ) : hasCompletedToday ? (
+            <div className="att-timer" style={{ color: '#22c55e' }}>
+              ✓ Attendance marked for today &nbsp;·&nbsp;
+              {fmtTime(todayRecord.clock_in_at)} – {fmtTime(todayRecord.clock_out_at)}
+            </div>
           ) : (
             <>
               <div className="att-timer">{loading ? 'Loading…' : 'Not clocked in'}</div>
