@@ -1,12 +1,19 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Legend, PieChart, Pie, Cell,
-} from 'recharts';
-import { TrendingUp, Award, Target, FileText, RefreshCw } from 'lucide-react';
+import { Award, FileText, RefreshCw, Target, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis, YAxis
+} from 'recharts';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
@@ -124,6 +131,11 @@ export default function SalesPerformance() {
         <Link href="/sales/visit-report"
           className="px-4 py-2 rounded-lg bg-secondary text-white font-medium text-sm hover:opacity-90 transition-opacity">
           View Visit Report
+        </Link>
+        <Link href="/admin/daily-target"
+          className="px-4 py-2 rounded-lg font-medium text-sm transition-opacity hover:opacity-90"
+          style={{ background: 'linear-gradient(135deg,#0891b2,#0e7490)', color: '#fff' }}>
+          Daily Target
         </Link>
         <Link href="/sales/create-lead-report"
           className="px-4 py-2 rounded-lg border border-border text-foreground font-medium text-sm hover:bg-secondary transition-colors">
