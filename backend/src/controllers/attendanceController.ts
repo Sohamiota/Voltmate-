@@ -8,62 +8,61 @@ export async function clockIn(req: Request, res: Response) {
     const userId = (req as any).user?.sub;
     if (!userId) return res.status(401).json({ error: 'missing user' });
 
-    // ── Network verification ──────────────────────────────────────────────────
-    const clientIp = getClientIp(req);
-    const netRows = await query(
-      'SELECT label, ip_cidr FROM allowed_networks WHERE is_active = true',
-      [],
+    // ── Network check ─────────────────────────────────────────────────────────
+    const clientIp       = getClientIp(req);
+    const netRows        = await query(
+      'SELECT label, ip_cidr FROM allowed_networks WHERE is_active = true', [],
     );
     const activeNetworks = (netRows as any).rows as Array<{ label: string; ip_cidr: string }>;
 
     let networkVerified = false;
     let networkLabel: string | null = null;
-
-    if (activeNetworks.length === 0) {
-      // No networks configured — open mode
-      networkVerified = true;
-    } else {
+    if (activeNetworks.length > 0) {
       const check = isIpAllowed(clientIp, activeNetworks);
-      if (!check.allowed) {
-        return res.status(403).json({
-          error: 'not_on_office_network',
-          message: 'You must be connected to the office network to clock in.',
-          ip: clientIp,
-        });
+      if (check.allowed) {
+        networkVerified = true;
+        networkLabel    = check.label;
       }
-      networkVerified = true;
-      networkLabel = check.label;
+      // Off-network: still allowed; status = 'pending', admin reviews location trail
     }
-    // ─────────────────────────────────────────────────────────────────────────
+    // No networks configured: open mode — pending by default
 
-    // check open session
-    const open = await query('SELECT id FROM attendance WHERE user_id=$1 AND clock_out_at IS NULL', [userId]);
+    // ── Guard duplicate open session ───────────────────────────────────────────
+    const open = await query(
+      'SELECT id FROM attendance WHERE user_id=$1 AND clock_out_at IS NULL', [userId],
+    );
     if ((open as any).rowCount > 0) return res.status(409).json({ error: 'already clocked in' });
 
-    const body = req.body || {};
-    const vLoc  = optStr(body.location, 300);
-    const vNote = optStr(body.note, 500);
+    // ── Validate body ──────────────────────────────────────────────────────────
+    const body   = req.body || {};
+    const vLoc   = optStr(body.location, 300);
+    const vNote  = optStr(body.note, 500);
     if (vLoc.error)  return res.status(400).json({ error: `location: ${vLoc.error}` });
     if (vNote.error) return res.status(400).json({ error: `note: ${vNote.error}` });
-    const needs_approval = body.needs_approval === true || body.needs_approval === 'true';
 
     const location = vLoc.value || networkLabel || 'Office';
+    const tz       = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
 
-    const r = await query(
-      `INSERT INTO attendance
-         (user_id, clock_in_at, date, timezone, location, note, needs_approval, clock_in_ip, network_verified, created_at)
-       VALUES ($1, now(), CURRENT_DATE, $2, $3, $4, COALESCE($5,false), $6, $7, now())
-       RETURNING *`,
-      [
-        userId,
-        Intl.DateTimeFormat().resolvedOptions().timeZone || null,
-        location,
-        vNote.value,
-        needs_approval,
-        clientIp,
-        networkVerified,
-      ],
-    );
+    // ── Insert ─────────────────────────────────────────────────────────────────
+    // On-network → auto-approve immediately; off-network → pending, needs trail review
+    const r = networkVerified
+      ? await query(
+          `INSERT INTO attendance
+             (user_id, clock_in_at, date, timezone, location, note,
+              needs_approval, clock_in_ip, network_verified, status, approved_at, created_at)
+           VALUES ($1, now(), CURRENT_DATE, $2, $3, $4, false, $5, true, 'approved', now(), now())
+           RETURNING *`,
+          [userId, tz, location, vNote.value, clientIp],
+        )
+      : await query(
+          `INSERT INTO attendance
+             (user_id, clock_in_at, date, timezone, location, note,
+              needs_approval, clock_in_ip, network_verified, status, created_at)
+           VALUES ($1, now(), CURRENT_DATE, $2, $3, $4, true, $5, false, 'pending', now())
+           RETURNING *`,
+          [userId, tz, location, vNote.value, clientIp],
+        );
+
     res.status(201).json((r as any).rows[0]);
   } catch (e) {
     console.error(e);

@@ -302,10 +302,6 @@ export default function AttendancePage() {
   }, [current]);
 
   async function clockIn() {
-    if (!network.allowed && network.checked) {
-      alert('You must be connected to the office network to clock in.');
-      return;
-    }
     setBusy(true);
     const res = await fetch(`${API}/api/v1/attendance/clockin`, {
       method:  'POST',
@@ -315,20 +311,15 @@ export default function AttendancePage() {
     if (res.ok) {
       const record = await res.json();
       await fetchAll();
-      // Start location tracking after successful clock-in
       setPingCount(0);
+      // Always request + track location — required for off-network attendance review
       await requestLocation(record?.id, 'Clock in');
       startLocationInterval(record?.id);
     } else {
       let msg = 'Clock in failed';
       try {
         const j = await res.json();
-        if (j.error === 'not_on_office_network') {
-          msg = 'Not on office network — connect to the office WiFi and try again.';
-          setNetwork(prev => ({ ...prev, allowed: false }));
-        } else {
-          msg = j.message || j.error || msg;
-        }
+        msg = j.message || j.error || msg;
       } catch { msg = await res.text() || msg; }
       alert(msg);
     }
@@ -457,12 +448,12 @@ export default function AttendancePage() {
             className="att-net-badge"
             style={network.allowed
               ? { color: '#22c55e', background: 'rgba(34,197,94,.1)', borderColor: 'rgba(34,197,94,.3)' }
-              : { color: '#ef4444', background: 'rgba(239,68,68,.1)', borderColor: 'rgba(239,68,68,.3)' }}
+              : { color: '#f59e0b', background: 'rgba(245,158,11,.1)', borderColor: 'rgba(245,158,11,.3)' }}
           >
-            <span className="att-net-dot" style={{ background: network.allowed ? '#22c55e' : '#ef4444' }} />
+            <span className="att-net-dot" style={{ background: network.allowed ? '#22c55e' : '#f59e0b' }} />
             {network.allowed
-              ? `On office network${network.label ? ` · ${network.label}` : ''} — ready to clock in`
-              : 'Not on office network — connect to office WiFi to clock in'}
+              ? `On office network${network.label ? ` · ${network.label}` : ''} — attendance will be auto-approved`
+              : 'Outside office network — attendance will be pending; location tracking required for approval'}
           </div>
         )}
 
@@ -486,8 +477,7 @@ export default function AttendancePage() {
               <button
                 className="att-btn att-btn-in"
                 onClick={clockIn}
-                disabled={busy || loading || (network.checked && !network.allowed)}
-                title={network.checked && !network.allowed ? 'Connect to the office network first' : undefined}
+                disabled={busy || loading}
               >
                 {busy ? 'Clocking in…' : 'Clock In'}
               </button>
