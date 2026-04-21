@@ -319,7 +319,11 @@ export default function AttendancePage() {
       let msg = 'Clock in failed';
       try {
         const j = await res.json();
-        msg = j.message || j.error || msg;
+        if (j.error === 'network_not_configured') {
+          msg = 'Attendance is currently disabled. Please contact your administrator.';
+        } else {
+          msg = j.message || j.error || msg;
+        }
       } catch { msg = await res.text() || msg; }
       alert(msg);
     }

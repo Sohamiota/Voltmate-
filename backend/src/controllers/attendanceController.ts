@@ -17,15 +17,19 @@ export async function clockIn(req: Request, res: Response) {
 
     let networkVerified = false;
     let networkLabel: string | null = null;
-    if (activeNetworks.length > 0) {
-      const check = isIpAllowed(clientIp, activeNetworks);
-      if (check.allowed) {
-        networkVerified = true;
-        networkLabel    = check.label;
-      }
-      // Off-network: still allowed; status = 'pending', admin reviews location trail
+    if (activeNetworks.length === 0) {
+      // No networks configured — clock-in is locked until admin sets up an office network
+      return res.status(403).json({
+        error: 'network_not_configured',
+        message: 'Clock-in is currently disabled. Please contact your administrator.',
+      });
     }
-    // No networks configured: open mode — pending by default
+    const check = isIpAllowed(clientIp, activeNetworks);
+    if (check.allowed) {
+      networkVerified = true;
+      networkLabel    = check.label;
+    }
+    // Off-network: allowed through but status = 'pending', admin reviews location trail
 
     // ── Guard duplicate open session ───────────────────────────────────────────
     const open = await query(
