@@ -127,9 +127,9 @@ export function sanitizeSearch(val: unknown, maxLen = 100): string {
 export function parsePagination(
   limitRaw: unknown,
   offsetRaw: unknown,
-  maxLimit = 1000,
+  maxLimit = 100000,
 ): { limit: number; offset: number } {
-  const limit  = Math.min(Math.max(parseInt(String(limitRaw  ?? '100'), 10) || 100, 1), maxLimit);
+  const limit  = Math.min(Math.max(parseInt(String(limitRaw  ?? '100000'), 10) || 100000, 1), maxLimit);
   const offset = Math.max(parseInt(String(offsetRaw ?? '0'),  10) || 0, 0);
   return { limit, offset };
 }

@@ -561,7 +561,7 @@ export default function CreateLeadReportPage() {
   const fetchList = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/api/v1/leads?limit=1000`, { headers: buildHeaders() });
+      const res = await fetch(`${API_BASE}/api/v1/leads?limit=100000`, { headers: buildHeaders() });
       if (!res.ok) { setAllLeads([]); return; }
       const j = await res.json();
       setAllLeads(j.leads || []);
