@@ -723,7 +723,8 @@ export default function CreateLeadReportPage() {
         showToast('Export failed', 'error');
         return;
       }
-      const blob = await res.blob();
+      const text = await res.text();
+      const blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';

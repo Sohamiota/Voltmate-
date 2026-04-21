@@ -366,7 +366,8 @@ export default function ServiceManagerVehiclesPage() {
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch(`${API_BASE}/api/v1/vehicles/export/csv`, { headers });
       if (!res.ok) throw new Error(await res.text());
-      const blob = await res.blob();
+      const text = await res.text();
+      const blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';

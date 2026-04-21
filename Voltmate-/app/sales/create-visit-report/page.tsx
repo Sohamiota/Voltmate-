@@ -767,7 +767,8 @@ export default function CreateVisitReportPage() {
     try {
       const res = await fetch(`${API_BASE}/api/v1/visits/export/csv`, { headers: authHeaders() });
       if (!res.ok) { showToast('Export failed', 'error'); return; }
-      const blob = await res.blob();
+      const text = await res.text();
+      const blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
