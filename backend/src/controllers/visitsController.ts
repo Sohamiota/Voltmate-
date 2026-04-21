@@ -6,6 +6,10 @@ import {
   collectErrors, parsePagination, VISIT_STATUSES,
 } from '../utils/validate';
 
+function canManageVisits(role: string | undefined): boolean {
+  return role === 'admin' || role === 'sales_admin';
+}
+
 // Auto-add phone + audit columns to visits table if not present
 let visitsColsReady = false;
 async function ensureVisitsCols() {
@@ -22,8 +26,12 @@ async function ensureVisitsCols() {
 
 export async function createVisit(req: Request, res: Response) {
   try {
+    const requester = (req as any).user;
+    if (!canManageVisits(requester?.role))
+      return res.status(403).json({ error: 'Forbidden: only admin and sales_admin can create visits' });
+
     await ensureVisitsCols();
-    const userId = (req as any).user?.sub ?? null;
+    const userId = requester?.sub ?? null;
     const body   = req.body || {};
 
     const vLeadId      = reqId(body.lead_id);
@@ -74,11 +82,15 @@ export async function createVisit(req: Request, res: Response) {
 
 export async function updateVisit(req: Request, res: Response) {
   try {
+    const requester = (req as any).user;
+    if (!canManageVisits(requester?.role))
+      return res.status(403).json({ error: 'Forbidden: only admin and sales_admin can update visits' });
+
     await ensureVisitsCols();
     const vId = reqId(req.params.id);
     if (vId.error) return res.status(400).json({ error: 'invalid id' });
     const id      = vId.value;
-    const userId  = (req as any).user?.sub ?? null;
+    const userId  = requester?.sub ?? null;
     const body    = req.body || {};
 
     const vSalesperson = optId(body.salesperson_id);
@@ -125,10 +137,13 @@ export async function updateVisit(req: Request, res: Response) {
 
 export async function deleteVisit(req: Request, res: Response) {
   try {
+    const requester = (req as any).user;
+    if (!canManageVisits(requester?.role))
+      return res.status(403).json({ error: 'Forbidden: only admin and sales_admin can delete visits' });
+
     const vId = reqId(req.params.id);
     if (vId.error) return res.status(400).json({ error: 'invalid id' });
     const id = vId.value;
-    const requester = (req as any).user;
     const userId    = requester?.sub ?? null;
 
     const existing = await query('SELECT lead_cust_code FROM visits WHERE id=$1', [id]);

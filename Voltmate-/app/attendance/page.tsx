@@ -111,6 +111,19 @@ const CSS = `
   .att-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:16px;width:100%;}
   .att-detail-item label{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;}
   .att-detail-item span{font-size:14px;color:#e5e5e5;font-weight:500;}
+  /* Network badge */
+  .att-net-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;border:1px solid;margin-bottom:10px;}
+  .att-net-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  /* Location / GPS */
+  .att-gps-bar{display:flex;align-items:center;gap:10px;background:#0f1a0f;border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:10px 14px;margin-bottom:14px;flex-wrap:wrap;}
+  .att-gps-bar-warn{background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.25);}
+  .att-gps-bar-info{background:rgba(59,130,246,.06);border-color:rgba(59,130,246,.25);}
+  .att-gps-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .att-gps-text{font-size:12px;font-weight:500;flex:1;}
+  .att-btn-checkin{background:rgba(99,102,241,.18);border:1px solid rgba(99,102,241,.4);color:#a5b4fc;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
+  .att-btn-checkin:hover{background:rgba(99,102,241,.28);}
+  .att-btn-checkin:disabled{opacity:.45;cursor:not-allowed;}
+  .att-ping-count{font-size:11px;color:#6b7280;margin-left:auto;}
   /* Mobile */
   @media(max-width:540px){
     .att-stat{padding:12px 10px;}
@@ -135,13 +148,20 @@ export default function AttendancePage() {
   const [me,          setMe]          = useState<{ sub?: number; name: string; email: string; role?: string; is_on_probation?: boolean } | null>(null);
   const [elapsed,     setElapsed]     = useState('00:00:00');
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [network,     setNetwork]     = useState<{ allowed: boolean; label: string | null; checked: boolean }>({ allowed: false, label: null, checked: false });
 
   const today = new Date();
   const [viewYear,  setViewYear]  = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
 
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const locationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+
+  // GPS / location tracking state
+  const [gpsStatus,   setGpsStatus]   = useState<'idle' | 'granted' | 'denied' | 'unavailable'>('idle');
+  const [pingCount,   setPingCount]   = useState(0);
+  const [checkingIn,  setCheckingIn]  = useState(false);
 
   const fetchMe = useCallback(async () => {
     if (!token) return;
@@ -159,6 +179,83 @@ export default function AttendancePage() {
       }
     } catch { /* ignore */ }
   }, [token]);
+
+  const fetchNetworkStatus = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/api/v1/networks/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const j = await res.json();
+        setNetwork({ allowed: !!j.allowed, label: j.label || null, checked: true });
+      } else {
+        setNetwork({ allowed: false, label: null, checked: true });
+      }
+    } catch {
+      setNetwork({ allowed: false, label: null, checked: true });
+    }
+  }, [token]);
+
+  // Post a single location ping to the backend
+  const postPing = useCallback(async (
+    lat: number, lng: number, accuracyM: number | null,
+    type: 'auto' | 'manual', note?: string, attendanceId?: number,
+  ) => {
+    if (!token) return;
+    try {
+      await fetch(`${API}/api/v1/location/ping`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({ lat, lng, accuracy_m: accuracyM, type, note, attendance_id: attendanceId }),
+      });
+      setPingCount(c => c + 1);
+    } catch { /* silent — non-critical */ }
+  }, [token]);
+
+  // Get current GPS position wrapped in a Promise
+  const getCurrentPosition = (): Promise<GeolocationPosition> =>
+    new Promise((resolve, reject) =>
+      navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 }),
+    );
+
+  // Request location permission and capture first position
+  const requestLocation = useCallback(async (attendanceId?: number, noteStr?: string) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setGpsStatus('unavailable');
+      return;
+    }
+    try {
+      const pos = await getCurrentPosition();
+      setGpsStatus('granted');
+      await postPing(
+        pos.coords.latitude, pos.coords.longitude,
+        pos.coords.accuracy ?? null,
+        noteStr ? 'manual' : 'manual',
+        noteStr || 'Clock in',
+        attendanceId,
+      );
+    } catch {
+      setGpsStatus('denied');
+    }
+  }, [postPing]);
+
+  // Start the 30-minute auto-ping interval
+  const startLocationInterval = useCallback((attendanceId?: number) => {
+    if (locationRef.current) clearInterval(locationRef.current);
+    locationRef.current = setInterval(async () => {
+      if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+      try {
+        const pos = await getCurrentPosition();
+        setGpsStatus('granted');
+        await postPing(
+          pos.coords.latitude, pos.coords.longitude,
+          pos.coords.accuracy ?? null,
+          'auto', undefined, attendanceId,
+        );
+      } catch { /* GPS temporarily unavailable — will retry next interval */ }
+    }, 30 * 60 * 1000); // 30 minutes
+  }, [postPing]);
 
   const fetchCurrent = useCallback(async () => {
     if (!token) return;
@@ -185,7 +282,7 @@ export default function AttendancePage() {
     setLoading(false);
   }, [token, fetchCurrent, fetchHistory]);
 
-  useEffect(() => { fetchMe(); fetchAll(); }, [fetchMe, fetchAll]);
+  useEffect(() => { fetchMe(); fetchAll(); fetchNetworkStatus(); }, [fetchMe, fetchAll, fetchNetworkStatus]);
 
   // Live elapsed timer while clocked in
   useEffect(() => {
@@ -195,24 +292,53 @@ export default function AttendancePage() {
       timerRef.current = setInterval(() => setElapsed(elapsedSince(current.clock_in_at)), 1000);
     } else {
       setElapsed('00:00:00');
+      // Clocked out — stop location interval
+      if (locationRef.current) { clearInterval(locationRef.current); locationRef.current = null; }
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current)    clearInterval(timerRef.current);
+      if (locationRef.current) clearInterval(locationRef.current);
+    };
   }, [current]);
 
   async function clockIn() {
+    if (!network.allowed && network.checked) {
+      alert('You must be connected to the office network to clock in.');
+      return;
+    }
     setBusy(true);
     const res = await fetch(`${API}/api/v1/attendance/clockin`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body:    JSON.stringify({ location: 'Office', note: 'Clock in via UI' }),
+      body:    JSON.stringify({ note: 'Clock in via UI' }),
     });
-    if (res.ok) await fetchAll();
-    else alert('Clock in failed: ' + await res.text());
+    if (res.ok) {
+      const record = await res.json();
+      await fetchAll();
+      // Start location tracking after successful clock-in
+      setPingCount(0);
+      await requestLocation(record?.id, 'Clock in');
+      startLocationInterval(record?.id);
+    } else {
+      let msg = 'Clock in failed';
+      try {
+        const j = await res.json();
+        if (j.error === 'not_on_office_network') {
+          msg = 'Not on office network — connect to the office WiFi and try again.';
+          setNetwork(prev => ({ ...prev, allowed: false }));
+        } else {
+          msg = j.message || j.error || msg;
+        }
+      } catch { msg = await res.text() || msg; }
+      alert(msg);
+    }
     setBusy(false);
   }
 
   async function clockOut() {
     setBusy(true);
+    // Stop auto-ping interval before clocking out
+    if (locationRef.current) { clearInterval(locationRef.current); locationRef.current = null; }
     const res = await fetch(`${API}/api/v1/attendance/clockout`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -221,6 +347,25 @@ export default function AttendancePage() {
     if (res.ok) await fetchAll();
     else alert('Clock out failed: ' + await res.text());
     setBusy(false);
+  }
+
+  async function handleManualCheckIn() {
+    if (!current) return;
+    setCheckingIn(true);
+    const note = window.prompt('Optional note for this check-in (e.g. "At customer site — Acme Corp")') ?? '';
+    try {
+      const pos = await getCurrentPosition();
+      setGpsStatus('granted');
+      await postPing(
+        pos.coords.latitude, pos.coords.longitude,
+        pos.coords.accuracy ?? null,
+        'manual', note || undefined, current?.id,
+      );
+    } catch {
+      alert('Could not get your location. Please allow location access in your browser.');
+      setGpsStatus('denied');
+    }
+    setCheckingIn(false);
   }
 
   function prevMonth() {
@@ -306,6 +451,21 @@ export default function AttendancePage() {
           </div>
         </div>
 
+        {/* ── Network status badge ── */}
+        {network.checked && (
+          <div
+            className="att-net-badge"
+            style={network.allowed
+              ? { color: '#22c55e', background: 'rgba(34,197,94,.1)', borderColor: 'rgba(34,197,94,.3)' }
+              : { color: '#ef4444', background: 'rgba(239,68,68,.1)', borderColor: 'rgba(239,68,68,.3)' }}
+          >
+            <span className="att-net-dot" style={{ background: network.allowed ? '#22c55e' : '#ef4444' }} />
+            {network.allowed
+              ? `On office network${network.label ? ` · ${network.label}` : ''} — ready to clock in`
+              : 'Not on office network — connect to office WiFi to clock in'}
+          </div>
+        )}
+
         {/* ── Clock In / Out + live timer ── */}
         <div className="att-clock-row">
           {current ? (
@@ -323,15 +483,49 @@ export default function AttendancePage() {
           ) : (
             <>
               <div className="att-timer">{loading ? 'Loading…' : 'Not clocked in'}</div>
-              <button className="att-btn att-btn-in" onClick={clockIn} disabled={busy || loading}>
+              <button
+                className="att-btn att-btn-in"
+                onClick={clockIn}
+                disabled={busy || loading || (network.checked && !network.allowed)}
+                title={network.checked && !network.allowed ? 'Connect to the office network first' : undefined}
+              >
                 {busy ? 'Clocking in…' : 'Clock In'}
               </button>
             </>
           )}
-          <button className="att-btn att-btn-ref" onClick={fetchAll} disabled={loading}>
+          <button className="att-btn att-btn-ref" onClick={() => { fetchAll(); fetchNetworkStatus(); }} disabled={loading}>
             {loading ? '…' : 'Refresh'}
           </button>
         </div>
+
+        {/* ── GPS / Location status bar (only while clocked in) ── */}
+        {current && (
+          <div className={`att-gps-bar${gpsStatus === 'denied' || gpsStatus === 'unavailable' ? ' att-gps-bar-warn' : gpsStatus === 'idle' ? ' att-gps-bar-info' : ''}`}>
+            <span
+              className="att-gps-dot"
+              style={{ background: gpsStatus === 'granted' ? '#22c55e' : gpsStatus === 'denied' || gpsStatus === 'unavailable' ? '#ef4444' : '#6b7280' }}
+            />
+            <span className="att-gps-text" style={{ color: gpsStatus === 'granted' ? '#86efac' : gpsStatus === 'denied' || gpsStatus === 'unavailable' ? '#fca5a5' : '#9ca3af' }}>
+              {gpsStatus === 'granted'     && 'Location tracking active — pinging every 30 min'}
+              {gpsStatus === 'denied'      && 'Location access denied — your trail will not be recorded for attendance review'}
+              {gpsStatus === 'unavailable' && 'GPS not available on this device'}
+              {gpsStatus === 'idle'        && 'Requesting location permission…'}
+            </span>
+            {gpsStatus !== 'unavailable' && (
+              <button
+                className="att-btn-checkin"
+                onClick={handleManualCheckIn}
+                disabled={checkingIn}
+                title="Record your current location as a manual check-in"
+              >
+                {checkingIn ? 'Getting GPS…' : 'Check In Here'}
+              </button>
+            )}
+            {pingCount > 0 && (
+              <span className="att-ping-count">{pingCount} ping{pingCount !== 1 ? 's' : ''} recorded</span>
+            )}
+          </div>
+        )}
 
         {/* ── Probation warning banner ── */}
         {me?.is_on_probation && (

@@ -15,6 +15,8 @@ import salesRoutes       from './routes/sales';
 import tasksRoutes       from './routes/tasks';
 import visitsRoutes      from './routes/visits';
 import vehicleRoutes     from './routes/vehicles';
+import networkRoutes     from './routes/networks';
+import locationRoutes    from './routes/location';
 import { listEmployees } from './controllers/authController';
 
 const app = express();
@@ -104,6 +106,8 @@ app.use('/api/v1/leads',         leadsRoutes);
 app.use('/api/v1/tasks',         tasksRoutes);
 app.use('/api/v1/visits',        visitsRoutes);
 app.use('/api/v1/vehicles',      vehicleRoutes);
+app.use('/api/v1/networks',      networkRoutes);
+app.use('/api/v1/location',      locationRoutes);
 
 // [H-6] /api/v1/employees is already exposed via /api/v1/auth/employees (with auth).
 // Keep this alias but enforce authMiddleware (already applied globally above).

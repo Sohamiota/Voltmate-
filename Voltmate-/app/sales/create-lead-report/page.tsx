@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import SearchableSelect from '@/components/SearchableSelect';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -439,6 +440,27 @@ function SkeletonRows() {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function CreateLeadReportPage() {
+  const router = useRouter();
+  const [roleChecked, setRoleChecked] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
+
+  // ── Role guard: only admin and sales_admin may access this page ───────────
+  useEffect(() => {
+    const token = getToken();
+    if (!token) { router.replace('/login'); return; }
+    fetch(`${API_BASE}/api/v1/auth/me`, { headers: buildHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        const role = j?.user?.role;
+        if (role !== 'admin' && role !== 'sales_admin') {
+          setAccessDenied(true);
+        }
+        setRoleChecked(true);
+      })
+      .catch(() => setRoleChecked(true));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // FIX: all hooks at top, proper types
   const [allLeads, setAllLeads] = useState<Lead[]>([]);       // FIX: source-of-truth, never mutated by search
   const [searchQuery, setSearchQuery] = useState('');          // FIX: search as string, not state mutation
@@ -539,7 +561,7 @@ export default function CreateLeadReportPage() {
   const fetchList = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/api/v1/leads`, { headers: buildHeaders() });
+      const res = await fetch(`${API_BASE}/api/v1/leads?limit=1000`, { headers: buildHeaders() });
       if (!res.ok) { setAllLeads([]); return; }
       const j = await res.json();
       setAllLeads(j.leads || []);
@@ -716,6 +738,27 @@ export default function CreateLeadReportPage() {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  if (!roleChecked) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#080a10', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontFamily: 'system-ui, sans-serif' }}>
+        Checking access…
+      </div>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#080a10', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: 'system-ui, sans-serif' }}>
+        <div style={{ fontSize: 32 }}>🚫</div>
+        <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 18 }}>Access Denied</div>
+        <div style={{ color: '#9ca3af', fontSize: 14 }}>Only Admin and Sales Admin can access this page.</div>
+        <button onClick={() => router.back()} style={{ marginTop: 16, padding: '8px 20px', background: '#1a1a2e', border: '1px solid #333', borderRadius: 8, color: '#e5e5e5', cursor: 'pointer', fontSize: 13 }}>
+          Go Back
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="lm-root">
       {/* FIX #14: style tag is a stable constant outside component, not re-injected */}

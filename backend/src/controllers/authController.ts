@@ -244,7 +244,7 @@ export async function adminChangeRole(req: Request, res: Response) {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: 'Invalid user id' });
 
-    const ALLOWED = ['admin', 'sales', 'service', 'employee'] as const;
+    const ALLOWED = ['admin', 'attendance_admin', 'sales_admin', 'sales', 'service', 'employee'] as const;
     const vRole = optEnum(req.body?.role, ALLOWED);
     if (vRole.error || !vRole.value)
       return res.status(400).json({ error: `role must be one of: ${ALLOWED.join(', ')}` });

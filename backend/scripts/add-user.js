@@ -34,7 +34,7 @@ const password = process.env.ADD_USER_PASSWORD || 'Rahul@713202';
 const name = process.env.ADD_USER_NAME || 'Rahul Mandal';
 let role = (process.env.ADD_USER_ROLE || 'employee').toLowerCase();
 if (role === 'user') role = 'employee';
-const ALLOWED = ['admin', 'sales', 'service', 'employee'];
+const ALLOWED = ['admin', 'attendance_admin', 'sales_admin', 'sales', 'service', 'employee'];
 if (!ALLOWED.includes(role)) {
   console.error(`✗ role must be one of: ${ALLOWED.join(', ')} (or "user" → employee)`);
   process.exit(1);

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import SearchableSelect from '@/components/SearchableSelect';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -508,6 +509,27 @@ function SkeletonRows() {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function CreateVisitReportPage() {
+  const router = useRouter();
+  const [roleChecked, setRoleChecked] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
+
+  // ── Role guard: only admin and sales_admin may access this page ───────────
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) { router.replace('/login'); return; }
+    fetch(`${API_BASE}/api/v1/auth/me`, { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        const role = j?.user?.role;
+        if (role !== 'admin' && role !== 'sales_admin') {
+          setAccessDenied(true);
+        }
+        setRoleChecked(true);
+      })
+      .catch(() => setRoleChecked(true));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── All hooks declared at the top ──────────────────────────────────────────
   const [leads, setLeads] = useState<Lead[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -561,7 +583,7 @@ export default function CreateVisitReportPage() {
   const fetchVisits = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/api/v1/visits`, { headers: authHeaders() });
+      const res = await fetch(`${API_BASE}/api/v1/visits?limit=1000`, { headers: authHeaders() });
       if (!res.ok) { setAllVisits([]); return; }
       const j = await res.json();
       setAllVisits(j.visits || []);
@@ -575,7 +597,7 @@ export default function CreateVisitReportPage() {
 
   const fetchLeads = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/leads`, { headers: authHeaders() });
+      const res = await fetch(`${API_BASE}/api/v1/leads?limit=1000`, { headers: authHeaders() });
       if (!res.ok) { setLeads([]); return; }
       const j = await res.json();
       setLeads(j.leads || []);
@@ -758,6 +780,27 @@ export default function CreateVisitReportPage() {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  if (!roleChecked) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0b0d14', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontFamily: 'system-ui, sans-serif' }}>
+        Checking access…
+      </div>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0b0d14', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: 'system-ui, sans-serif' }}>
+        <div style={{ fontSize: 32 }}>🚫</div>
+        <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 18 }}>Access Denied</div>
+        <div style={{ color: '#9ca3af', fontSize: 14 }}>Only Admin and Sales Admin can access this page.</div>
+        <button onClick={() => router.back()} style={{ marginTop: 16, padding: '8px 20px', background: '#131620', border: '1px solid #333', borderRadius: 8, color: '#e5e5e5', cursor: 'pointer', fontSize: 13 }}>
+          Go Back
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="vm-root">
       <style>{PAGE_STYLES}</style>

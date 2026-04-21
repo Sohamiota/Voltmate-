@@ -6,6 +6,10 @@ import {
   collectErrors, parsePagination, sanitizeSearch, LEAD_TYPES,
 } from '../utils/validate';
 
+function canManageLeads(role: string | undefined): boolean {
+  return role === 'admin' || role === 'sales_admin';
+}
+
 // Auto-add extra columns if not already present
 let leadsColsReady = false;
 async function ensureLeadsCols() {
@@ -20,8 +24,12 @@ async function ensureLeadsCols() {
 
 export async function createLead(req: Request, res: Response) {
   try {
+    const requester = (req as any).user;
+    if (!canManageLeads(requester?.role))
+      return res.status(403).json({ error: 'Forbidden: only admin and sales_admin can create leads' });
+
     await ensureLeadsCols();
-    const userId = (req as any).user?.sub ?? null;
+    const userId = requester?.sub ?? null;
     const body   = req.body || {};
 
     const vName     = reqStr(body.cust_name, 200);
@@ -65,11 +73,15 @@ export async function createLead(req: Request, res: Response) {
 
 export async function updateLead(req: Request, res: Response) {
   try {
+    const requester = (req as any).user;
+    if (!canManageLeads(requester?.role))
+      return res.status(403).json({ error: 'Forbidden: only admin and sales_admin can update leads' });
+
     await ensureLeadsCols();
     const vId = reqId(req.params.id);
     if (vId.error) return res.status(400).json({ error: 'invalid id' });
     const id      = vId.value;
-    const userId  = (req as any).user?.sub ?? null;
+    const userId  = requester?.sub ?? null;
     const body    = req.body || {};
 
     const vName     = reqStr(body.cust_name, 200);
@@ -150,10 +162,13 @@ export async function listLeads(req: Request, res: Response) {
 
 export async function deleteLead(req: Request, res: Response) {
   try {
+    const requester = (req as any).user;
+    if (!canManageLeads(requester?.role))
+      return res.status(403).json({ error: 'Forbidden: only admin and sales_admin can delete leads' });
+
     const vId = reqId(req.params.id);
     if (vId.error) return res.status(400).json({ error: 'invalid id' });
     const id = vId.value;
-    const requester = (req as any).user;
     const userId    = requester?.sub ?? null;
 
     const pre = await query('SELECT cust_code, cust_name FROM leads WHERE id=$1', [id]);
@@ -201,3 +216,4 @@ export async function exportLeadsCSV(req: Request, res: Response) {
     res.status(500).json({ error: 'failed' });
   }
 }
+

@@ -17,7 +17,7 @@ const S = `
   .stat{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:16px;}
   .stat-val{font-size:clamp(20px,5vw,28px);font-weight:700;color:#00d9ff;margin-bottom:4px;}
   .stat-lbl{font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;}
-  .card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;overflow:hidden;}
+  .card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;overflow:hidden;margin-bottom:24px;}
   .card-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #2a2a2a;flex-wrap:wrap;gap:10px;}
   .card-title{font-size:14px;font-weight:600;color:#fff;}
   .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
@@ -31,6 +31,14 @@ const S = `
   .btn-approve:hover{background:rgba(34,197,94,.25);}
   .btn-reject{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);}
   .btn-reject:hover{background:rgba(239,68,68,.25);}
+  .btn-danger{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25);padding:5px 12px;font-size:12px;}
+  .btn-danger:hover{background:rgba(239,68,68,.22);}
+  .btn-add{background:rgba(99,102,241,.15);color:#818cf8;border:1px solid rgba(99,102,241,.3);}
+  .btn-add:hover{background:rgba(99,102,241,.25);}
+  .btn-toggle{background:transparent;color:#9ca3af;border:1px solid #333;padding:5px 12px;font-size:12px;}
+  .btn-toggle:hover{border-color:#555;color:#e5e5e5;}
+  .btn-trail{background:rgba(99,102,241,.12);color:#818cf8;border:1px solid rgba(99,102,241,.25);padding:5px 12px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;}
+  .btn-trail:hover{background:rgba(99,102,241,.22);}
   .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
   table{width:100%;border-collapse:collapse;min-width:680px;}
   thead tr{border-bottom:1px solid #2a2a2a;}
@@ -45,9 +53,16 @@ const S = `
   .badge-pending{background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.25);}
   .badge-approved{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.25);}
   .badge-rejected{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25);}
+  .badge-active{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.25);}
+  .badge-inactive{background:rgba(107,114,128,.12);color:#6b7280;border:1px solid rgba(107,114,128,.25);}
   .actions{display:flex;gap:6px;flex-wrap:wrap;}
   .empty{text-align:center;padding:60px 20px;color:#6b7280;font-size:14px;}
   .duration{color:#9ca3af;font-size:12px;}
+  .net-form{display:flex;gap:8px;padding:14px 16px;flex-wrap:wrap;align-items:flex-end;border-top:1px solid #2a2a2a;}
+  .net-input{background:#111;border:1px solid #333;border-radius:8px;padding:7px 12px;color:#e5e5e5;font-size:13px;outline:none;flex:1;min-width:120px;}
+  .net-input:focus{border-color:#6366f1;}
+  .net-input-hint{font-size:11px;color:#6b7280;margin-top:3px;}
+  .net-field{display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px;}
 `;
 
 function fmt(iso: string | null) {
@@ -70,6 +85,13 @@ export default function AdminAttendancePage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch]   = useState('');
   const [filter, setFilter]   = useState('all');
+
+  // Network management state
+  const [networks, setNetworks]       = useState<any[]>([]);
+  const [netLabel, setNetLabel]       = useState('');
+  const [netCidr,  setNetCidr]        = useState('');
+  const [netAdding, setNetAdding]     = useState(false);
+
   const token = typeof window !== 'undefined'
     ? localStorage.getItem('auth_token')
     : null;
@@ -88,7 +110,20 @@ export default function AdminAttendancePage() {
     }
   }, [token]);
 
-  useEffect(() => { fetchList(); }, [fetchList]);
+  const fetchNetworks = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/api/v1/networks`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const j = await res.json();
+        setNetworks(j.networks || []);
+      }
+    } catch { /* ignore */ }
+  }, [token]);
+
+  useEffect(() => { fetchList(); fetchNetworks(); }, [fetchList, fetchNetworks]);
 
   async function handleApprove(id: number, approve: boolean) {
     const res = await fetch(`${API}/api/v1/attendance/admin/${id}/approve`, {
@@ -98,6 +133,47 @@ export default function AdminAttendancePage() {
     });
     if (res.ok) fetchList();
     else alert('Action failed: ' + await res.text());
+  }
+
+  async function handleAddNetwork() {
+    if (!netLabel.trim() || !netCidr.trim()) {
+      alert('Both label and IP/CIDR are required.');
+      return;
+    }
+    setNetAdding(true);
+    const res = await fetch(`${API}/api/v1/networks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ label: netLabel.trim(), ip_cidr: netCidr.trim() }),
+    });
+    if (res.ok) {
+      setNetLabel('');
+      setNetCidr('');
+      fetchNetworks();
+    } else {
+      const j = await res.json().catch(() => ({}));
+      alert('Failed to add network: ' + (j.error || 'unknown error'));
+    }
+    setNetAdding(false);
+  }
+
+  async function handleDeleteNetwork(id: number) {
+    if (!confirm('Remove this network? Employees connecting from this IP will no longer be able to clock in.')) return;
+    const res = await fetch(`${API}/api/v1/networks/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) fetchNetworks();
+    else alert('Delete failed: ' + await res.text());
+  }
+
+  async function handleToggleNetwork(id: number) {
+    const res = await fetch(`${API}/api/v1/networks/${id}/toggle`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) fetchNetworks();
+    else alert('Toggle failed: ' + await res.text());
   }
 
   const filtered = list.filter(a => {
@@ -132,6 +208,90 @@ export default function AdminAttendancePage() {
         <div className="stat"><div className="stat-val" style={{ color: '#fbbf24' }}>{pending}</div><div className="stat-lbl">Pending</div></div>
         <div className="stat"><div className="stat-val" style={{ color: '#22c55e' }}>{approved}</div><div className="stat-lbl">Approved</div></div>
         <div className="stat"><div className="stat-val" style={{ color: '#ef4444' }}>{rejected}</div><div className="stat-lbl">Rejected</div></div>
+      </div>
+
+      {/* ── Allowed Networks ── */}
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <div className="card-title">Allowed Office Networks</div>
+            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>
+              Employees can only clock in when their IP matches an active entry below.
+              Leave empty to allow clock-in from any network.
+            </div>
+          </div>
+          <button className="btn btn-refresh" onClick={fetchNetworks}>Refresh</button>
+        </div>
+
+        {networks.length === 0 ? (
+          <div className="empty" style={{ padding: '24px 20px' }}>
+            No networks configured — clock-in is open from any network.
+          </div>
+        ) : (
+          <div className="tbl-wrap">
+            <table style={{ minWidth: 500 }}>
+              <thead>
+                <tr>
+                  <th>Label</th>
+                  <th>IP / CIDR</th>
+                  <th>Status</th>
+                  <th>Added</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {networks.map((n: any) => (
+                  <tr key={n.id}>
+                    <td style={{ fontWeight: 600, color: '#fff' }}>{n.label}</td>
+                    <td><code style={{ fontSize: 12, color: '#00d9ff' }}>{n.ip_cidr}</code></td>
+                    <td>
+                      <span className={`badge badge-${n.is_active ? 'active' : 'inactive'}`}>
+                        {n.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td style={{ color: '#6b7280', fontSize: 12 }}>
+                      {new Date(n.created_at).toLocaleDateString('en-IN')}
+                    </td>
+                    <td>
+                      <div className="actions">
+                        <button className="btn btn-toggle" onClick={() => handleToggleNetwork(n.id)}>
+                          {n.is_active ? 'Disable' : 'Enable'}
+                        </button>
+                        <button className="btn btn-danger" onClick={() => handleDeleteNetwork(n.id)}>
+                          Remove
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Add network form */}
+        <div className="net-form">
+          <div className="net-field">
+            <input
+              className="net-input"
+              placeholder="Label (e.g. Office WiFi)"
+              value={netLabel}
+              onChange={e => setNetLabel(e.target.value)}
+            />
+          </div>
+          <div className="net-field">
+            <input
+              className="net-input"
+              placeholder="IP or CIDR (e.g. 203.0.113.5/32)"
+              value={netCidr}
+              onChange={e => setNetCidr(e.target.value)}
+            />
+            <div className="net-input-hint">Single IP: 1.2.3.4/32 · Range: 192.168.1.0/24</div>
+          </div>
+          <button className="btn btn-add" onClick={handleAddNetwork} disabled={netAdding}>
+            {netAdding ? 'Adding…' : '+ Add Network'}
+          </button>
+        </div>
       </div>
 
       <div className="card">
@@ -205,6 +365,12 @@ export default function AdminAttendancePage() {
                         {a.status === 'approved' && a.status === 'rejected' && (
                           <span style={{ color: '#6b7280', fontSize: 12 }}>—</span>
                         )}
+                        <a
+                          className="btn btn-trail"
+                          href={`/admin/sales-location?userId=${a.user_id}&date=${(a.date || '').slice(0, 10)}`}
+                        >
+                          View Trail
+                        </a>
                       </div>
                     </td>
                   </tr>
