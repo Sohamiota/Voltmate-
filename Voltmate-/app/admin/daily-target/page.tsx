@@ -155,7 +155,15 @@ const S = `
   .no-targets-icon{font-size:42px;margin-bottom:14px;}
   .no-targets-msg{font-size:15px;font-weight:600;color:#6b7280;margin-bottom:6px;}
   .no-targets-sub{font-size:13px;color:#4b5563;}
-  @media(max-width:480px){.detail-stats{gap:12px;}.dms-v{font-size:16px;}}
+  /* Empty table */
+  .tbl-wrap{background:#141414;border:1px solid #222;border-radius:12px;overflow:hidden;}
+  .tbl{width:100%;border-collapse:collapse;}
+  .tbl th{padding:11px 14px;font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;text-align:left;background:#111;border-bottom:1px solid #1e1e1e;}
+  .tbl td{padding:12px 14px;font-size:13px;color:#e5e5e5;border-bottom:1px solid #1a1a1a;vertical-align:top;}
+  .tbl tr:last-child td{border-bottom:none;}
+  .tbl tr:hover td{background:#1a1a1a;}
+  .tbl-empty{text-align:center;padding:36px 14px !important;color:#4b5563 !important;font-size:13px !important;}
+  @media(max-width:480px){.detail-stats{gap:12px;}.dms-v{font-size:16px;}.tbl th,.tbl td{padding:9px 10px;}}
 `;
 
 export default function DailyTargetPage() {
@@ -210,24 +218,31 @@ export default function DailyTargetPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // ── Derived: only visits whose next_action_date is today ──────────────────
+  // ── Derived ───────────────────────────────────────────────────────────────
   const todayTargets = visits.filter(v => v.next_action_date?.slice(0, 10) === today);
 
-  const spMap: Record<string, Visit[]> = {};
+  // Collect ALL salesperson names ever seen in visit history, not just today
+  const allSpNames = Array.from(
+    new Set(visits.map(v => v.salesperson_name?.trim() || 'Unassigned').filter(Boolean))
+  ).sort();
+
+  // Build a row for every salesperson; those with no targets today get empty arrays
+  const todayMap: Record<string, Visit[]> = {};
   todayTargets.forEach(v => {
     const name = v.salesperson_name?.trim() || 'Unassigned';
-    if (!spMap[name]) spMap[name] = [];
-    spMap[name].push(v);
+    if (!todayMap[name]) todayMap[name] = [];
+    todayMap[name].push(v);
   });
 
-  const rows: SalespersonRow[] = Object.entries(spMap)
-    .map(([name, targets]) => ({
+  const rows: SalespersonRow[] = allSpNames.map(name => {
+    const targets = todayMap[name] ?? [];
+    return {
       name,
       targets,
       updated: targets.filter(v => isUpdatedToday(v, today)),
       pending: targets.filter(v => !isUpdatedToday(v, today)),
-    }))
-    .sort((a, b) => b.pending.length - a.pending.length);
+    };
+  }).sort((a, b) => b.pending.length - a.pending.length);
 
   const visibleRows = search.trim()
     ? rows.filter(r => r.name.toLowerCase().includes(search.toLowerCase()))
@@ -237,7 +252,7 @@ export default function DailyTargetPage() {
   const totalUpdated  = todayTargets.filter(v => isUpdatedToday(v, today)).length;
   const totalPending  = totalTargets - totalUpdated;
 
-  const selected = selectedName ? rows.find(r => r.name === selectedName) ?? null : null;
+  const selected = selectedName ? (rows.find(r => r.name === selectedName) ?? null) : null;
   const displayVisits =
     tabFilter === 'updated' ? selected?.updated ?? []
     : tabFilter === 'pending' ? selected?.pending ?? []
@@ -323,33 +338,33 @@ export default function DailyTargetPage() {
         <div>
           <div className="section-hdr">
             <div className="section-title">
-              {visibleRows.length > 0
-                ? `Salespersons with targets today (${visibleRows.length})`
-                : 'No targets scheduled for today'}
+              All Salespersons ({visibleRows.length})
+              {totalTargets > 0 && (
+                <span style={{ color: '#6b7280', fontWeight: 400, marginLeft: 8, fontSize: 13 }}>
+                  — {totalTargets} target{totalTargets !== 1 ? 's' : ''} today
+                </span>
+              )}
             </div>
-            {rows.length > 0 && (
-              <input
-                className="search"
-                placeholder="Search salesperson…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-            )}
+            <input
+              className="search"
+              placeholder="Search salesperson…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
           </div>
 
           {visibleRows.length === 0 ? (
             <div className="no-targets">
-              <div className="no-targets-icon">🎯</div>
-              <div className="no-targets-msg">No targets for today</div>
-              <div className="no-targets-sub">
-                Visits with a next action date of {fmtDate(today)} will appear here.
-              </div>
+              <div className="no-targets-icon">🔍</div>
+              <div className="no-targets-msg">No salesperson found</div>
+              <div className="no-targets-sub">Try a different search term.</div>
             </div>
           ) : (
             <div className="emp-grid">
               {visibleRows.map(sp => {
-                const pct     = sp.targets.length > 0 ? Math.round((sp.updated.length / sp.targets.length) * 100) : 0;
-                const allDone = sp.pending.length === 0 && sp.targets.length > 0;
+                const hasTargets = sp.targets.length > 0;
+                const pct        = hasTargets ? Math.round((sp.updated.length / sp.targets.length) * 100) : 0;
+                const allDone    = hasTargets && sp.pending.length === 0;
 
                 return (
                   <div
@@ -360,7 +375,7 @@ export default function DailyTargetPage() {
                     <div className="emp-av">{getInitials(sp.name)}</div>
                     <div className="emp-nm">{sp.name}</div>
 
-                    {/* Progress bar */}
+                    {/* Progress bar — greyed out when no targets */}
                     <div className="prog-bg">
                       <div
                         className="prog-fill"
@@ -370,14 +385,16 @@ export default function DailyTargetPage() {
                         }}
                       />
                     </div>
-                    <div className="prog-label">{sp.updated.length}/{sp.targets.length} updated</div>
+                    <div className="prog-label">
+                      {hasTargets ? `${sp.updated.length}/${sp.targets.length} updated` : 'No targets today'}
+                    </div>
 
                     <div className="emp-footer">
-                      {allDone
-                        ? <span className="badge-ok-card">✓ All {sp.targets.length} updated</span>
-                        : sp.pending.length > 0
-                          ? <span className="badge-pending-card">● {sp.pending.length} pending</span>
-                          : <span className="badge-none-card">{sp.targets.length} target{sp.targets.length !== 1 ? 's' : ''}</span>
+                      {!hasTargets
+                        ? <span className="badge-none-card">No targets today</span>
+                        : allDone
+                          ? <span className="badge-ok-card">✓ All {sp.targets.length} updated</span>
+                          : <span className="badge-pending-card">● {sp.pending.length} pending</span>
                       }
                       <span className="emp-arrow">›</span>
                     </div>
@@ -437,84 +454,89 @@ export default function DailyTargetPage() {
             })}
           </div>
 
-          {/* Visit target cards */}
-          {displayVisits.length === 0 ? (
-            <div className="empty">
-              No {tabFilter === 'all' ? '' : tabFilter + ' '}targets for {selected!.name} today.
-            </div>
-          ) : (
-            displayVisits.map(v => {
-              const done = isUpdatedToday(v, today);
-              const sColor = statusColor(v.status);
-              return (
-                <div key={v.id} className={`visit-card ${done ? 'visit-card-updated' : 'visit-card-pending'}`}>
-                  <div className="visit-head">
-                    <div>
-                      <div className="visit-cust">{v.cust_name || '—'}</div>
-                      <div className="visit-meta">
-                        {[v.lead_cust_code, v.lead_location].filter(Boolean).join(' · ')}
-                      </div>
-                    </div>
-                    <div className="badges">
-                      {done
-                        ? <span className="badge badge-updated">✓ Updated today</span>
-                        : <span className="badge badge-pending-v">⏳ Pending update</span>
-                      }
-                      {v.status && (
-                        <span className="badge" style={{
-                          background: sColor + '22',
-                          color: sColor,
-                          borderColor: sColor + '55',
-                        }}>
-                          {v.status}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="visit-grid">
-                    <div className="visit-fi">
-                      <label>Next Action</label>
-                      <span>{v.next_action || '—'}</span>
-                    </div>
-                    <div className="visit-fi">
-                      <label>Action Date</label>
-                      <span>{fmtDate(v.next_action_date)}</span>
-                    </div>
-                    <div className="visit-fi">
-                      <label>Vehicle</label>
-                      <span>{v.vehicle || '—'}</span>
-                    </div>
-                    <div className="visit-fi">
-                      <label>Visit Date</label>
-                      <span>{fmtDate(v.visit_date)}</span>
-                    </div>
-                    {v.phone_no && (
-                      <div className="visit-fi">
-                        <label>Phone</label>
-                        <span>{v.phone_no}</span>
-                      </div>
-                    )}
-                    {done && v.updated_at && (
-                      <div className="visit-fi">
-                        <label>Updated at</label>
-                        <span style={{ color: '#22c55e' }}>
-                          {new Date(v.updated_at).toLocaleTimeString('en-IN', {
-                            hour: '2-digit', minute: '2-digit', hour12: true,
-                          })}
-                          {v.updated_by_name ? ` by ${v.updated_by_name}` : ''}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {v.note && (
-                    <div className="visit-note">📝 {v.note}</div>
-                  )}
-                </div>
-              );
-            })
-          )}
+          {/* Visit target table — always rendered, empty rows when no data */}
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Status</th>
+                  <th>Next Action</th>
+                  <th>Action Date</th>
+                  <th>Vehicle</th>
+                  <th>Visit Date</th>
+                  <th>Phone</th>
+                  <th>Updated at</th>
+                  <th>Update Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayVisits.length === 0 ? (
+                  <tr>
+                    <td className="tbl-empty" colSpan={9}>
+                      {tabFilter === 'all'
+                        ? `No targets assigned to ${selected!.name} for today`
+                        : `No ${tabFilter} targets for ${selected!.name} today`}
+                    </td>
+                  </tr>
+                ) : (
+                  displayVisits.map(v => {
+                    const done   = isUpdatedToday(v, today);
+                    const sColor = statusColor(v.status);
+                    return (
+                      <tr key={v.id}>
+                        <td>
+                          <div style={{ fontWeight: 600, color: '#fff' }}>{v.cust_name || '—'}</div>
+                          <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                            {[v.lead_cust_code, v.lead_location].filter(Boolean).join(' · ')}
+                          </div>
+                          {v.note && (
+                            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4, fontStyle: 'italic' }}>
+                              📝 {v.note}
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          {v.status ? (
+                            <span className="badge" style={{
+                              background: sColor + '22',
+                              color: sColor,
+                              borderColor: sColor + '55',
+                            }}>
+                              {v.status}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td>{v.next_action || '—'}</td>
+                        <td>{fmtDate(v.next_action_date)}</td>
+                        <td>{v.vehicle || '—'}</td>
+                        <td>{fmtDate(v.visit_date)}</td>
+                        <td>{v.phone_no || '—'}</td>
+                        <td>
+                          {done && v.updated_at ? (
+                            <span style={{ color: '#22c55e', fontSize: 12 }}>
+                              {new Date(v.updated_at).toLocaleTimeString('en-IN', {
+                                hour: '2-digit', minute: '2-digit', hour12: true,
+                              })}
+                              {v.updated_by_name && (
+                                <div style={{ fontSize: 11, color: '#6b7280' }}>{v.updated_by_name}</div>
+                              )}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td>
+                          {done
+                            ? <span className="badge badge-updated">✓ Updated</span>
+                            : <span className="badge badge-pending-v">⏳ Pending</span>
+                          }
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
