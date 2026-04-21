@@ -768,11 +768,15 @@ export default function CreateVisitReportPage() {
       const res = await fetch(`${API_BASE}/api/v1/visits/export/csv`, { headers: authHeaders() });
       if (!res.ok) { showToast('Export failed', 'error'); return; }
       const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
+      a.style.display = 'none';
+      a.href = url;
       a.download = `visits_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(a.href); // cleanup
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 150);
       showToast('Export started', 'success');
     } catch {
       showToast('Export failed', 'error');

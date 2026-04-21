@@ -367,11 +367,15 @@ export default function ServiceManagerVehiclesPage() {
       const res = await fetch(`${API_BASE}/api/v1/vehicles/export/csv`, { headers });
       if (!res.ok) throw new Error(await res.text());
       const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
+      a.style.display = 'none';
+      a.href = url;
       a.download = `vehicles-services_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(a.href);
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 150);
     } catch (err: any) {
       alert(err?.message || 'Export failed');
     }

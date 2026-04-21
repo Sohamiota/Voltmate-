@@ -716,8 +716,8 @@ export default function CreateLeadReportPage() {
   // FIX #16: blob URL revoked after use
   async function exportCSV() {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/leads/export/csv`, { // FIX #3
-        headers: buildHeaders(), // FIX #2
+      const res = await fetch(`${API_BASE}/api/v1/leads/export/csv`, {
+        headers: buildHeaders(),
       });
       if (!res.ok) {
         showToast('Export failed', 'error');
@@ -726,10 +726,13 @@ export default function CreateLeadReportPage() {
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
+      a.style.display = 'none';
       a.href = url;
       a.download = `leads_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url); // FIX #16: no memory leak
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 150);
       showToast('Export started', 'success');
     } catch (err) {
       console.error('export error:', err);

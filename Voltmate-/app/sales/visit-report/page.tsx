@@ -576,8 +576,9 @@ export default function VisitReportPage() {
       if (!res.ok) { alert('Export failed'); return; }
 
       const raw = await res.text();
+      if (!raw.trim()) { alert('No data to export'); return; }
+
       const lines = raw.split('\n');
-      if (lines.length === 0) { alert('No data to export'); return; }
 
       // Parse the header row to find the index of the "status" column
       const headerCols = lines[0].split(',').map(c => c.replace(/^"|"$/g, '').trim().toLowerCase());
@@ -602,13 +603,16 @@ export default function VisitReportPage() {
         }
       }
 
-      const blob = new Blob([filtered.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob(['\uFEFF' + filtered.join('\n')], { type: 'text/csv;charset=utf-8;' });
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
+      a.style.display = 'none';
       a.href     = url;
       a.download = `visit-report_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 150);
     } catch (err) {
       console.error('export error:', err);
       alert('Export failed');
