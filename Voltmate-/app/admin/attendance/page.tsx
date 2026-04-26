@@ -260,7 +260,7 @@ export default function AdminAttendancePage() {
               : 'Click an employee to view and manage their attendance records'}
           </div>
         </div>
-        <button className="btn btn-refresh" onClick={loadData}>↺ Refresh</button>
+        <button className="btn btn-refresh" onClick={loadData}>Refresh</button>
       </div>
 
       {/* Stats */}
@@ -318,10 +318,10 @@ export default function AdminAttendancePage() {
                     {emp.pending > 0
                       ? <span className="emp-badge-pending">● {emp.pending} pending</span>
                       : emp.recs.length > 0
-                        ? <span className="emp-badge-ok">✓ {emp.recs.length} record{emp.recs.length !== 1 ? 's' : ''}</span>
+                        ? <span className="emp-badge-ok">{emp.recs.length} record{emp.recs.length !== 1 ? 's' : ''}</span>
                         : <span className="emp-badge-none">No records yet</span>
                     }
-                    <span className="emp-arrow">›</span>
+                    <span className="emp-arrow"></span>
                   </div>
                 </div>
               ))}
@@ -334,7 +334,7 @@ export default function AdminAttendancePage() {
         // ═══════════════════════════ EMPLOYEE DETAIL ══════════════════════════
         <div>
           <button className="back-btn" onClick={() => setSelectedId(null)}>
-            ‹ All Employees
+            All Employees
           </button>
 
           {/* Employee header card */}
@@ -408,9 +408,9 @@ export default function AdminAttendancePage() {
                     <div className="rec-date">{fmtDate(r.date)}</div>
                     <div className="rec-badges">
                       {r.network_verified ? (
-                        <span className="badge badge-net-ok">🏢 Office Network</span>
+                        <span className="badge badge-net-ok">Office Network</span>
                       ) : (
-                        <span className="badge badge-net-out">📍 Outside Network</span>
+                        <span className="badge badge-net-out">Outside Network</span>
                       )}
                       <span className={`badge badge-${s}-s`}>
                         {s.charAt(0).toUpperCase() + s.slice(1)}
@@ -451,7 +451,7 @@ export default function AdminAttendancePage() {
                       className={`btn-trail${needsTrail ? ' btn-trail-primary' : ''}`}
                       href={`/admin/sales-location?userId=${r.user_id}&date=${(r.date || '').slice(0, 10)}`}
                     >
-                      📍 View Location Trail
+                      View Location Trail
                     </a>
                     {r.clock_in_ip && (
                       <span className="rec-ip">IP: {r.clock_in_ip}</span>

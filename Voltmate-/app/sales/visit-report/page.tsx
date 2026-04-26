@@ -218,7 +218,7 @@ const PAGE_STYLES = `
   }
   th:hover { color: var(--text2); }
   th.sortable::after {
-    content: '⇅'; position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    content: ''; position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
     font-size: 11px; color: var(--text3); opacity: 0; transition: opacity .15s;
   }
   th.sortable:hover::after { opacity: 1; }
@@ -381,8 +381,8 @@ function tlDotClass(action: string) {
 }
 function tlIcon(action: string) {
   if (action === 'create') return '＋';
-  if (action === 'update') return '✎';
-  if (action === 'delete') return '✕';
+  if (action === 'update') return 'Edit';
+  if (action === 'delete') return 'Del';
   return '·';
 }
 function tlLabel(action: string) {
@@ -646,11 +646,11 @@ export default function VisitReportPage() {
           </div>
         </div>
 
-        {error && <div className="vr-error">⚠️ {error}</div>}
+        {error && <div className="vr-error">{error}</div>}
 
         {/* Filters */}
         <div className="vr-filters">
-          <div className="vr-filters-label"><span>🔍</span> Filters</div>
+          <div className="vr-filters-label">Filters</div>
           <div className="vr-filters-grid">
             <div className="vr-fg">
               <label className="vr-label">Search</label>
@@ -721,7 +721,7 @@ export default function VisitReportPage() {
                 ) : visits.length === 0 ? (
                   <tr><td colSpan={13}>
                     <div className="vr-empty">
-                      <div className="vr-empty-icon">📋</div>
+                      <div className="vr-empty-icon"></div>
                       <div className="vr-empty-msg">
                         {searchQuery || filterStatus || filterDateFrom || filterDateTo
                           ? <>No visits match your filters</>
@@ -771,7 +771,7 @@ export default function VisitReportPage() {
                         </td>
                         <td>
                           <button className="vr-btn vr-btn-preview" onClick={() => openPreview(v)}>
-                            👁 View
+                            View
                           </button>
                         </td>
                       </tr>
@@ -794,7 +794,7 @@ export default function VisitReportPage() {
                 <div className="vr-pv-name">{previewVisit.cust_name || 'Unknown Customer'}</div>
                 <div className="vr-pv-code">{previewVisit.lead_cust_code || '—'} · Visit #{previewVisit.id}</div>
               </div>
-              <button className="vr-pv-close" onClick={closePreview} aria-label="Close">✕</button>
+              <button className="vr-pv-close" onClick={closePreview} aria-label="Close">Close</button>
             </div>
 
             {/* Body */}
@@ -874,7 +874,7 @@ export default function VisitReportPage() {
                   </div>
                   {previewVisit.updated_by_name && (
                     <div className="vr-pv-audit-pill edit">
-                      <span className="icon">✎</span>
+                      <span className="icon">Edit</span>
                       <span className="name">Last edited by {previewVisit.updated_by_name}</span>
                       <span className="time">{fmtDateTime(previewVisit.updated_at)}</span>
                     </div>

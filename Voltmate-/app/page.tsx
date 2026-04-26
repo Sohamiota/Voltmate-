@@ -14,6 +14,7 @@ import {
   Youtube,
   ClipboardList,
   Wrench,
+  AlertTriangle,
 } from 'lucide-react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
@@ -68,6 +69,9 @@ export default function Home() {
   if (userRole === 'admin') {
     sections.push({ id: 'admin-attendance',   label: 'Admin Attendance',   icon: UserCheck })
     sections.push({ id: 'admin-task-manager', label: 'Admin Task Manager', icon: ClipboardList })
+    sections.push({ id: 'weekly-target',      label: 'Weekly Target',      icon: Calendar })
+    sections.push({ id: 'overdue-visits',     label: 'Overdue Visits',     icon: AlertTriangle })
+    sections.push({ id: 'sales-analytics',    label: 'Sales Analytics',    icon: BarChart3 })
   }
 
   function handleSectionChange(id: string) {
@@ -77,6 +81,9 @@ export default function Home() {
     if (id === 'admin-attendance'){ router.push('/admin/attendance'); return }
     if (id === 'task-manager')       { router.push('/task-manager');          return }
     if (id === 'admin-task-manager') { router.push('/admin/task-manager');    return }
+    if (id === 'weekly-target')      { router.push('/admin/daily-target');    return }
+    if (id === 'overdue-visits')     { router.push('/admin/overdue-visits');  return }
+    if (id === 'sales-analytics')    { router.push('/admin/sales-analytics'); return }
     if (id === 'vehicle-videos')  { router.push('/vehicle-videos');   return }
     if (id === 'service-manager') { router.push('/service-manager');  return }
   }

@@ -796,7 +796,6 @@ export default function CreateVisitReportPage() {
   if (accessDenied) {
     return (
       <div style={{ minHeight: '100vh', background: '#0b0d14', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: 'system-ui, sans-serif' }}>
-        <div style={{ fontSize: 32 }}>🚫</div>
         <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 18 }}>Access Denied</div>
         <div style={{ color: '#9ca3af', fontSize: 14 }}>Only Admin and Sales Admin can access this page.</div>
         <button onClick={() => router.back()} style={{ marginTop: 16, padding: '8px 20px', background: '#131620', border: '1px solid #333', borderRadius: 8, color: '#e5e5e5', cursor: 'pointer', fontSize: 13 }}>
@@ -903,7 +902,7 @@ export default function CreateVisitReportPage() {
                   <tr>
                     <td colSpan={10}>
                       <div className="vm-empty">
-                        <div className="vm-empty-icon">📋</div>
+                        <div className="vm-empty-icon"></div>
                         <div className="vm-empty-text">
                           {searchQuery
                             ? <>No visits match <strong>"{searchQuery}"</strong></>
@@ -942,7 +941,7 @@ export default function CreateVisitReportPage() {
                           )}
                           {v.updated_by_name && (
                             <span className="vm-audit-row vm-audit-edit">
-                              <span className="vm-audit-icon">✎</span>
+                              <span className="vm-audit-icon">Edit</span>
                               <span>{v.updated_by_name}</span>
                               {v.updated_at && (
                                 <span className="vm-audit-time">
@@ -1002,7 +1001,7 @@ export default function CreateVisitReportPage() {
                       )}
                       {editTarget.updated_by_name && (
                         <span style={{ marginLeft: 8, fontSize: 11, color: '#fbbf24' }}>
-                          · ✎ Last edited by {editTarget.updated_by_name}
+                          · Last edited by {editTarget.updated_by_name}
                           {editTarget.updated_at && ` on ${new Date(editTarget.updated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
                         </span>
                       )}
@@ -1010,7 +1009,7 @@ export default function CreateVisitReportPage() {
                   ) : 'Create a new customer visit record'}
                 </div>
               </div>
-              <button className="vm-close" onClick={closeModal} aria-label="Close modal">✕</button>
+              <button className="vm-close" onClick={closeModal} aria-label="Close modal">Close</button>
             </div>
 
             <form onSubmit={submitForm}>

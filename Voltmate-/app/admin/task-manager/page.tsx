@@ -431,7 +431,7 @@ export default function AdminTaskManagerPage() {
               <button
                 onClick={() => setHistTask(null)}
                 style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: 17, padding: '2px 6px' }}
-              >✕</button>
+              >Close</button>
             </div>
 
             {histLoading ? (

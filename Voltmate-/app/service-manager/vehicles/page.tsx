@@ -660,7 +660,7 @@ export default function ServiceManagerVehiclesPage() {
             <div className="sm-modal" onClick={e => e.stopPropagation()}>
               <div className="sm-modal-head">
                 <div className="sm-modal-title">{editId ? 'Edit Vehicle' : 'Add Vehicle'}</div>
-                <button type="button" className="sm-modal-close" onClick={() => setModalOpen(null)}>✕</button>
+                <button type="button" className="sm-modal-close" onClick={() => setModalOpen(null)}>Close</button>
               </div>
               <form onSubmit={submitVehicle}>
                 <div className="sm-modal-body">
@@ -701,7 +701,7 @@ export default function ServiceManagerVehiclesPage() {
             <div className="sm-modal" onClick={e => e.stopPropagation()}>
               <div className="sm-modal-head">
                 <div className="sm-modal-title">Mark Service #{markDoneService.service.service_no} Done</div>
-                <button type="button" className="sm-modal-close" onClick={() => setMarkDoneService(null)}>✕</button>
+                <button type="button" className="sm-modal-close" onClick={() => setMarkDoneService(null)}>Close</button>
               </div>
               <form onSubmit={submitMarkDone}>
                 <div className="sm-modal-body">
@@ -726,7 +726,7 @@ export default function ServiceManagerVehiclesPage() {
                 <div className="sm-modal-title">
                   {editServiceState.service ? `Edit Service #${editServiceState.service.service_no}` : `Add Service #${editServiceState.serviceNo}`}
                 </div>
-                <button type="button" className="sm-modal-close" onClick={() => setEditServiceState(null)}>✕</button>
+                <button type="button" className="sm-modal-close" onClick={() => setEditServiceState(null)}>Close</button>
               </div>
               <form onSubmit={submitEditService}>
                 <div className="sm-modal-body">

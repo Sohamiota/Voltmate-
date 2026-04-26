@@ -305,6 +305,136 @@ export async function listOverdueVisits(_req: Request, res: Response) {
   }
 }
 
+// ── Sales Analytics ───────────────────────────────────────────────────────────
+// Returns all pre-aggregated analytics data in a single call.
+// Admin-only — used by /admin/sales-analytics page.
+const VISIBLE_STATUSES = [
+  'New Lead', 'Attempted Contact', 'Connected', 'Requirement Identified',
+  'Qualified Lead', 'Demo Scheduled', 'Demo Completed', 'Quotation Shared',
+  'Demo Follow Up', 'Follow-Up 2', 'Negotiation', 'Booking Date Confirmed',
+];
+const CLOSED_FILTER = `(
+  v.status NOT ILIKE 'Lost%'
+  AND v.status NOT ILIKE 'Delivered%'
+  AND v.status NOT ILIKE 'Booking Amount%'
+  AND v.status NOT ILIKE 'Order Confirmed%'
+  AND v.status NOT ILIKE 'Delivery Scheduled%'
+  AND v.status NOT ILIKE 'Loan Processing%'
+)`;
+
+export async function getAnalytics(_req: Request, res: Response) {
+  try {
+    await ensureVisitsCols();
+    const statusList = VISIBLE_STATUSES.map((_, i) => `$${i + 1}`).join(', ');
+
+    const [funnel, spStats, aging, vehicle, location, trend, atRisk] = await Promise.all([
+
+      // 1. Pipeline funnel — count per stage
+      query(
+        `SELECT COALESCE(v.status, 'New Lead') AS status, COUNT(*) AS count
+         FROM visits v
+         WHERE v.status IN (${statusList})
+         GROUP BY v.status
+         ORDER BY v.status`,
+        VISIBLE_STATUSES,
+      ),
+
+      // 2. Salesperson stats
+      query(
+        `SELECT
+           COALESCE(u.name, 'Unassigned') AS name,
+           COUNT(v.id)                    AS total,
+           COUNT(CASE WHEN v.next_action_date < CURRENT_DATE AND ${CLOSED_FILTER} THEN 1 END) AS overdue,
+           COUNT(CASE WHEN v.next_action_date IS NULL        AND ${CLOSED_FILTER} THEN 1 END) AS no_date,
+           COUNT(CASE WHEN v.updated_at < now() - interval '7 days' AND ${CLOSED_FILTER} THEN 1 END) AS stale_7d,
+           COUNT(CASE WHEN v.status ILIKE 'Lost%'
+                       AND DATE_TRUNC('month', v.updated_at) = DATE_TRUNC('month', now()) THEN 1 END) AS lost_month
+         FROM visits v
+         LEFT JOIN users u ON u.id = v.salesperson_id
+         WHERE v.status IN (${statusList})
+         GROUP BY u.name
+         ORDER BY total DESC`,
+        VISIBLE_STATUSES,
+      ),
+
+      // 3. Stage aging — days since last update, bucketed
+      query(
+        `SELECT
+           COALESCE(v.status, 'New Lead') AS status,
+           CASE
+             WHEN CURRENT_DATE - v.updated_at::date < 3  THEN 'lt3d'
+             WHEN CURRENT_DATE - v.updated_at::date < 7  THEN '3to7d'
+             WHEN CURRENT_DATE - v.updated_at::date < 14 THEN '7to14d'
+             ELSE 'gt14d'
+           END AS bucket,
+           COUNT(*) AS count
+         FROM visits v
+         WHERE v.status IN (${statusList})
+         GROUP BY v.status, bucket`,
+        VISIBLE_STATUSES,
+      ),
+
+      // 4. Vehicle breakdown
+      query(
+        `SELECT COALESCE(NULLIF(TRIM(v.vehicle), ''), 'Unknown') AS vehicle, COUNT(*) AS count
+         FROM visits v
+         WHERE v.status IN (${statusList})
+           AND v.vehicle IS NOT NULL AND TRIM(v.vehicle) <> ''
+         GROUP BY vehicle
+         ORDER BY count DESC`,
+        VISIBLE_STATUSES,
+      ),
+
+      // 5. Location breakdown
+      query(
+        `SELECT COALESCE(NULLIF(TRIM(l.location), ''), 'Unknown') AS location, COUNT(*) AS count
+         FROM visits v
+         LEFT JOIN leads l ON l.id = v.lead_id
+         WHERE v.status IN (${statusList})
+         GROUP BY location
+         ORDER BY count DESC
+         LIMIT 20`,
+        VISIBLE_STATUSES,
+      ),
+
+      // 6. 30-day daily visit trend
+      query(
+        `SELECT TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS day, COUNT(*) AS count
+         FROM visits v
+         WHERE v.visit_date >= CURRENT_DATE - INTERVAL '30 days'
+           AND v.visit_date IS NOT NULL
+         GROUP BY v.visit_date
+         ORDER BY v.visit_date ASC`,
+        [],
+      ),
+
+      // 7. At-risk summary scalars
+      query(
+        `SELECT
+           COUNT(CASE WHEN v.next_action_date < CURRENT_DATE AND ${CLOSED_FILTER} THEN 1 END) AS overdue,
+           COUNT(CASE WHEN v.next_action_date IS NULL        AND ${CLOSED_FILTER} THEN 1 END) AS no_date,
+           COUNT(CASE WHEN v.updated_at < now() - interval '7 days' AND ${CLOSED_FILTER} THEN 1 END) AS stale_7d
+         FROM visits v
+         WHERE v.status IN (${statusList})`,
+        VISIBLE_STATUSES,
+      ),
+    ]);
+
+    res.json({
+      pipeline_funnel:    (funnel    as any).rows,
+      salesperson_stats:  (spStats   as any).rows,
+      stage_aging:        (aging     as any).rows,
+      vehicle_breakdown:  (vehicle   as any).rows,
+      location_breakdown: (location  as any).rows,
+      daily_trend:        (trend     as any).rows,
+      at_risk_summary:    (atRisk    as any).rows[0] ?? { overdue: 0, no_date: 0, stale_7d: 0 },
+    });
+  } catch (e) {
+    console.error('getAnalytics error:', (e as any)?.stack || e);
+    res.status(500).json({ error: 'failed' });
+  }
+}
+
 export async function exportVisibleVisitsCSV(req: Request, res: Response) {
   try {
     await ensureVisitsCols();

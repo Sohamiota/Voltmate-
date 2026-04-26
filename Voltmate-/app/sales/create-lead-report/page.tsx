@@ -753,7 +753,6 @@ export default function CreateLeadReportPage() {
   if (accessDenied) {
     return (
       <div style={{ minHeight: '100vh', background: '#080a10', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: 'system-ui, sans-serif' }}>
-        <div style={{ fontSize: 32 }}>🚫</div>
         <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 18 }}>Access Denied</div>
         <div style={{ color: '#9ca3af', fontSize: 14 }}>Only Admin and Sales Admin can access this page.</div>
         <button onClick={() => router.back()} style={{ marginTop: 16, padding: '8px 20px', background: '#1a1a2e', border: '1px solid #333', borderRadius: 8, color: '#e5e5e5', cursor: 'pointer', fontSize: 13 }}>
@@ -858,7 +857,7 @@ export default function CreateLeadReportPage() {
                   <tr>
                     <td colSpan={10}>
                       <div className="lm-empty">
-                        <div className="lm-empty-icon">📋</div>
+                        <div className="lm-empty-icon"></div>
                         <div className="lm-empty-msg">
                           {searchQuery
                             ? <>No leads match <strong>"{searchQuery}"</strong></>
@@ -906,7 +905,7 @@ export default function CreateLeadReportPage() {
                           )}
                           {l.updated_by_name && (
                             <span className="lm-audit-row lm-audit-edit">
-                              <span className="lm-audit-icon">✎</span>
+                              <span className="lm-audit-icon">Edit</span>
                               <span>{l.updated_by_name}</span>
                               {l.updated_at && (
                                 <span className="lm-audit-time">
@@ -970,7 +969,7 @@ export default function CreateLeadReportPage() {
                       )}
                       {editTarget.updated_by_name && (
                         <span style={{ marginLeft: 8, fontSize: 11, color: '#fbbf24' }}>
-                          · ✎ Last edited by {editTarget.updated_by_name}
+                          · Last edited by {editTarget.updated_by_name}
                           {editTarget.updated_at && ` on ${new Date(editTarget.updated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
                         </span>
                       )}
@@ -978,7 +977,7 @@ export default function CreateLeadReportPage() {
                   ) : 'Fill in the lead details below'}
                 </div>
               </div>
-              <button className="lm-close" onClick={closeModal} aria-label="Close">✕</button>
+              <button className="lm-close" onClick={closeModal} aria-label="Close">Close</button>
             </div>
 
             <form onSubmit={submitForm}>

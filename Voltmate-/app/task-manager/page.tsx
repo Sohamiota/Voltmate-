@@ -369,7 +369,7 @@ export default function TaskManagerPage() {
                 <div style={{ fontWeight: 700, fontSize: 16, color: '#fff' }}>Edit Task</div>
                 <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{fmtDate(editTask.task_date)} · {editTask.employee_name}</div>
               </div>
-              <button onClick={() => setEditTask(null)} style={closeBtnStyle}>✕</button>
+              <button onClick={() => setEditTask(null)} style={closeBtnStyle}>Close</button>
             </div>
 
             <label style={labelStyle}>Task Description</label>
@@ -410,7 +410,7 @@ export default function TaskManagerPage() {
                 <div style={{ fontWeight: 700, fontSize: 16, color: '#fff' }}>Edit History</div>
                 <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{fmtDate(histTask.task_date)} · {histTask.employee_name}</div>
               </div>
-              <button onClick={() => setHistTask(null)} style={closeBtnStyle}>✕</button>
+              <button onClick={() => setHistTask(null)} style={closeBtnStyle}>Close</button>
             </div>
 
             {histLoading ? (

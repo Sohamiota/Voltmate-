@@ -363,7 +363,6 @@ export default function WeeklyTargetPage() {
   if (accessDenied) {
     return (
       <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: 'system-ui, sans-serif' }}>
-        <div style={{ fontSize: 36 }}>🚫</div>
         <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 18 }}>Access Denied</div>
         <div style={{ color: '#9ca3af', fontSize: 14 }}>Only Admins can view the Weekly Target panel.</div>
         <button
@@ -391,17 +390,17 @@ export default function WeeklyTargetPage() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button className="btn-refresh" onClick={load}>↺ Refresh</button>
+          <button className="btn-refresh" onClick={load}>Refresh</button>
         </div>
       </div>
 
       {/* ── Week navigator ── */}
       <div className="week-nav" style={{ marginBottom: 16 }}>
-        <button className="week-btn" onClick={() => setWeekOffset(o => o - 1)}>‹</button>
+        <button className="week-btn" onClick={() => setWeekOffset(o => o - 1)}>Prev</button>
         <span className="week-label">
           {fmtDateFull(week.start)} – {fmtDateFull(week.end)}
         </span>
-        <button className="week-btn" onClick={() => setWeekOffset(o => o + 1)}>›</button>
+        <button className="week-btn" onClick={() => setWeekOffset(o => o + 1)}>Next</button>
         <button
           className={`week-today-btn${isCurrentWeek ? ' active' : ''}`}
           onClick={() => setWeekOffset(0)}
@@ -424,7 +423,7 @@ export default function WeeklyTargetPage() {
             className={`day-chip${wd.isToday ? ' today-chip' : ''}${dayFilter === wd.dateStr ? ' active' : ''}`}
             onClick={() => setDayFilter(prev => prev === wd.dateStr ? null : wd.dateStr)}
           >
-            {wd.label}{wd.isToday ? ' ★' : ''}
+            {wd.label}{wd.isToday ? ' (Today)' : ''}
           </div>
         ))}
       </div>
@@ -482,7 +481,7 @@ export default function WeeklyTargetPage() {
 
           {visibleRows.length === 0 ? (
             <div className="no-targets">
-              <div className="no-targets-icon">🔍</div>
+              <div className="no-targets-icon"></div>
               <div className="no-targets-msg">No salesperson found</div>
               <div className="no-targets-sub">Try a different search term.</div>
             </div>
@@ -543,10 +542,10 @@ export default function WeeklyTargetPage() {
                       {!hasTargets
                         ? <span className="badge-none-card">No targets</span>
                         : allDone
-                          ? <span className="badge-ok-card">✓ All {sp.targets.length} updated</span>
+                          ? <span className="badge-ok-card">All {sp.targets.length} updated</span>
                           : <span className="badge-pending-card">● {sp.pending.length} pending</span>
                       }
-                      <span className="emp-arrow">›</span>
+                      <span className="emp-arrow"></span>
                     </div>
                   </div>
                 );
@@ -560,7 +559,7 @@ export default function WeeklyTargetPage() {
         /* ════════════════ DETAIL VIEW ════════════════ */
         <div>
           <button className="back-btn" onClick={() => setSelectedName(null)}>
-            ‹ All Salespersons
+            All Salespersons
           </button>
 
           {/* Salesperson header */}
@@ -620,7 +619,7 @@ export default function WeeklyTargetPage() {
                   onClick={() => setTabFilter(wd.dateStr)}
                   style={wd.isToday ? { color: tabFilter === wd.dateStr ? undefined : '#fbbf24' } : undefined}
                 >
-                  {shortDay}{wd.isToday ? ' ★' : ''} ({cnt})
+                  {shortDay}{wd.isToday ? ' (Today)' : ''} ({cnt})
                 </button>
               );
             })}
@@ -711,7 +710,7 @@ function renderVisitRow(
         </div>
         {v.note && (
           <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4, fontStyle: 'italic' }}>
-            📝 {v.note}
+            Note: {v.note}
           </div>
         )}
       </td>
@@ -725,7 +724,7 @@ function renderVisitRow(
           borderRadius: 5,
           border: isActionToday ? '1px solid rgba(251,191,36,.2)' : 'none',
         }}>
-          {getDayLabel(v.next_action_date)}{isActionToday ? ' ★' : ''}
+          {getDayLabel(v.next_action_date)}{isActionToday ? ' (Today)' : ''}
         </span>
       </td>
       <td>
@@ -757,8 +756,8 @@ function renderVisitRow(
       </td>
       <td>
         {done
-          ? <span className="badge badge-updated">✓ Updated</span>
-          : <span className="badge badge-pending-v">⏳ Pending</span>
+          ? <span className="badge badge-updated">Updated</span>
+          : <span className="badge badge-pending-v">Pending</span>
         }
       </td>
     </tr>

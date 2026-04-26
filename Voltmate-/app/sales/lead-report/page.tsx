@@ -204,7 +204,7 @@ const PAGE_STYLES = `
   }
   th:hover { color: var(--text2); }
   th.sortable::after {
-    content: '⇅'; position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    content: ''; position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
     font-size: 11px; color: var(--text3); opacity: 0; transition: opacity .15s;
   }
   th.sortable:hover::after { opacity: 1; }
@@ -365,8 +365,8 @@ function tlDotClass(action: string) {
 }
 function tlIcon(action: string) {
   if (action === 'create') return '＋';
-  if (action === 'update') return '✎';
-  if (action === 'delete') return '✕';
+  if (action === 'update') return 'Edit';
+  if (action === 'delete') return 'Del';
   return '·';
 }
 function tlLabel(action: string) {
@@ -609,11 +609,11 @@ export default function LeadReportPage() {
           </div>
         </div>
 
-        {error && <div className="lr-error">⚠️ {error}</div>}
+        {error && <div className="lr-error">{error}</div>}
 
         {/* Filters */}
         <div className="lr-filters">
-          <div className="lr-filters-label"><span>🔍</span> Filters</div>
+          <div className="lr-filters-label">Filters</div>
           <div className="lr-filters-grid">
             <div className="lr-fg">
               <label className="lr-label">Search</label>
@@ -687,7 +687,7 @@ export default function LeadReportPage() {
                 ) : leads.length === 0 ? (
                   <tr><td colSpan={9}>
                     <div className="lr-empty">
-                      <div className="lr-empty-icon">📋</div>
+                      <div className="lr-empty-icon"></div>
                       <div className="lr-empty-msg">
                         {searchQuery || filterType || filterBusiness || filterDateFrom || filterDateTo
                           ? <>No leads match your filters</>
@@ -711,7 +711,7 @@ export default function LeadReportPage() {
                       <td className="lr-date">{fmtDate(l.connect_date)}</td>
                       <td>
                         <button className="lr-btn lr-btn-preview" onClick={() => openPreview(l)}>
-                          👁 View
+                          View
                         </button>
                       </td>
                     </tr>
@@ -734,7 +734,7 @@ export default function LeadReportPage() {
                 <div className="lr-pv-name">{previewLead.cust_name || 'Unnamed Customer'}</div>
                 <div className="lr-pv-code">{previewLead.cust_code || '—'}</div>
               </div>
-              <button className="lr-pv-close" onClick={closePreview} aria-label="Close">✕</button>
+              <button className="lr-pv-close" onClick={closePreview} aria-label="Close">Close</button>
             </div>
 
             {/* Body */}
@@ -798,7 +798,7 @@ export default function LeadReportPage() {
                   )}
                   {previewLead.updated_by_name && (
                     <div className="lr-pv-audit-pill edit">
-                      <span className="icon">✎</span>
+                      <span className="icon">Edit</span>
                       <span className="name">Last edited by {previewLead.updated_by_name}</span>
                       <span className="time">{fmtDateTime(previewLead.updated_at)}</span>
                     </div>

@@ -440,9 +440,9 @@ export default function AttendancePage() {
             </div>
           </div>
           <div className="att-nav">
-            <button className="att-nav-btn" onClick={prevMonth}>‹</button>
+            <button className="att-nav-btn" onClick={prevMonth}>Prev</button>
             <span className="att-month-label">{MONTH_NAMES[viewMonth]} {viewYear}</span>
-            <button className="att-nav-btn" onClick={nextMonth}>›</button>
+            <button className="att-nav-btn" onClick={nextMonth}>Next</button>
           </div>
         </div>
 
@@ -472,7 +472,7 @@ export default function AttendancePage() {
             </>
           ) : hasCompletedToday ? (
             <div className="att-timer" style={{ color: '#22c55e' }}>
-              ✓ Attendance marked for today &nbsp;·&nbsp;
+              Attendance marked for today &nbsp;·&nbsp;
               {fmtTime(todayRecord.clock_in_at)} – {fmtTime(todayRecord.clock_out_at)}
             </div>
           ) : (
@@ -533,7 +533,6 @@ export default function AttendancePage() {
             alignItems:   'center',
             gap:          10,
           }}>
-            <span style={{ fontSize: 18 }}>⚠️</span>
             <div>
               <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 13 }}>You are on probation</div>
               <div style={{ color: '#fca5a5', fontSize: 12, marginTop: 2 }}>
