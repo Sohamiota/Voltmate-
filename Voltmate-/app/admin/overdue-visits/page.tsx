@@ -243,6 +243,8 @@ export default function OverdueVisitsPage() {
     if (!v.next_action_date) return false;
     const nad = v.next_action_date.slice(0, 10);
     if (nad >= today) return false; // not yet due / due today
+    if ((v.status || '').toLowerCase().startsWith('lost')) return false;
+    if ((v.next_action || '').toLowerCase().startsWith('lost')) return false;
     const updDate = v.updated_at ? v.updated_at.slice(0, 10) : null;
     return !updDate || updDate < nad; // never updated, or last update was before the action date
   });

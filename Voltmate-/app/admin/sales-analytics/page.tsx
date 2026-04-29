@@ -227,13 +227,18 @@ export default function SalesAnalyticsPage() {
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
 
+  const isLost = (v: AtRiskVisit) =>
+    (v.status || '').toLowerCase().startsWith('lost') ||
+    (v.next_action || '').toLowerCase().startsWith('lost');
+
   const overdueVisits = allVisits.filter(v =>
-    v.next_action_date && new Date(v.next_action_date + 'T00:00:00') < today
+    !isLost(v) && v.next_action_date && new Date(v.next_action_date + 'T00:00:00') < today
   ).sort((a, b) => daysSince(a.next_action_date) > daysSince(b.next_action_date) ? -1 : 1);
 
-  const noDateVisits = allVisits.filter(v => !v.next_action_date);
+  const noDateVisits = allVisits.filter(v => !isLost(v) && !v.next_action_date);
 
   const staleVisits = allVisits.filter(v => {
+    if (isLost(v)) return false;
     if (!v.updated_at) return true;
     return (today.getTime() - new Date(v.updated_at).getTime()) / 86_400_000 >= 7;
   }).sort((a, b) => daysSince(a.updated_at) > daysSince(b.updated_at) ? -1 : 1);

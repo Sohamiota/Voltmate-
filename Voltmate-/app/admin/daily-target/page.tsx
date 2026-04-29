@@ -281,9 +281,12 @@ export default function WeeklyTargetPage() {
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
-  // Targets for this week = visits whose next_action_date falls in [start, end]
+  // Targets for this week = visits whose next_action_date falls in [start, end],
+  // excluding any visit already marked Lost (by status or next_action).
   const weekTargets = visits.filter(v =>
     isInRange(v.next_action_date, week.startStr, week.endStr)
+    && !(v.status || '').toLowerCase().startsWith('lost')
+    && !(v.next_action || '').toLowerCase().startsWith('lost')
   );
 
   // Apply optional day filter (grid level)

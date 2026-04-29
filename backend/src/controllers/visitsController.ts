@@ -217,7 +217,7 @@ export async function listVisibleVisits(req: Request, res: Response) {
        LEFT JOIN users  u  ON u.id  = v.salesperson_id
        LEFT JOIN users  uc ON uc.id = v.created_by
        LEFT JOIN users  uu ON uu.id = v.updated_by
-       WHERE v.status IS NULL OR v.status IN (
+       WHERE (v.status IS NULL OR v.status IN (
          'New Lead',
          'Attempted Contact',
          'Connected',
@@ -230,7 +230,8 @@ export async function listVisibleVisits(req: Request, res: Response) {
          'Follow-Up 2',
          'Negotiation',
          'Booking Date Confirmed'
-       )
+       ))
+         AND (v.next_action IS NULL OR v.next_action NOT ILIKE 'Lost%')
        ORDER BY v.created_at DESC
        LIMIT $1 OFFSET $2`,
       [limit, offset],
@@ -295,6 +296,7 @@ export async function listOverdueVisits(_req: Request, res: Response) {
           AND v.status NOT ILIKE 'Order Confirmed%'
           AND v.status NOT ILIKE 'Delivery Scheduled%'
         ))
+        AND (v.next_action IS NULL OR v.next_action NOT ILIKE 'Lost%')
       ORDER BY v.next_action_date ASC
       LIMIT 100
     `);
@@ -320,6 +322,7 @@ const CLOSED_FILTER = `(
   AND v.status NOT ILIKE 'Order Confirmed%'
   AND v.status NOT ILIKE 'Delivery Scheduled%'
   AND v.status NOT ILIKE 'Loan Processing%'
+  AND (v.next_action IS NULL OR v.next_action NOT ILIKE 'Lost%')
 )`;
 
 export async function getAnalytics(_req: Request, res: Response) {
