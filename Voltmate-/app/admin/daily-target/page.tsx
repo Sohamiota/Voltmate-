@@ -75,6 +75,7 @@ interface Visit {
   vehicle?: string;
   status?: string;
   visit_date?: string;
+  connect_date?: string;
   next_action?: string;
   next_action_date?: string;
   phone_no?: string;
@@ -635,12 +636,12 @@ export default function WeeklyTargetPage() {
                 <thead>
                   <tr>
                     <th>Customer</th><th>Day</th><th>Status</th><th>Next Action</th>
-                    <th>Target Date</th><th>Vehicle</th><th>Phone</th><th>Updated</th><th>Update Status</th>
+                    <th>Connect Date</th><th>Target Date</th><th>Vehicle</th><th>Phone</th><th>Updated</th><th>Update Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="tbl-empty" colSpan={9}>
+                    <td className="tbl-empty" colSpan={10}>
                       No targets for {selected!.name} in this view
                     </td>
                   </tr>
@@ -656,6 +657,7 @@ export default function WeeklyTargetPage() {
                     <th>Day</th>
                     <th>Status</th>
                     <th>Next Action</th>
+                    <th>Connect Date</th>
                     <th>Target Date</th>
                     <th>Vehicle</th>
                     <th>Phone</th>
@@ -668,7 +670,7 @@ export default function WeeklyTargetPage() {
                     ? detailByDay.flatMap(group => [
                         <tr key={`hdr-${group.dateStr}`}>
                           <td
-                            colSpan={9}
+                            colSpan={10}
                             style={{ padding: 0, background: 'transparent' }}
                           >
                             <div className="day-group-hdr">
@@ -741,6 +743,7 @@ function renderVisitRow(
         ) : '—'}
       </td>
       <td>{v.next_action || '—'}</td>
+      <td>{fmtDate(v.connect_date)}</td>
       <td>{fmtDate(v.next_action_date)}</td>
       <td>{v.vehicle || '—'}</td>
       <td>{v.phone_no || '—'}</td>
