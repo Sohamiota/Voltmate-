@@ -13,6 +13,7 @@ interface Lead {
   phone_no_2?: string;
   lead_type?: string;
   connect_date?: string;
+  is_hot_lead?: boolean;
 }
 
 interface Employee {
@@ -22,9 +23,11 @@ interface Employee {
 
 interface Visit {
   id?: string | number;
+  lead_id?: number;
   lead_cust_code?: string;
   cust_name?: string;
   connect_date?: string;
+  salesperson_id?: number;
   salesperson_name?: string;
   vehicle?: string;
   status?: string;
@@ -32,6 +35,9 @@ interface Visit {
   next_action?: string;
   next_action_date?: string;
   note?: string;
+  lost_not_interested_reason?: string | null;
+  lost_reason_notes?: string | null;
+  is_hot_lead?: boolean;
   // audit fields
   created_by_name?: string;
   updated_by_name?: string;
@@ -51,6 +57,9 @@ interface FormState {
   phone_no: string;
   phone_no_2: string;
   note: string;
+  lost_not_interested_reason: string;
+  lost_reason_notes: string;
+  is_hot_lead: boolean;
 }
 
 function isValidPhone(v: string)         { return /^[6-9]\d{9}$/.test(v.trim()); }
@@ -158,12 +167,37 @@ const STATUSES = [
   'Booking Amount Received',
   'Order Confirmed',
   'Delivery Scheduled',
-  'Delivered (Closed – Won)',
-  'Lost – Price Issue',
-  'Lost – Competitor',
-  'Lost – No Response',
-  'Lost – Not Interested',
+  'Delivered (Closed \u2013 Won)',
+  'Lost \u2013 Price Issue',
+  'Lost \u2013 Competitor',
+  'Lost \u2013 No Response',
+  'Lost \u2013 Not Interested',
 ];
+
+/** Matches backend `LOST_NOT_INTERESTED_STATUS` (en dash U+2013) */
+const LOST_NOT_INTERESTED_STATUS = 'Lost \u2013 Not Interested';
+
+const LOST_NOT_INTEREST_REASON_OPTIONS: { value: string; label: string }[] = [
+  { value: 'budget', label: 'Budget / affordability' },
+  { value: 'timing', label: 'Timing — not ready to buy' },
+  { value: 'product_fit', label: 'Product fit / specs mismatch' },
+  { value: 'range_anxiety', label: 'Range / charging concerns' },
+  { value: 'prefers_ice', label: 'Prefers ICE / not convinced on EV' },
+  { value: 'chose_competitor', label: 'Chose a competitor' },
+  { value: 'family_decision', label: 'Family / stakeholder decision' },
+  { value: 'other', label: 'Other (explain below)' },
+];
+
+function formatLostNiSummary(v: Visit): string {
+  if (!v.lost_not_interested_reason) return '—';
+  const opt = LOST_NOT_INTEREST_REASON_OPTIONS.find(o => o.value === v.lost_not_interested_reason);
+  let s = opt?.label ?? v.lost_not_interested_reason;
+  if (v.lost_not_interested_reason === 'other' && v.lost_reason_notes?.trim()) {
+    const t = v.lost_reason_notes.trim();
+    s = `${s}: ${t.slice(0, 48)}${t.length > 48 ? '…' : ''}`;
+  }
+  return s;
+}
 
 // Next actions mirror statuses
 const NEXT_ACTIONS = [...STATUSES];
@@ -180,6 +214,9 @@ const EMPTY_FORM: FormState = {
   phone_no: '',
   phone_no_2: '',
   note: '',
+  lost_not_interested_reason: '',
+  lost_reason_notes: '',
+  is_hot_lead: false,
 };
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
@@ -498,7 +535,7 @@ function SkeletonRows() {
     <>
       {[1, 2, 3, 4].map(n => (
         <tr key={n} className="vm-skeleton">
-          {[40, 80, 130, 110, 140, 120, 90, 100].map((w, i) => (
+          {[40, 80, 130, 110, 140, 120, 52, 130, 90, 100].map((w, i) => (
             <td key={i}><div className="vm-skel" style={{ width: w }} /></td>
           ))}
         </tr>
@@ -642,7 +679,17 @@ export default function CreateVisitReportPage() {
         lead_id:      value as string,
         phone_no:     selected?.phone_no     || '',
         phone_no_2:   selected?.phone_no_2   || '',
-        connect_date: selected?.connect_date   ? selected.connect_date.slice(0, 10) : '',
+        connect_date: selected?.connect_date ? selected.connect_date.slice(0, 10) : '',
+        is_hot_lead:  !!selected?.is_hot_lead,
+      }));
+    } else if (key === 'status') {
+      const nextStatus = value as string;
+      setForm(f => ({
+        ...f,
+        status: nextStatus,
+        ...(nextStatus !== LOST_NOT_INTERESTED_STATUS
+          ? { lost_not_interested_reason: '', lost_reason_notes: '' }
+          : {}),
       }));
     } else {
       setForm(f => ({ ...f, [key]: value }));
@@ -696,6 +743,9 @@ export default function CreateVisitReportPage() {
       phone_no:         v.phone_no         || '',
       phone_no_2:       v.phone_no_2       || '',
       note:             v.note             || '',
+      lost_not_interested_reason: v.lost_not_interested_reason || '',
+      lost_reason_notes: v.lost_reason_notes || '',
+      is_hot_lead:      !!v.is_hot_lead,
     });
     setHasUnsaved(false);
     setOpen(true);
@@ -734,16 +784,44 @@ export default function CreateVisitReportPage() {
       showToast('Phone No. 2 must be a valid 10-digit mobile number (starts with 6–9)', 'error');
       return;
     }
+    if (form.status === LOST_NOT_INTERESTED_STATUS) {
+      if (!form.lost_not_interested_reason.trim()) {
+        showToast('Select a reason for Lost – Not Interested', 'error');
+        return;
+      }
+      if (form.lost_not_interested_reason === 'other' && !form.lost_reason_notes.trim()) {
+        showToast('Please explain when reason is Other', 'error');
+        return;
+      }
+    }
     try {
       setSubmitting(true);
       const isEdit = editTarget !== null;
       const url = isEdit
         ? `${API_BASE}/api/v1/visits/${editTarget!.id}`
         : `${API_BASE}/api/v1/visits`;
+      const payload: Record<string, unknown> = {
+        connect_date: form.connect_date || null,
+        salesperson_id: form.salesperson_id ? Number(form.salesperson_id) : null,
+        vehicle: form.vehicle || null,
+        status: form.status || null,
+        visit_date: form.visit_date || null,
+        next_action: form.next_action || null,
+        next_action_date: form.next_action_date || null,
+        phone_no: form.phone_no,
+        phone_no_2: form.phone_no_2 || null,
+        note: form.note || null,
+        is_hot_lead: form.is_hot_lead,
+      };
+      if (!isEdit) payload.lead_id = Number(form.lead_id);
+      if (form.status === LOST_NOT_INTERESTED_STATUS) {
+        payload.lost_not_interested_reason = form.lost_not_interested_reason;
+        payload.lost_reason_notes = form.lost_reason_notes.trim() ? form.lost_reason_notes : null;
+      }
       const res = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: authHeaders(),
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const text = await res.text().catch(() => '');
@@ -889,6 +967,8 @@ export default function CreateVisitReportPage() {
                   <th>Salesperson</th>
                   <th>Vehicle</th>
                   <th>Status</th>
+                  <th>Hot</th>
+                  <th>Lost – NI</th>
                   <th>Visit Date</th>
                   <th>Next Action</th>
                   <th>Logged By</th>
@@ -900,7 +980,7 @@ export default function CreateVisitReportPage() {
                   <SkeletonRows />
                 ) : visits.length === 0 ? (
                   <tr>
-                    <td colSpan={10}>
+                    <td colSpan={12}>
                       <div className="vm-empty">
                         <div className="vm-empty-icon"></div>
                         <div className="vm-empty-text">
@@ -921,6 +1001,12 @@ export default function CreateVisitReportPage() {
                       <td style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.vehicle || '—'}</td>
                       <td>
                         <span className={`vm-badge ${badgeClass(v.status)}`}>{v.status || '—'}</span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {v.is_hot_lead ? <span className="vm-badge" style={{ background: 'rgba(245,158,11,.15)', color: 'var(--amber)', border: '1px solid rgba(245,158,11,.35)' }}>Hot</span> : '—'}
+                      </td>
+                      <td style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text2)' }} title={formatLostNiSummary(v)}>
+                        {formatLostNiSummary(v)}
                       </td>
                       <td className="vm-date">
                         {v.visit_date ? new Date(v.visit_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
@@ -1095,6 +1181,50 @@ export default function CreateVisitReportPage() {
                       emptyLabel="Select status"
                       accentColor="var(--teal)"
                     />
+                  </div>
+
+                  {form.status === LOST_NOT_INTERESTED_STATUS && (
+                    <>
+                      <div className="vm-fg full">
+                        <label className="vm-label" htmlFor="f-lost-reason">Lost – Not interested: reason</label>
+                        <SearchableSelect
+                          id="f-lost-reason"
+                          fieldClass="vm-field"
+                          options={LOST_NOT_INTEREST_REASON_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+                          value={form.lost_not_interested_reason}
+                          onChange={v => handleFormChange('lost_not_interested_reason', v)}
+                          placeholder="Select reason"
+                          emptyLabel="Select reason"
+                          accentColor="var(--red)"
+                        />
+                      </div>
+                      <div className="vm-fg full">
+                        <label className="vm-label" htmlFor="f-lost-notes">
+                          Details {form.lost_not_interested_reason === 'other' ? '(required)' : '(optional)'}
+                        </label>
+                        <textarea
+                          id="f-lost-notes"
+                          className="vm-field"
+                          rows={2}
+                          placeholder={form.lost_not_interested_reason === 'other' ? 'Explain why (required for Other)…' : 'Optional context…'}
+                          value={form.lost_reason_notes}
+                          onChange={e => handleFormChange('lost_reason_notes', e.target.value)}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  <div className="vm-fg full" style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                    <input
+                      id="f-hot"
+                      type="checkbox"
+                      checked={form.is_hot_lead}
+                      onChange={e => handleFormChange('is_hot_lead', e.target.checked)}
+                      style={{ width: 18, height: 18, accentColor: 'var(--amber)', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="f-hot" style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text)', userSelect: 'none' }}>
+                      Mark as <strong style={{ color: 'var(--amber)' }}>hot lead</strong> (saved on this customer&apos;s record)
+                    </label>
                   </div>
 
                   <div className="vm-fg">

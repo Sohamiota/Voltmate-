@@ -19,6 +19,7 @@ interface VehicleRow      { vehicle: string; count: number }
 interface LocationRow     { location: string; count: number }
 interface TrendRow        { day: string; count: number }
 interface AtRiskSummary   { overdue: number; no_date: number; stale_7d: number }
+interface LostNiBreakdownRow { reason: string; count: number }
 
 interface AnalyticsData {
   pipeline_funnel:    FunnelRow[];
@@ -28,6 +29,7 @@ interface AnalyticsData {
   location_breakdown: LocationRow[];
   daily_trend:        TrendRow[];
   at_risk_summary:    AtRiskSummary;
+  lost_not_interested_breakdown?: LostNiBreakdownRow[];
 }
 
 interface AtRiskVisit {
@@ -414,6 +416,24 @@ export default function SalesAnalyticsPage() {
               })
             )}
           </div>
+
+          {/* Lost – Not interested (structured reasons) */}
+          {data?.lost_not_interested_breakdown && data.lost_not_interested_breakdown.length > 0 && (
+            <div className="panel">
+              <div className="panel-title">
+                Lost – Not interested
+                <span>Breakdown by recorded reason</span>
+              </div>
+              <div style={{ display: 'grid', gap: 8, maxWidth: 480 }}>
+                {data.lost_not_interested_breakdown.map(row => (
+                  <div key={row.reason} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#d1d5db' }}>
+                    <span style={{ color: '#9ca3af' }}>{row.reason}</span>
+                    <span style={{ fontWeight: 700, color: '#f87171' }}>{row.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ══ SECTION 3: Salesperson Scorecard ══ */}
           <div className="panel">

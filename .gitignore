@@ -27,6 +27,10 @@ out/
 # TypeScript
 *.tsbuildinfo
 
+# Tooling caches
+.eslintcache
+.turbo/
+
 # Logs
 logs/
 *.log
@@ -34,6 +38,9 @@ debug.log*
 
 # OS
 .DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
 # Editor
 .vscode/
@@ -58,6 +65,14 @@ backend/scripts/clear-test-data.ts
 backend/scripts/debug_stats.js
 backend/scripts/call_stats.js
 backend/scripts/generate_hash.js
+
+# ── Personal / one-off ops scripts (machine-local; remove lines if you want them tracked)
+backend/scripts/attendance-report.js
+backend/scripts/fix-rahul.js
+backend/scripts/sanjoy-absent.js
+backend/scripts/sanjoy-full.js
+backend/scripts/update-network.js
+backend/scripts/utpal-absent.js
 
 # ── Sample seed data & SQL (keep migrate + seed-vehicles.js in repo; data optional)
 backend/scripts/seed-vehicles-data.json

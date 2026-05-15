@@ -22,6 +22,9 @@ interface Visit {
   phone_no?: string;
   phone_no_2?: string;
   note?: string;
+  lost_not_interested_reason?: string | null;
+  lost_reason_notes?: string | null;
+  is_hot_lead?: boolean;
   created_by_name?: string;
   updated_by_name?: string;
   created_at?: string;
@@ -45,9 +48,8 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
     ? 'https://voltmate.onrender.com'
     : 'http://localhost:8081')).replace(/\/api\/v1\/?$/, '');
 
-const STATUSES = [
-  // Restricted statuses (Lost*, Loan Processing, Booking Amount Received,
-  // and everything after booking) are intentionally hidden in this page.
+const VISIT_PIPELINE_STATUSES = [
+  // Restricted statuses (Lost*, Loan Processing, ...) are hidden unless "Show lost / closed" is on.
   'New Lead',
   'Attempted Contact',
   'Connected',
@@ -61,6 +63,41 @@ const STATUSES = [
   'Negotiation',
   'Booking Date Confirmed',
 ];
+
+const VISIT_LOST_CLOSED_EXTRA = [
+  'Lost \u2013 Price Issue',
+  'Lost \u2013 Competitor',
+  'Lost \u2013 No Response',
+  'Lost \u2013 Not Interested',
+  'Loan Processing',
+  'Booking Amount Received',
+  'Order Confirmed',
+  'Delivery Scheduled',
+  'Delivered (Closed \u2013 Won)',
+] as const;
+
+const VISIT_EXTENDED_STATUSES = [...VISIT_PIPELINE_STATUSES, ...VISIT_LOST_CLOSED_EXTRA];
+
+const LOST_NI_REASON_LABELS: Record<string, string> = {
+  budget: 'Budget / affordability',
+  timing: 'Timing — not ready to buy',
+  product_fit: 'Product fit / specs mismatch',
+  range_anxiety: 'Range / charging concerns',
+  prefers_ice: 'Prefers ICE / not convinced on EV',
+  chose_competitor: 'Chose a competitor',
+  family_decision: 'Family / stakeholder decision',
+  other: 'Other',
+};
+
+function formatLostNiSummary(v: Visit): string {
+  if (!v.lost_not_interested_reason) return '—';
+  const label = LOST_NI_REASON_LABELS[v.lost_not_interested_reason] ?? v.lost_not_interested_reason;
+  if (v.lost_not_interested_reason === 'other' && v.lost_reason_notes?.trim()) {
+    const t = v.lost_reason_notes.trim();
+    return `${label}: ${t.slice(0, 56)}${t.length > 56 ? '…' : ''}`;
+  }
+  return label;
+}
 
 function getToken(): string {
   if (typeof window === 'undefined') return '';
@@ -206,7 +243,7 @@ const PAGE_STYLES = `
   .vr-btn-preview:hover { background: rgba(0,217,255,.12); }
 
   .vr-table-outer { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; min-width: 1080px; }
+  table { width: 100%; border-collapse: collapse; min-width: 1280px; }
   thead tr { background: var(--surface2); }
   th {
     padding: 11px 16px; text-align: left;
@@ -398,7 +435,7 @@ function SkeletonRows() {
     <>
       {[1, 2, 3, 4, 5, 6].map(n => (
         <tr key={n} className="vr-skel-row">
-          {[26, 88, 120, 110, 140, 90, 160, 110, 90, 100, 85, 70, 60].map((w, i) => (
+          {[26, 88, 120, 110, 140, 90, 160, 52, 120, 110, 90, 100, 85, 70, 60].map((w, i) => (
             <td key={i}><div className="vr-skel" style={{ width: w }} /></td>
           ))}
         </tr>
@@ -419,6 +456,13 @@ export default function VisitReportPage() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [includeLost, setIncludeLost] = useState(false);
+  const [filterHot, setFilterHot] = useState<'all' | 'hot' | 'not_hot'>('all');
+
+  const statusFilterOptions = useMemo(
+    () => (includeLost ? VISIT_EXTENDED_STATUSES : VISIT_PIPELINE_STATUSES),
+    [includeLost],
+  );
 
   // Sorting
   const [sortField, setSortField] = useState<SortField>('visit_date');
@@ -440,7 +484,10 @@ export default function VisitReportPage() {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(`${API_BASE}/api/v1/visits/report?limit=100000`, { headers });
+      const qs = new URLSearchParams({ limit: '100000' });
+      if (includeLost) qs.set('include_lost', '1');
+
+      const res = await fetch(`${API_BASE}/api/v1/visits/report?${qs}`, { headers });
       if (!res.ok) {
         const txt = await res.text().catch(() => '');
         throw new Error(`API error ${res.status}${txt ? ': ' + txt : ''}`);
@@ -456,9 +503,13 @@ export default function VisitReportPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [includeLost]);
 
   useEffect(() => { fetchVisits(); }, [fetchVisits]);
+  useEffect(() => {
+    const opts = includeLost ? VISIT_EXTENDED_STATUSES : VISIT_PIPELINE_STATUSES;
+    if (filterStatus && !opts.includes(filterStatus)) setFilterStatus('');
+  }, [includeLost, filterStatus]);
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -508,6 +559,7 @@ export default function VisitReportPage() {
     setFilterStatus('');
     setFilterDateFrom('');
     setFilterDateTo('');
+    setFilterHot('all');
     const searchInput = document.querySelector<HTMLInputElement>('input.vr-field[placeholder]');
     if (searchInput) searchInput.value = '';
   }
@@ -527,6 +579,8 @@ export default function VisitReportPage() {
       );
     }
     if (filterStatus) filtered = filtered.filter(v => v.status === filterStatus);
+    if (filterHot === 'hot') filtered = filtered.filter(v => !!v.is_hot_lead);
+    if (filterHot === 'not_hot') filtered = filtered.filter(v => !v.is_hot_lead);
     if (filterDateFrom) {
       const from = new Date(filterDateFrom).getTime();
       filtered = filtered.filter(v => v.visit_date && new Date(v.visit_date).getTime() >= from);
@@ -551,7 +605,7 @@ export default function VisitReportPage() {
       return 0;
     });
     return filtered;
-  }, [allVisits, searchQuery, filterStatus, filterDateFrom, filterDateTo, sortField, sortDir]);
+  }, [allVisits, searchQuery, filterStatus, filterHot, filterDateFrom, filterDateTo, sortField, sortDir]);
 
   // ── Stats ──────────────────────────────────────────────────────────────────
   const stats = useMemo(() => ({
@@ -572,38 +626,40 @@ export default function VisitReportPage() {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(`${API_BASE}/api/v1/visits/report/export/csv`, { headers });
+      const exportUrl = includeLost
+        ? `${API_BASE}/api/v1/visits/report/export/csv?include_lost=1`
+        : `${API_BASE}/api/v1/visits/report/export/csv`;
+
+      const res = await fetch(exportUrl, { headers });
       if (!res.ok) { alert('Export failed'); return; }
 
       const raw = await res.text();
       if (!raw.trim()) { alert('No data to export'); return; }
 
-      const lines = raw.split('\n');
-
-      // Parse the header row to find the index of the "status" column
-      const headerCols = lines[0].split(',').map(c => c.replace(/^"|"$/g, '').trim().toLowerCase());
-      const statusIdx  = headerCols.indexOf('status');
-
-      // Keep the header + only rows whose status is in the visible allow-list (or empty)
-      const allowedSet = new Set(STATUSES.map(s => s.toLowerCase()));
-      const filtered = [lines[0]];
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line.trim()) continue;
-        if (statusIdx === -1) {
-          // No status column found – keep everything
-          filtered.push(line);
-          continue;
+      let out: string;
+      if (includeLost) {
+        out = raw;
+      } else {
+        const lines = raw.split('\n');
+        const headerCols = lines[0].split(',').map(c => c.replace(/^"|"$/g, '').trim().toLowerCase());
+        const statusIdx = headerCols.indexOf('status');
+        const allowedSet = new Set(VISIT_PIPELINE_STATUSES.map(s => s.toLowerCase()));
+        const filtered = [lines[0]];
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i];
+          if (!line.trim()) continue;
+          if (statusIdx === -1) {
+            filtered.push(line);
+            continue;
+          }
+          const fields = line.match(/("(?:[^"]|"")*"|[^,]*)/g) ?? [];
+          const statusVal = (fields[statusIdx] ?? '').replace(/^"|"$/g, '').trim().toLowerCase();
+          if (!statusVal || allowedSet.has(statusVal)) filtered.push(line);
         }
-        // Split CSV row respecting quoted fields
-        const fields = line.match(/("(?:[^"]|"")*"|[^,]*)/g) ?? [];
-        const statusVal = (fields[statusIdx] ?? '').replace(/^"|"$/g, '').trim().toLowerCase();
-        if (!statusVal || allowedSet.has(statusVal)) {
-          filtered.push(line);
-        }
+        out = filtered.join('\n');
       }
 
-      const blob = new Blob(['\uFEFF' + filtered.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob(['\uFEFF' + out], { type: 'text/csv;charset=utf-8;' });
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
       a.style.display = 'none';
@@ -658,7 +714,7 @@ export default function VisitReportPage() {
             </div>
             <div className="vr-fg">
               <label className="vr-label">Status</label>
-              <SearchableSelect fieldClass="vr-field" options={STATUSES} value={filterStatus} onChange={v => setFilterStatus(v)} emptyLabel="All statuses" accentColor="var(--accent)" />
+              <SearchableSelect fieldClass="vr-field" options={statusFilterOptions} value={filterStatus} onChange={v => setFilterStatus(v)} emptyLabel="All statuses" accentColor="var(--accent)" />
             </div>
             <div className="vr-fg">
               <label className="vr-label">Date From</label>
@@ -667,6 +723,26 @@ export default function VisitReportPage() {
             <div className="vr-fg">
               <label className="vr-label">Date To</label>
               <input type="date" className="vr-field" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
+            </div>
+            <div className="vr-fg">
+              <label className="vr-label">Hot lead</label>
+              <select className="vr-field" value={filterHot} onChange={e => setFilterHot(e.target.value as 'all' | 'hot' | 'not_hot')}>
+                <option value="all">All</option>
+                <option value="hot">Hot only</option>
+                <option value="not_hot">Not hot</option>
+              </select>
+            </div>
+            <div className="vr-fg" style={{ justifyContent: 'flex-end', minWidth: 200 }}>
+              <label className="vr-label">Report scope</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text2)', cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={includeLost}
+                  onChange={e => setIncludeLost(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
+                />
+                Include lost &amp; closed
+              </label>
             </div>
             <button className="vr-btn-clear" onClick={clearFilters}>Clear All</button>
           </div>
@@ -688,7 +764,7 @@ export default function VisitReportPage() {
                 {visits.length === allVisits.length ? `${allVisits.length} Total Visits` : `${visits.length} of ${allVisits.length} Visits`}
               </div>
               <div className="vr-table-sub">
-                {filterStatus || searchQuery || filterDateFrom || filterDateTo ? 'Filtered results' : 'Complete visit records'}
+                {filterStatus || searchQuery || filterDateFrom || filterDateTo || filterHot !== 'all' ? 'Filtered results' : 'Complete visit records'}
               </div>
             </div>
             <div className="vr-table-actions">
@@ -710,6 +786,8 @@ export default function VisitReportPage() {
                   <th>Phone</th>
                   <th>Vehicle</th>
                   <th className={`sortable ${sortField === 'status' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('status')}>Status</th>
+                  <th>Hot</th>
+                  <th>Lost – NI</th>
                   <th className={`sortable ${sortField === 'visit_date' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('visit_date')}>Visit Date</th>
                   <th>Next Action</th>
                   <th>Preview</th>
@@ -719,11 +797,11 @@ export default function VisitReportPage() {
                 {loading ? (
                   <SkeletonRows />
                 ) : visits.length === 0 ? (
-                  <tr><td colSpan={13}>
+                  <tr><td colSpan={15}>
                     <div className="vr-empty">
                       <div className="vr-empty-icon"></div>
                       <div className="vr-empty-msg">
-                        {searchQuery || filterStatus || filterDateFrom || filterDateTo
+                        {searchQuery || filterStatus || filterDateFrom || filterDateTo || filterHot !== 'all'
                           ? <>No visits match your filters</>
                           : <>No visits recorded yet</>}
                       </div>
@@ -760,6 +838,16 @@ export default function VisitReportPage() {
                         </td>
                         <td style={{ color: 'var(--text2)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.vehicle || '—'}</td>
                         <td><span className={`vr-badge ${badgeClass(v.status)}`}>{v.status || '—'}</span></td>
+                        <td style={{ textAlign: 'center' }}>
+                          {v.is_hot_lead ? (
+                            <span className="vr-badge quotation" style={{ fontSize: 10 }}>Hot</span>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <td style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text2)' }} title={formatLostNiSummary(v)}>
+                          {formatLostNiSummary(v)}
+                        </td>
                         <td className="vr-date">{fmtDate(v.visit_date)}</td>
                         <td style={{ color: 'var(--text2)' }}>
                           {v.next_action || '—'}
@@ -830,6 +918,38 @@ export default function VisitReportPage() {
                     <div className="vr-pv-field-label">Lead location</div>
                     <div className="vr-pv-field-val">{previewVisit.lead_location?.trim() ? previewVisit.lead_location : '—'}</div>
                   </div>
+                  <div className="vr-pv-field">
+                    <div className="vr-pv-field-label">Lead priority</div>
+                    <div className="vr-pv-field-val">
+                      {previewVisit.is_hot_lead ? (
+                        <span className="vr-badge quotation" style={{ fontSize: 11 }}>Hot lead</span>
+                      ) : (
+                        <span style={{ color: 'var(--text3)' }}>Standard</span>
+                      )}
+                    </div>
+                  </div>
+                  {(previewVisit.lost_not_interested_reason || previewVisit.lost_reason_notes?.trim()) && (
+                    <>
+                      <div className="vr-pv-field full">
+                        <div className="vr-pv-field-label">Lost – Not interested</div>
+                        <div className="vr-pv-field-val">{formatLostNiSummary(previewVisit)}</div>
+                      </div>
+                      {previewVisit.lost_reason_notes?.trim() &&
+                        previewVisit.lost_not_interested_reason &&
+                        previewVisit.lost_not_interested_reason !== 'other' && (
+                          <div className="vr-pv-field full">
+                            <div className="vr-pv-field-label">Notes</div>
+                            <div className="vr-pv-field-val">{previewVisit.lost_reason_notes}</div>
+                          </div>
+                        )}
+                      {previewVisit.lost_not_interested_reason === 'other' && previewVisit.lost_reason_notes?.trim() && (
+                        <div className="vr-pv-field full">
+                          <div className="vr-pv-field-label">Explanation</div>
+                          <div className="vr-pv-field-val">{previewVisit.lost_reason_notes}</div>
+                        </div>
+                      )}
+                    </>
+                  )}
                   <div className="vr-pv-field">
                     <div className="vr-pv-field-label">Salesperson</div>
                     <div className="vr-pv-field-val">{previewVisit.salesperson_name || '—'}</div>

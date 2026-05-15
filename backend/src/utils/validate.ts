@@ -153,6 +153,22 @@ export const VISIT_STATUSES = [
   'Lost \u2013 No Response', 'Lost \u2013 Not Interested',
 ] as const;
 
+/** Canonical status string (en dash U+2013) — must match `VISIT_STATUSES` */
+export const LOST_NOT_INTERESTED_STATUS = 'Lost \u2013 Not Interested' as const;
+
+export const LOST_NOT_INTEREST_REASONS = [
+  'budget',
+  'timing',
+  'product_fit',
+  'range_anxiety',
+  'prefers_ice',
+  'chose_competitor',
+  'family_decision',
+  'other',
+] as const;
+
+export type LostNotInterestedReason = (typeof LOST_NOT_INTEREST_REASONS)[number];
+
 export const LEAD_TYPES = [
   'Digital Lead', 'Non Digital Lead',
 ] as const;

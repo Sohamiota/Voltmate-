@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { query } from '../db';
 import { logActivity } from '../utils/activityLog';
 import {
-  reqStr, optStr, optPhone, optDate, optEnum, reqId,
+  reqStr, optStr, optPhone, optDate, optEnum, reqId, optBool,
   collectErrors, parsePagination, sanitizeSearch, LEAD_TYPES,
 } from '../utils/validate';
 
@@ -18,6 +18,7 @@ async function ensureLeadsCols() {
     await query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS location   TEXT`);
     await query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS phone_no_2 TEXT`);
     await query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS updated_by INT`);
+    await query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS is_hot_lead boolean NOT NULL DEFAULT false`);
   } catch { /* ignore */ }
   leadsColsReady = true;
 }
@@ -40,12 +41,15 @@ export async function createLead(req: Request, res: Response) {
     const vNote     = optStr(body.note, 2000);
     const vLocation = optStr(body.location, 300);
     const vConnDate = optDate(body.connect_date);
+    const hotProvided = Object.prototype.hasOwnProperty.call(body, 'is_hot_lead');
+    const vHot      = optBool(body.is_hot_lead);
 
     const fieldErr = collectErrors({
       cust_name: vName.error, business: vBusiness.error,
       phone_no: vPhone.error, phone_no_2: vPhone2.error,
       lead_type: vLeadType.error, note: vNote.error,
       location: vLocation.error, connect_date: vConnDate.error,
+      is_hot_lead: hotProvided ? vHot.error : null,
     });
     if (fieldErr) return res.status(400).json({ error: fieldErr });
 
@@ -57,10 +61,11 @@ export async function createLead(req: Request, res: Response) {
     const cust_code = generateCustCode();
 
     const r = await query(
-      `INSERT INTO leads (cust_code, connect_date, cust_name, business, phone_no, phone_no_2, lead_type, note, location, created_by, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now(),now()) RETURNING *`,
+      `INSERT INTO leads (cust_code, connect_date, cust_name, business, phone_no, phone_no_2, lead_type, note, location, is_hot_lead, created_by, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now()) RETURNING *`,
       [cust_code, vConnDate.value, vName.value, vBusiness.value, vPhone.value,
-       vPhone2.value, vLeadType.value, vNote.value, vLocation.value, userId],
+       vPhone2.value, vLeadType.value, vNote.value, vLocation.value,
+       hotProvided ? vHot.value : false, userId],
     );
     const newLead = (r as any).rows[0];
     await logActivity('lead', newLead.id, cust_code, 'create', userId, `Lead created: ${vName.value}`);
@@ -92,12 +97,15 @@ export async function updateLead(req: Request, res: Response) {
     const vNote     = optStr(body.note, 2000);
     const vLocation = optStr(body.location, 300);
     const vConnDate = optDate(body.connect_date);
+    const hotProvided = Object.prototype.hasOwnProperty.call(body, 'is_hot_lead');
+    const vHot      = optBool(body.is_hot_lead);
 
     const fieldErr = collectErrors({
       cust_name: vName.error, business: vBusiness.error,
       phone_no: vPhone.error, phone_no_2: vPhone2.error,
       lead_type: vLeadType.error, note: vNote.error,
       location: vLocation.error, connect_date: vConnDate.error,
+      is_hot_lead: hotProvided ? vHot.error : null,
     });
     if (fieldErr) return res.status(400).json({ error: fieldErr });
 
@@ -107,10 +115,13 @@ export async function updateLead(req: Request, res: Response) {
     const r = await query(
       `UPDATE leads
       SET connect_date=$1, cust_name=$2, business=$3, phone_no=$4, phone_no_2=$5,
-          lead_type=$6, note=$7, location=$8, updated_by=$9, updated_at=now()
-       WHERE id=$10 RETURNING *`,
+          lead_type=$6, note=$7, location=$8,
+          is_hot_lead = CASE WHEN $10::boolean THEN $11 ELSE is_hot_lead END,
+          updated_by=$9, updated_at=now()
+       WHERE id=$12 RETURNING *`,
       [vConnDate.value, vName.value, vBusiness.value, vPhone.value,
-       vPhone2.value, vLeadType.value, vNote.value, vLocation.value, userId, id],
+       vPhone2.value, vLeadType.value, vNote.value, vLocation.value, userId,
+       hotProvided, hotProvided ? vHot.value : false, id],
     );
     const updated = (r as any).rows[0];
     await logActivity('lead', id, updated.cust_code || String(id), 'update', userId, `Lead updated: ${vName.value}`);
@@ -196,6 +207,7 @@ export async function exportLeadsCSV(req: Request, res: Response) {
     const r = await query(`
       SELECT l.id, l.cust_code, l.connect_date, l.cust_name, l.business,
             l.phone_no, l.phone_no_2, l.lead_type, l.location, l.note,
+            l.is_hot_lead,
             uc.name AS created_by_name, l.created_at,
             uu.name AS updated_by_name, l.updated_at
       FROM leads l
@@ -204,7 +216,7 @@ export async function exportLeadsCSV(req: Request, res: Response) {
       ORDER BY l.created_at DESC
     `);
     const rows   = (r as any).rows;
-    const header = ['id','cust_code','connect_date','cust_name','business','phone_no','phone_no_2','lead_type','location','note','created_by_name','created_at','updated_by_name','updated_at'];
+    const header = ['id','cust_code','connect_date','cust_name','business','phone_no','phone_no_2','lead_type','location','note','is_hot_lead','created_by_name','created_at','updated_by_name','updated_at'];
     const csv    = [header.join(',')].concat(
       rows.map((row: any) => header.map(h => `"${(row[h] || '').toString().replace(/"/g, '""')}"`).join(',')),
     ).join('\n');
