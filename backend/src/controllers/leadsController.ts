@@ -5,6 +5,7 @@ import {
   reqStr, optStr, optPhone, optDate, optEnum, reqId, optBool,
   collectErrors, parsePagination, sanitizeSearch, LEAD_TYPES,
 } from '../utils/validate';
+import { parseCrmDeferralBody } from '../utils/crmDeferral';
 
 function canManageLeads(role: string | undefined): boolean {
   return role === 'admin' || role === 'sales_admin';
@@ -19,6 +20,13 @@ async function ensureLeadsCols() {
     await query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS phone_no_2 TEXT`);
     await query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS updated_by INT`);
     await query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS is_hot_lead boolean NOT NULL DEFAULT false`);
+    await query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS deferral_bucket TEXT`);
+    await query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS deferral_notes TEXT`);
+    await query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS follow_up_after_date DATE`);
+    await query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS earliest_purchase_intent_date DATE`);
+    await query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS contact_disposition TEXT`);
+    await query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS callback_requested_at TIMESTAMPTZ`);
+    await query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS customer_promised_callback BOOLEAN NOT NULL DEFAULT false`);
   } catch { /* ignore */ }
   leadsColsReady = true;
 }
@@ -53,6 +61,10 @@ export async function createLead(req: Request, res: Response) {
     });
     if (fieldErr) return res.status(400).json({ error: fieldErr });
 
+    const crmParsed = parseCrmDeferralBody(body as Record<string, unknown>);
+    if (crmParsed.error) return res.status(400).json({ error: crmParsed.error });
+    const crm = crmParsed.parsed!;
+
     function generateCustCode() {
       const time = Date.now().toString(36).toUpperCase();
       const rand = Math.floor(1000 + Math.random() * 9000).toString();
@@ -61,11 +73,17 @@ export async function createLead(req: Request, res: Response) {
     const cust_code = generateCustCode();
 
     const r = await query(
-      `INSERT INTO leads (cust_code, connect_date, cust_name, business, phone_no, phone_no_2, lead_type, note, location, is_hot_lead, created_by, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now()) RETURNING *`,
+      `INSERT INTO leads (cust_code, connect_date, cust_name, business, phone_no, phone_no_2, lead_type, note, location, is_hot_lead,
+          deferral_bucket, deferral_notes, follow_up_after_date, earliest_purchase_intent_date,
+          contact_disposition, callback_requested_at, customer_promised_callback,
+          created_by, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,now(),now()) RETURNING *`,
       [cust_code, vConnDate.value, vName.value, vBusiness.value, vPhone.value,
        vPhone2.value, vLeadType.value, vNote.value, vLocation.value,
-       hotProvided ? vHot.value : false, userId],
+       hotProvided ? vHot.value : false,
+       crm.deferral_bucket, crm.deferral_notes, crm.follow_up_after_date, crm.earliest_purchase_intent_date,
+       crm.contact_disposition, crm.callback_requested_at, crm.customer_promised_callback,
+       userId],
     );
     const newLead = (r as any).rows[0];
     await logActivity('lead', newLead.id, cust_code, 'create', userId, `Lead created: ${vName.value}`);
@@ -109,6 +127,10 @@ export async function updateLead(req: Request, res: Response) {
     });
     if (fieldErr) return res.status(400).json({ error: fieldErr });
 
+    const crmParsed = parseCrmDeferralBody(body as Record<string, unknown>);
+    if (crmParsed.error) return res.status(400).json({ error: crmParsed.error });
+    const crm = crmParsed.parsed!;
+
     const existing = await query('SELECT id FROM leads WHERE id=$1', [id]);
     if ((existing as any).rowCount === 0) return res.status(404).json({ error: 'lead not found' });
 
@@ -117,11 +139,16 @@ export async function updateLead(req: Request, res: Response) {
       SET connect_date=$1, cust_name=$2, business=$3, phone_no=$4, phone_no_2=$5,
           lead_type=$6, note=$7, location=$8,
           is_hot_lead = CASE WHEN $10::boolean THEN $11 ELSE is_hot_lead END,
+          deferral_bucket=$12, deferral_notes=$13, follow_up_after_date=$14, earliest_purchase_intent_date=$15,
+          contact_disposition=$16, callback_requested_at=$17, customer_promised_callback=$18,
           updated_by=$9, updated_at=now()
-       WHERE id=$12 RETURNING *`,
+       WHERE id=$19 RETURNING *`,
       [vConnDate.value, vName.value, vBusiness.value, vPhone.value,
        vPhone2.value, vLeadType.value, vNote.value, vLocation.value, userId,
-       hotProvided, hotProvided ? vHot.value : false, id],
+       hotProvided, hotProvided ? vHot.value : false,
+       crm.deferral_bucket, crm.deferral_notes, crm.follow_up_after_date, crm.earliest_purchase_intent_date,
+       crm.contact_disposition, crm.callback_requested_at, crm.customer_promised_callback,
+       id],
     );
     const updated = (r as any).rows[0];
     await logActivity('lead', id, updated.cust_code || String(id), 'update', userId, `Lead updated: ${vName.value}`);
@@ -208,6 +235,8 @@ export async function exportLeadsCSV(req: Request, res: Response) {
       SELECT l.id, l.cust_code, l.connect_date, l.cust_name, l.business,
             l.phone_no, l.phone_no_2, l.lead_type, l.location, l.note,
             l.is_hot_lead,
+            l.deferral_bucket, l.deferral_notes, l.follow_up_after_date, l.earliest_purchase_intent_date,
+            l.contact_disposition, l.callback_requested_at, l.customer_promised_callback,
             uc.name AS created_by_name, l.created_at,
             uu.name AS updated_by_name, l.updated_at
       FROM leads l
@@ -216,7 +245,7 @@ export async function exportLeadsCSV(req: Request, res: Response) {
       ORDER BY l.created_at DESC
     `);
     const rows   = (r as any).rows;
-    const header = ['id','cust_code','connect_date','cust_name','business','phone_no','phone_no_2','lead_type','location','note','is_hot_lead','created_by_name','created_at','updated_by_name','updated_at'];
+    const header = ['id','cust_code','connect_date','cust_name','business','phone_no','phone_no_2','lead_type','location','note','is_hot_lead','deferral_bucket','deferral_notes','follow_up_after_date','earliest_purchase_intent_date','contact_disposition','callback_requested_at','customer_promised_callback','created_by_name','created_at','updated_by_name','updated_at'];
     const csv    = [header.join(',')].concat(
       rows.map((row: any) => header.map(h => `"${(row[h] || '').toString().replace(/"/g, '""')}"`).join(',')),
     ).join('\n');

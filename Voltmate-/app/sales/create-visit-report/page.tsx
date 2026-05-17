@@ -3,6 +3,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SearchableSelect from '@/components/SearchableSelect';
+import {
+  CRM_CONTACT_OPTIONS,
+  CRM_DEFERRAL_OPTIONS,
+  crmPayloadFromForm,
+  isoToDatetimeLocal,
+  labelForContact,
+  labelForDeferral,
+} from '@/lib/crmDeferral';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Lead {
@@ -43,6 +51,13 @@ interface Visit {
   updated_by_name?: string;
   created_at?: string;
   updated_at?: string;
+  deferral_bucket?: string | null;
+  deferral_notes?: string | null;
+  follow_up_after_date?: string | null;
+  earliest_purchase_intent_date?: string | null;
+  contact_disposition?: string | null;
+  callback_requested_at?: string | null;
+  customer_promised_callback?: boolean;
 }
 
 interface FormState {
@@ -60,6 +75,15 @@ interface FormState {
   lost_not_interested_reason: string;
   lost_reason_notes: string;
   is_hot_lead: boolean;
+  /** Optional CRM-linked GPS ping tied to this visit after save (same permission model as attendance). */
+  capture_visit_gps: boolean;
+  deferral_bucket: string;
+  deferral_notes: string;
+  follow_up_after_date: string;
+  earliest_purchase_intent_date: string;
+  contact_disposition: string;
+  callback_requested_at: string;
+  customer_promised_callback: boolean;
 }
 
 function isValidPhone(v: string)         { return /^[6-9]\d{9}$/.test(v.trim()); }
@@ -217,6 +241,14 @@ const EMPTY_FORM: FormState = {
   lost_not_interested_reason: '',
   lost_reason_notes: '',
   is_hot_lead: false,
+  capture_visit_gps: false,
+  deferral_bucket: '',
+  deferral_notes: '',
+  follow_up_after_date: '',
+  earliest_purchase_intent_date: '',
+  contact_disposition: '',
+  callback_requested_at: '',
+  customer_promised_callback: false,
 };
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
@@ -235,6 +267,35 @@ function authHeaders(): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (t) headers['Authorization'] = `Bearer ${t}`;
   return headers;
+}
+
+/** Records one manual ping linked to the saved visit (browser GPS permission required). */
+async function captureVisitGpsPing(visitId: number): Promise<boolean> {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) return false;
+  try {
+    const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 15000,
+      }),
+    );
+    const res = await fetch(`${API_BASE}/api/v1/location/ping`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy_m: pos.coords.accuracy ?? null,
+        type: 'manual',
+        context: 'visit',
+        visit_id: visitId,
+        note: `Visit #${visitId}`,
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 // ─── Page Styles ──────────────────────────────────────────────────────────────
@@ -535,7 +596,7 @@ function SkeletonRows() {
     <>
       {[1, 2, 3, 4].map(n => (
         <tr key={n} className="vm-skeleton">
-          {[40, 80, 130, 110, 140, 120, 52, 130, 90, 100].map((w, i) => (
+          {[40, 80, 130, 110, 140, 120, 52, 130, 90, 100, 95, 110, 110, 72].map((w, i) => (
             <td key={i}><div className="vm-skel" style={{ width: w }} /></td>
           ))}
         </tr>
@@ -700,7 +761,7 @@ export default function CreateVisitReportPage() {
   // ── Open / close modal ─────────────────────────────────────────────────────
   function openModal() {
     setEditTarget(null);
-    setForm({ ...EMPTY_FORM, visit_date: new Date().toISOString().slice(0, 10) });
+    setForm({ ...EMPTY_FORM, visit_date: new Date().toISOString().slice(0, 10), capture_visit_gps: false });
     setHasUnsaved(false);
     setOpen(true);
   }
@@ -746,6 +807,16 @@ export default function CreateVisitReportPage() {
       lost_not_interested_reason: v.lost_not_interested_reason || '',
       lost_reason_notes: v.lost_reason_notes || '',
       is_hot_lead:      !!v.is_hot_lead,
+      capture_visit_gps: false,
+      deferral_bucket:           (v as any).deferral_bucket ?? '',
+      deferral_notes:            (v as any).deferral_notes ?? '',
+      follow_up_after_date:      (v as any).follow_up_after_date ? String((v as any).follow_up_after_date).slice(0, 10) : '',
+      earliest_purchase_intent_date: (v as any).earliest_purchase_intent_date
+        ? String((v as any).earliest_purchase_intent_date).slice(0, 10)
+        : '',
+      contact_disposition:       (v as any).contact_disposition ?? '',
+      callback_requested_at:     isoToDatetimeLocal((v as any).callback_requested_at),
+      customer_promised_callback: !!(v as any).customer_promised_callback,
     });
     setHasUnsaved(false);
     setOpen(true);
@@ -818,6 +889,7 @@ export default function CreateVisitReportPage() {
         payload.lost_not_interested_reason = form.lost_not_interested_reason;
         payload.lost_reason_notes = form.lost_reason_notes.trim() ? form.lost_reason_notes : null;
       }
+      Object.assign(payload, crmPayloadFromForm(form));
       const res = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: authHeaders(),
@@ -828,10 +900,21 @@ export default function CreateVisitReportPage() {
         showToast(`Failed to save (${res.status}) ${text}`, 'error');
         return;
       }
+      const saved = (await res.json()) as { id?: number };
+      const visitId = Number(saved?.id ?? (isEdit ? editTarget?.id : undefined));
+      const wantGps = form.capture_visit_gps;
+
       setOpen(false);
       setHasUnsaved(false);
       showToast(editTarget ? 'Visit updated successfully' : 'Visit saved successfully', 'success');
       await fetchVisits();
+
+      if (wantGps && Number.isFinite(visitId)) {
+        const ok = await captureVisitGpsPing(visitId);
+        if (!ok) {
+          showToast('Visit saved, but location was not recorded (permission, GPS, or network).', 'info');
+        }
+      }
     } catch (err) {
       console.error(err);
       showToast('Network error — could not save visit', 'error');
@@ -971,6 +1054,8 @@ export default function CreateVisitReportPage() {
                   <th>Lost – NI</th>
                   <th>Visit Date</th>
                   <th>Next Action</th>
+                  <th title="Buying timeframe">Buy window</th>
+                  <th title="Call outcome / stall">Callback</th>
                   <th>Logged By</th>
                   <th>Action</th>
                 </tr>
@@ -980,7 +1065,7 @@ export default function CreateVisitReportPage() {
                   <SkeletonRows />
                 ) : visits.length === 0 ? (
                   <tr>
-                    <td colSpan={12}>
+                    <td colSpan={14}>
                       <div className="vm-empty">
                         <div className="vm-empty-icon"></div>
                         <div className="vm-empty-text">
@@ -1012,6 +1097,18 @@ export default function CreateVisitReportPage() {
                         {v.visit_date ? new Date(v.visit_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                       </td>
                       <td style={{ color: 'var(--text2)' }}>{v.next_action || '—'}</td>
+                      <td
+                        style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 96, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        title={labelForDeferral(v.deferral_bucket ?? undefined)}
+                      >
+                        {labelForDeferral(v.deferral_bucket ?? undefined)}
+                      </td>
+                      <td
+                        style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        title={labelForContact(v.contact_disposition ?? undefined)}
+                      >
+                        {labelForContact(v.contact_disposition ?? undefined)}
+                      </td>
                       <td>
                         <div className="vm-audit-cell">
                           {v.created_by_name && (
@@ -1227,6 +1324,19 @@ export default function CreateVisitReportPage() {
                     </label>
                   </div>
 
+                  <div className="vm-fg full" style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                    <input
+                      id="f-visit-gps"
+                      type="checkbox"
+                      checked={form.capture_visit_gps}
+                      onChange={e => handleFormChange('capture_visit_gps', e.target.checked)}
+                      style={{ width: 18, height: 18, accentColor: 'var(--teal)', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="f-visit-gps" style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text)', userSelect: 'none' }}>
+                      After save, <strong style={{ color: 'var(--teal)' }}>capture my GPS</strong> for this visit (browser will ask for location)
+                    </label>
+                  </div>
+
                   <div className="vm-fg">
                     <label className="vm-label" htmlFor="f-vdate">Visit Date</label>
                     <input
@@ -1297,6 +1407,101 @@ export default function CreateVisitReportPage() {
                     {form.phone_no_2 && !isValidPhoneOptional(form.phone_no_2) && (
                       <span style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>Enter a valid 10-digit number starting with 6–9</span>
                     )}
+                  </div>
+
+                  <div className="vm-fg full" style={{ gridColumn: '1 / -1', marginTop: 8, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 12 }}>
+                      Buying timeframe &amp; call outcome
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 12, lineHeight: 1.45 }}>
+                      If you set a buying window (except &quot;Unknown&quot;) or choose a busy/callback outcome, provide either <strong>Follow-up from</strong> date or <strong>Callback time</strong>.
+                    </div>
+                  </div>
+
+                  <div className="vm-fg">
+                    <label className="vm-label" htmlFor="f-deferral">Buying timeframe</label>
+                    <SearchableSelect
+                      id="f-deferral"
+                      fieldClass="vm-field"
+                      options={CRM_DEFERRAL_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+                      value={form.deferral_bucket}
+                      onChange={v => handleFormChange('deferral_bucket', v)}
+                      placeholder="Optional"
+                      emptyLabel="Not specified"
+                      accentColor="var(--teal)"
+                    />
+                  </div>
+
+                  <div className="vm-fg">
+                    <label className="vm-label" htmlFor="f-contact-dispo">Call outcome / stall</label>
+                    <SearchableSelect
+                      id="f-contact-dispo"
+                      fieldClass="vm-field"
+                      options={CRM_CONTACT_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+                      value={form.contact_disposition}
+                      onChange={v => handleFormChange('contact_disposition', v)}
+                      placeholder="Optional"
+                      emptyLabel="Not specified"
+                      accentColor="var(--blue)"
+                    />
+                  </div>
+
+                  <div className="vm-fg">
+                    <label className="vm-label" htmlFor="f-followup-after">Follow-up from (CRM)</label>
+                    <input
+                      id="f-followup-after"
+                      type="date"
+                      className="vm-field"
+                      value={form.follow_up_after_date}
+                      onChange={e => handleFormChange('follow_up_after_date', e.target.value)}
+                    />
+                  </div>
+
+                  <div className="vm-fg">
+                    <label className="vm-label" htmlFor="f-earliest-buy">Earliest likely purchase date</label>
+                    <input
+                      id="f-earliest-buy"
+                      type="date"
+                      className="vm-field"
+                      value={form.earliest_purchase_intent_date}
+                      onChange={e => handleFormChange('earliest_purchase_intent_date', e.target.value)}
+                    />
+                  </div>
+
+                  <div className="vm-fg">
+                    <label className="vm-label" htmlFor="f-callback-at">They asked to call after</label>
+                    <input
+                      id="f-callback-at"
+                      type="datetime-local"
+                      className="vm-field"
+                      value={form.callback_requested_at}
+                      onChange={e => handleFormChange('callback_requested_at', e.target.value)}
+                    />
+                  </div>
+
+                  <div className="vm-fg full" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      id="f-promised-cb"
+                      type="checkbox"
+                      checked={form.customer_promised_callback}
+                      onChange={e => handleFormChange('customer_promised_callback', e.target.checked)}
+                      style={{ width: 18, height: 18, accentColor: 'var(--blue)', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="f-promised-cb" style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text)', userSelect: 'none' }}>
+                      Customer promised they will call back
+                    </label>
+                  </div>
+
+                  <div className="vm-fg full">
+                    <label className="vm-label" htmlFor="f-deferral-notes">Notes on timing / callback</label>
+                    <textarea
+                      id="f-deferral-notes"
+                      className="vm-field"
+                      rows={2}
+                      placeholder="e.g. After Diwali, EMI ends March…"
+                      value={form.deferral_notes}
+                      onChange={e => handleFormChange('deferral_notes', e.target.value)}
+                    />
                   </div>
 
                   <div className="vm-fg full">

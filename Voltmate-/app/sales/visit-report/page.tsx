@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SearchableSelect from '@/components/SearchableSelect';
+import { labelForContact, labelForDeferral } from '@/lib/crmDeferral';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Visit {
@@ -29,6 +30,15 @@ interface Visit {
   updated_by_name?: string;
   created_at?: string;
   updated_at?: string;
+  /** Latest linked location ping timestamp for this visit (CRM GPS). */
+  visit_location_captured_at?: string | null;
+  deferral_bucket?: string | null;
+  deferral_notes?: string | null;
+  follow_up_after_date?: string | null;
+  earliest_purchase_intent_date?: string | null;
+  contact_disposition?: string | null;
+  callback_requested_at?: string | null;
+  customer_promised_callback?: boolean;
 }
 
 interface ActivityLog {
@@ -78,6 +88,40 @@ const VISIT_LOST_CLOSED_EXTRA = [
 
 const VISIT_EXTENDED_STATUSES = [...VISIT_PIPELINE_STATUSES, ...VISIT_LOST_CLOSED_EXTRA];
 
+/** Matches backend `exportVisibleVisitsCSV` column order */
+const VISIT_REPORT_CSV_COLUMNS = [
+  'id',
+  'lead_cust_code',
+  'lead_type',
+  'connect_date',
+  'cust_name',
+  'lead_location',
+  'phone_no',
+  'phone_no_2',
+  'salesperson_name',
+  'vehicle',
+  'status',
+  'visit_date',
+  'next_action',
+  'next_action_date',
+  'note',
+  'lost_not_interested_reason',
+  'lost_reason_notes',
+  'deferral_bucket',
+  'deferral_notes',
+  'follow_up_after_date',
+  'earliest_purchase_intent_date',
+  'contact_disposition',
+  'callback_requested_at',
+  'customer_promised_callback',
+  'is_hot_lead',
+  'visit_location_captured_at',
+  'created_by_name',
+  'created_at',
+  'updated_by_name',
+  'updated_at',
+] as const;
+
 const LOST_NI_REASON_LABELS: Record<string, string> = {
   budget: 'Budget / affordability',
   timing: 'Timing — not ready to buy',
@@ -104,7 +148,7 @@ function getToken(): string {
   return localStorage.getItem('auth_token') || '';
 }
 
-function fmtDate(d?: string) {
+function fmtDate(d?: string | null) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
@@ -435,7 +479,7 @@ function SkeletonRows() {
     <>
       {[1, 2, 3, 4, 5, 6].map(n => (
         <tr key={n} className="vr-skel-row">
-          {[26, 88, 120, 110, 140, 90, 160, 52, 120, 110, 90, 100, 85, 70, 60].map((w, i) => (
+          {[26, 88, 120, 110, 140, 90, 160, 52, 120, 110, 90, 100, 95, 88, 100, 85, 70, 60].map((w, i) => (
             <td key={i}><div className="vr-skel" style={{ width: w }} /></td>
           ))}
         </tr>
@@ -620,59 +664,43 @@ export default function VisitReportPage() {
     else { setSortField(field); setSortDir('asc'); }
   }
 
-  async function exportCSV() {
-    try {
-      const token = getToken();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+  function csvVisitReportCell(val: unknown): string {
+    const s = val === null || val === undefined ? '' : String(val);
+    return `"${s.replace(/"/g, '""')}"`;
+  }
 
-      const exportUrl = includeLost
-        ? `${API_BASE}/api/v1/visits/report/export/csv?include_lost=1`
-        : `${API_BASE}/api/v1/visits/report/export/csv`;
-
-      const res = await fetch(exportUrl, { headers });
-      if (!res.ok) { alert('Export failed'); return; }
-
-      const raw = await res.text();
-      if (!raw.trim()) { alert('No data to export'); return; }
-
-      let out: string;
-      if (includeLost) {
-        out = raw;
-      } else {
-        const lines = raw.split('\n');
-        const headerCols = lines[0].split(',').map(c => c.replace(/^"|"$/g, '').trim().toLowerCase());
-        const statusIdx = headerCols.indexOf('status');
-        const allowedSet = new Set(VISIT_PIPELINE_STATUSES.map(s => s.toLowerCase()));
-        const filtered = [lines[0]];
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i];
-          if (!line.trim()) continue;
-          if (statusIdx === -1) {
-            filtered.push(line);
-            continue;
-          }
-          const fields = line.match(/("(?:[^"]|"")*"|[^,]*)/g) ?? [];
-          const statusVal = (fields[statusIdx] ?? '').replace(/^"|"$/g, '').trim().toLowerCase();
-          if (!statusVal || allowedSet.has(statusVal)) filtered.push(line);
-        }
-        out = filtered.join('\n');
-      }
-
-      const blob = new Blob(['\uFEFF' + out], { type: 'text/csv;charset=utf-8;' });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.style.display = 'none';
-      a.href     = url;
-      a.download = `visit-report_${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 150);
-    } catch (err) {
-      console.error('export error:', err);
-      alert('Export failed');
+  function exportCSV() {
+    if (visits.length === 0) {
+      alert('No rows to export for the current filters.');
+      return;
     }
+
+    const headerLine = VISIT_REPORT_CSV_COLUMNS.join(',');
+    const bodyLines = visits.map(v =>
+      VISIT_REPORT_CSV_COLUMNS.map(col =>
+        csvVisitReportCell((v as unknown as Record<string, unknown>)[col]),
+      ).join(','),
+    );
+    const out = [headerLine, ...bodyLines].join('\n');
+
+    const hasActiveFilters =
+      !!searchQuery.trim() ||
+      !!filterStatus ||
+      filterHot !== 'all' ||
+      !!filterDateFrom ||
+      !!filterDateTo;
+
+    const blob = new Blob(['\uFEFF' + out], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    const suffix = hasActiveFilters ? '_filtered' : '';
+    a.download = `visit-report_${new Date().toISOString().slice(0, 10)}${suffix}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 150);
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -789,6 +817,9 @@ export default function VisitReportPage() {
                   <th>Hot</th>
                   <th>Lost – NI</th>
                   <th className={`sortable ${sortField === 'visit_date' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('visit_date')}>Visit Date</th>
+                  <th title="GPS captured at save (visit-linked ping)">Visit GPS</th>
+                  <th>Buy window</th>
+                  <th>Callback</th>
                   <th>Next Action</th>
                   <th>Preview</th>
                 </tr>
@@ -797,7 +828,7 @@ export default function VisitReportPage() {
                 {loading ? (
                   <SkeletonRows />
                 ) : visits.length === 0 ? (
-                  <tr><td colSpan={15}>
+                  <tr><td colSpan={18}>
                     <div className="vr-empty">
                       <div className="vr-empty-icon"></div>
                       <div className="vr-empty-msg">
@@ -849,6 +880,21 @@ export default function VisitReportPage() {
                           {formatLostNiSummary(v)}
                         </td>
                         <td className="vr-date">{fmtDate(v.visit_date)}</td>
+                        <td style={{ fontSize: 11, color: 'var(--text2)', whiteSpace: 'nowrap' }}>
+                          {v.visit_location_captured_at ? (
+                            <span className="vr-badge quotation" style={{ fontSize: 10 }} title={fmtDateTime(v.visit_location_captured_at)}>
+                              {fmtDateTime(v.visit_location_captured_at)}
+                            </span>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <td style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 88, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={labelForDeferral(v.deferral_bucket)}>
+                          {labelForDeferral(v.deferral_bucket)}
+                        </td>
+                        <td style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={labelForContact(v.contact_disposition)}>
+                          {labelForContact(v.contact_disposition)}
+                        </td>
                         <td style={{ color: 'var(--text2)' }}>
                           {v.next_action || '—'}
                           {v.next_action_date && (
@@ -896,6 +942,44 @@ export default function VisitReportPage() {
                     <div className="vr-pv-field-label">Connect Date</div>
                     <div className="vr-pv-field-val mono">{fmtDate(previewVisit.connect_date)}</div>
                   </div>
+                  <div className="vr-pv-field">
+                    <div className="vr-pv-field-label">Visit GPS captured</div>
+                    <div className="vr-pv-field-val mono">
+                      {previewVisit.visit_location_captured_at ? fmtDateTime(previewVisit.visit_location_captured_at) : '—'}
+                    </div>
+                  </div>
+                  <div className="vr-pv-field">
+                    <div className="vr-pv-field-label">Buying timeframe</div>
+                    <div className="vr-pv-field-val">{labelForDeferral(previewVisit.deferral_bucket)}</div>
+                  </div>
+                  <div className="vr-pv-field">
+                    <div className="vr-pv-field-label">Call outcome</div>
+                    <div className="vr-pv-field-val">{labelForContact(previewVisit.contact_disposition)}</div>
+                  </div>
+                  <div className="vr-pv-field">
+                    <div className="vr-pv-field-label">Follow-up from</div>
+                    <div className="vr-pv-field-val mono">{fmtDate(previewVisit.follow_up_after_date)}</div>
+                  </div>
+                  <div className="vr-pv-field">
+                    <div className="vr-pv-field-label">Earliest purchase intent</div>
+                    <div className="vr-pv-field-val mono">{fmtDate(previewVisit.earliest_purchase_intent_date)}</div>
+                  </div>
+                  <div className="vr-pv-field">
+                    <div className="vr-pv-field-label">They asked to call after</div>
+                    <div className="vr-pv-field-val mono">
+                      {previewVisit.callback_requested_at ? fmtDateTime(previewVisit.callback_requested_at) : '—'}
+                    </div>
+                  </div>
+                  <div className="vr-pv-field">
+                    <div className="vr-pv-field-label">Customer promised callback</div>
+                    <div className="vr-pv-field-val">{previewVisit.customer_promised_callback ? 'Yes' : 'No'}</div>
+                  </div>
+                  {previewVisit.deferral_notes?.trim() ? (
+                    <div className="vr-pv-field full">
+                      <div className="vr-pv-field-label">Timing / callback notes</div>
+                      <div className="vr-pv-field-val">{previewVisit.deferral_notes}</div>
+                    </div>
+                  ) : null}
                   <div className="vr-pv-field">
                     <div className="vr-pv-field-label">Visit Date</div>
                     <div className="vr-pv-field-val mono">{fmtDate(previewVisit.visit_date)}</div>

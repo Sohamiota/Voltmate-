@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SearchableSelect from '@/components/SearchableSelect';
+import { labelForContact, labelForDeferral } from '@/lib/crmDeferral';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Lead {
@@ -15,6 +16,13 @@ interface Lead {
   connect_date?: string;
   location?: string;
   note?: string;
+  deferral_bucket?: string | null;
+  deferral_notes?: string | null;
+  follow_up_after_date?: string | null;
+  earliest_purchase_intent_date?: string | null;
+  contact_disposition?: string | null;
+  callback_requested_at?: string | null;
+  customer_promised_callback?: boolean;
   created_by_name?: string;
   updated_by_name?: string;
   created_at?: string;
@@ -54,7 +62,7 @@ function getToken(): string {
   return localStorage.getItem('auth_token') || '';
 }
 
-function fmtDate(d?: string) {
+function fmtDate(d?: string | null) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
@@ -382,7 +390,7 @@ function SkeletonRows() {
     <>
       {[1, 2, 3, 4, 5, 6].map(n => (
         <tr key={n} className="lr-skel-row">
-          {[26, 88, 130, 150, 100, 110, 100, 90, 60].map((w, i) => (
+          {[26, 88, 130, 150, 100, 110, 100, 88, 96, 90, 60].map((w, i) => (
             <td key={i}><div className="lr-skel" style={{ width: w }} /></td>
           ))}
         </tr>
@@ -677,6 +685,8 @@ export default function LeadReportPage() {
                   <th>Phone</th>
                   <th>Location</th>
                   <th className={`sortable ${sortField === 'lead_type' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('lead_type')}>Lead Type</th>
+                  <th>Buy window</th>
+                  <th>Callback</th>
                   <th className={`sortable ${sortField === 'connect_date' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('connect_date')}>Connect Date</th>
                   <th>Preview</th>
                 </tr>
@@ -685,7 +695,7 @@ export default function LeadReportPage() {
                 {loading ? (
                   <SkeletonRows />
                 ) : leads.length === 0 ? (
-                  <tr><td colSpan={9}>
+                  <tr><td colSpan={11}>
                     <div className="lr-empty">
                       <div className="lr-empty-icon"></div>
                       <div className="lr-empty-msg">
@@ -708,6 +718,12 @@ export default function LeadReportPage() {
                       </td>
                       <td style={{ color: 'var(--text2)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.location || '—'}</td>
                       <td><span className={`lr-badge ${leadBadgeClass(l.lead_type)}`}>{l.lead_type || '—'}</span></td>
+                      <td style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 82 }} title={labelForDeferral(l.deferral_bucket)}>
+                        {labelForDeferral(l.deferral_bucket)}
+                      </td>
+                      <td style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 96 }} title={labelForContact(l.contact_disposition)}>
+                        {labelForContact(l.contact_disposition)}
+                      </td>
                       <td className="lr-date">{fmtDate(l.connect_date)}</td>
                       <td>
                         <button className="lr-btn lr-btn-preview" onClick={() => openPreview(l)}>
@@ -754,6 +770,36 @@ export default function LeadReportPage() {
                       <span className={`lr-badge ${leadBadgeClass(previewLead.lead_type)}`}>{previewLead.lead_type || '—'}</span>
                     </div>
                   </div>
+                  <div className="lr-pv-field">
+                    <div className="lr-pv-field-label">Buying timeframe</div>
+                    <div className="lr-pv-field-val">{labelForDeferral(previewLead.deferral_bucket)}</div>
+                  </div>
+                  <div className="lr-pv-field">
+                    <div className="lr-pv-field-label">Call outcome</div>
+                    <div className="lr-pv-field-val">{labelForContact(previewLead.contact_disposition)}</div>
+                  </div>
+                  <div className="lr-pv-field">
+                    <div className="lr-pv-field-label">Follow-up from</div>
+                    <div className="lr-pv-field-val mono">{fmtDate(previewLead.follow_up_after_date)}</div>
+                  </div>
+                  <div className="lr-pv-field">
+                    <div className="lr-pv-field-label">Earliest purchase intent</div>
+                    <div className="lr-pv-field-val mono">{fmtDate(previewLead.earliest_purchase_intent_date)}</div>
+                  </div>
+                  <div className="lr-pv-field">
+                    <div className="lr-pv-field-label">Callback after</div>
+                    <div className="lr-pv-field-val mono">{previewLead.callback_requested_at ? fmtDateTime(previewLead.callback_requested_at) : '—'}</div>
+                  </div>
+                  <div className="lr-pv-field">
+                    <div className="lr-pv-field-label">Customer promised callback</div>
+                    <div className="lr-pv-field-val">{previewLead.customer_promised_callback ? 'Yes' : 'No'}</div>
+                  </div>
+                  {previewLead.deferral_notes?.trim() ? (
+                    <div className="lr-pv-field full">
+                      <div className="lr-pv-field-label">Timing / callback notes</div>
+                      <div className="lr-pv-field-val">{previewLead.deferral_notes}</div>
+                    </div>
+                  ) : null}
                   <div className="lr-pv-field full">
                     <div className="lr-pv-field-label">Business</div>
                     <div className="lr-pv-field-val">{previewLead.business || <span className="muted">—</span>}</div>

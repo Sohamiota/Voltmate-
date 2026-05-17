@@ -70,6 +70,15 @@ export function optDate(val: unknown): VResult<string | null> {
   return { value: val, error: null };
 }
 
+// ── Optional ISO datetime (for TIMESTAMPTZ fields) ─────────────────────────────
+export function optIsoDateTime(val: unknown): VResult<string | null> {
+  if (val === null || val === undefined || val === '') return { value: null, error: null };
+  if (typeof val !== 'string') return { value: null, error: 'must be a string' };
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return { value: null, error: 'invalid ISO datetime' };
+  return { value: d.toISOString(), error: null };
+}
+
 // ── Required positive integer (e.g. resource IDs) ────────────────────────────
 export function reqId(val: unknown): VResult<number> {
   const n = parseInt(String(val), 10);
@@ -176,3 +185,22 @@ export const LEAD_TYPES = [
 export const TASK_STATUSES = ['Just Assigned', 'Under Process', 'Completed'] as const;
 
 export const APPROVAL_STATUSES = ['Pending', 'Approved', 'Rejected'] as const;
+
+/** Buying timeframe bucket IDs — stable CRM enums */
+export const DEFERRAL_BUCKETS = [
+  'within_1_month',
+  'within_2_months',
+  'within_3_months',
+  'beyond_3_months',
+  'unknown',
+] as const;
+
+/** Call outcome / stall reason IDs — stable CRM enums */
+export const CONTACT_DISPOSITIONS = [
+  'busy_will_call_back',
+  'requested_callback_later',
+  'needs_time_to_decide',
+  'travel_or_offline',
+  'talk_to_family_first',
+  'comparing_options',
+] as const;

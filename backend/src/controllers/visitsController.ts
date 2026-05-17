@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import { query } from '../db';
 import { logActivity } from '../utils/activityLog';
+import { ensureLocationPingCols } from './locationController';
 import {
   reqId, optId, optStr, optPhone, optDate, optEnum, optBool,
   collectErrors, parsePagination, VISIT_STATUSES,
   LOST_NOT_INTEREST_REASONS, LOST_NOT_INTERESTED_STATUS,
 } from '../utils/validate';
+import { parseCrmDeferralBody, ParsedCrmDeferral } from '../utils/crmDeferral';
 
 function canManageVisits(role: string | undefined): boolean {
   return role === 'admin' || role === 'sales_admin';
@@ -91,9 +93,60 @@ async function ensureVisitsCols() {
     await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS connect_date DATE`);
     await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS lost_not_interested_reason TEXT`);
     await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS lost_reason_notes TEXT`);
+    await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS deferral_bucket TEXT`);
+    await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS deferral_notes TEXT`);
+    await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS follow_up_after_date DATE`);
+    await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS earliest_purchase_intent_date DATE`);
+    await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS contact_disposition TEXT`);
+    await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS callback_requested_at TIMESTAMPTZ`);
+    await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS customer_promised_callback BOOLEAN NOT NULL DEFAULT false`);
   } catch { /* ignore */ }
   visitsColsReady = true;
+  try {
+    await ensureLocationPingCols();
+  } catch { /* ignore */ }
 }
+
+async function syncLeadCrmRollupFromVisit(leadId: number | null, crm: ParsedCrmDeferral) {
+  if (!leadId) return;
+  await query(
+    `UPDATE leads SET
+       deferral_bucket = $1,
+       deferral_notes = $2,
+       follow_up_after_date = $3,
+       earliest_purchase_intent_date = $4,
+       contact_disposition = $5,
+       callback_requested_at = $6,
+       customer_promised_callback = $7,
+       updated_at = now()
+     WHERE id = $8`,
+    [
+      crm.deferral_bucket,
+      crm.deferral_notes,
+      crm.follow_up_after_date,
+      crm.earliest_purchase_intent_date,
+      crm.contact_disposition,
+      crm.callback_requested_at,
+      crm.customer_promised_callback,
+      leadId,
+    ],
+  );
+}
+
+/** Inline SELECT columns for CRM deferral fields */
+const VISIT_CRM_SQL = `
+              v.deferral_bucket, v.deferral_notes, v.follow_up_after_date, v.earliest_purchase_intent_date,
+              v.contact_disposition, v.callback_requested_at, v.customer_promised_callback`;
+
+const VISIT_CSV_CRM_KEYS = [
+  'deferral_bucket',
+  'deferral_notes',
+  'follow_up_after_date',
+  'earliest_purchase_intent_date',
+  'contact_disposition',
+  'callback_requested_at',
+  'customer_promised_callback',
+] as const;
 
 export async function createVisit(req: Request, res: Response) {
   try {
@@ -133,6 +186,10 @@ export async function createVisit(req: Request, res: Response) {
     const lostNi = lostNiDispositionFromBody(body as Record<string, unknown>, vStatus.value);
     if (lostNi.error) return res.status(400).json({ error: lostNi.error });
 
+    const crmParsed = parseCrmDeferralBody(body as Record<string, unknown>);
+    if (crmParsed.error) return res.status(400).json({ error: crmParsed.error });
+    const crm = crmParsed.parsed!;
+
     const leadR = await query('SELECT id, cust_code, lead_type, connect_date FROM leads WHERE id=$1', [vLeadId.value]);
     if (leadR.rowCount === 0) return res.status(404).json({ error: 'lead not found' });
     const lead = leadR.rows[0] as { cust_code: string; lead_type?: string; connect_date?: string };
@@ -143,17 +200,25 @@ export async function createVisit(req: Request, res: Response) {
         (lead_id, lead_cust_code, lead_type, connect_date, salesperson_id, vehicle, status, visit_date,
          next_action, next_action_date, note, phone_no, phone_no_2,
          lost_not_interested_reason, lost_reason_notes,
+         deferral_bucket, deferral_notes, follow_up_after_date, earliest_purchase_intent_date,
+         contact_disposition, callback_requested_at, customer_promised_callback,
          created_by, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,now(),now()) RETURNING *`,
-      [vLeadId.value, lead.cust_code, lead.lead_type || null, connect_date,
-       vSalesperson.value, vVehicle.value, vStatus.value,
-       vVisitDate.value, vNextAction.value, vNextDate.value, vNote.value,
-       vPhone.value, vPhone2.value, lostNi.reason, lostNi.notes, userId],
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,now(),now()) RETURNING *`,
+      [
+        vLeadId.value, lead.cust_code, lead.lead_type || null, connect_date,
+        vSalesperson.value, vVehicle.value, vStatus.value,
+        vVisitDate.value, vNextAction.value, vNextDate.value, vNote.value,
+        vPhone.value, vPhone2.value, lostNi.reason, lostNi.notes,
+        crm.deferral_bucket, crm.deferral_notes, crm.follow_up_after_date, crm.earliest_purchase_intent_date,
+        crm.contact_disposition, crm.callback_requested_at, crm.customer_promised_callback,
+        userId,
+      ],
     );
     const newVisit = (r as any).rows[0];
     if (hotProvided && !vHot.error) {
       await query('UPDATE leads SET is_hot_lead=$1 WHERE id=$2', [vHot.value, vLeadId.value]);
     }
+    await syncLeadCrmRollupFromVisit(vLeadId.value, crm);
     await logActivity('visit', newVisit.id, lead.cust_code, 'create', userId, `Visit created for ${lead.cust_code}`);
     res.status(201).json(newVisit);
   } catch (e) {
@@ -202,6 +267,10 @@ export async function updateVisit(req: Request, res: Response) {
     const lostNi = lostNiDispositionFromBody(body as Record<string, unknown>, vStatus.value);
     if (lostNi.error) return res.status(400).json({ error: lostNi.error });
 
+    const crmParsed = parseCrmDeferralBody(body as Record<string, unknown>);
+    if (crmParsed.error) return res.status(400).json({ error: crmParsed.error });
+    const crm = crmParsed.parsed!;
+
     const existing = await query('SELECT id, lead_id FROM visits WHERE id=$1', [id]);
     if ((existing as any).rowCount === 0) return res.status(404).json({ error: 'visit not found' });
     const leadId = (existing as any).rows[0]?.lead_id as number | null;
@@ -212,18 +281,25 @@ export async function updateVisit(req: Request, res: Response) {
            next_action=$5, next_action_date=$6, note=$7,
            phone_no=$8, phone_no_2=$9, connect_date=$10,
            lost_not_interested_reason=$11, lost_reason_notes=$12,
-           updated_by=$13, updated_at=now()
-       WHERE id=$14 RETURNING *`,
-      [vVehicle.value, vSalesperson.value, vStatus.value, vVisitDate.value,
-       vNextAction.value, vNextDate.value, vNote.value,
-       vPhone.value, vPhone2.value, vConnDate.value ?? null,
-       lostNi.reason, lostNi.notes,
-       userId, id],
+           deferral_bucket=$13, deferral_notes=$14, follow_up_after_date=$15, earliest_purchase_intent_date=$16,
+           contact_disposition=$17, callback_requested_at=$18, customer_promised_callback=$19,
+           updated_by=$20, updated_at=now()
+       WHERE id=$21 RETURNING *`,
+      [
+        vVehicle.value, vSalesperson.value, vStatus.value, vVisitDate.value,
+        vNextAction.value, vNextDate.value, vNote.value,
+        vPhone.value, vPhone2.value, vConnDate.value ?? null,
+        lostNi.reason, lostNi.notes,
+        crm.deferral_bucket, crm.deferral_notes, crm.follow_up_after_date, crm.earliest_purchase_intent_date,
+        crm.contact_disposition, crm.callback_requested_at, crm.customer_promised_callback,
+        userId, id,
+      ],
     );
     const updated = (r as any).rows[0];
     if (hotProvided && leadId != null && !vHot.error) {
       await query('UPDATE leads SET is_hot_lead=$1 WHERE id=$2', [vHot.value, leadId]);
     }
+    await syncLeadCrmRollupFromVisit(leadId, crm);
     await logActivity('visit', id, updated.lead_cust_code || String(id), 'update', userId, `Visit updated`);
     res.json(updated);
   } catch (e) {
@@ -263,6 +339,7 @@ export async function listVisits(req: Request, res: Response) {
       `SELECT v.id, v.lead_id, v.lead_cust_code, v.salesperson_id, v.vehicle, v.status,
               v.visit_date, v.next_action, v.next_action_date, v.note, v.phone_no, v.phone_no_2,
               v.lost_not_interested_reason, v.lost_reason_notes,
+${VISIT_CRM_SQL},
               v.created_by, v.created_at, v.updated_by, v.updated_at,
               COALESCE(v.lead_type, l.lead_type) AS lead_type,
               COALESCE(v.connect_date, l.connect_date) AS connect_date,
@@ -272,7 +349,8 @@ export async function listVisits(req: Request, res: Response) {
               COALESCE(l.is_hot_lead, false) AS is_hot_lead,
               u.name  AS salesperson_name,
               uc.name AS created_by_name,
-              uu.name AS updated_by_name
+              uu.name AS updated_by_name,
+              (SELECT MAX(lp.pinged_at) FROM location_pings lp WHERE lp.visit_id = v.id) AS visit_location_captured_at
        FROM visits v
        LEFT JOIN leads  l  ON l.id  = v.lead_id
        LEFT JOIN users  u  ON u.id  = v.salesperson_id
@@ -305,6 +383,7 @@ export async function listVisibleVisits(req: Request, res: Response) {
       `SELECT v.id, v.lead_id, v.lead_cust_code, v.salesperson_id, v.vehicle, v.status,
               v.visit_date, v.next_action, v.next_action_date, v.note, v.phone_no, v.phone_no_2,
               v.lost_not_interested_reason, v.lost_reason_notes,
+${VISIT_CRM_SQL},
               v.created_by, v.created_at, v.updated_by, v.updated_at,
               COALESCE(v.lead_type, l.lead_type) AS lead_type,
               COALESCE(v.connect_date, l.connect_date) AS connect_date,
@@ -314,7 +393,8 @@ export async function listVisibleVisits(req: Request, res: Response) {
               COALESCE(l.is_hot_lead, false) AS is_hot_lead,
               u.name  AS salesperson_name,
               uc.name AS created_by_name,
-              uu.name AS updated_by_name
+              uu.name AS updated_by_name,
+              (SELECT MAX(lp.pinged_at) FROM location_pings lp WHERE lp.visit_id = v.id) AS visit_location_captured_at
        FROM visits v
        LEFT JOIN leads  l  ON l.id  = v.lead_id
        LEFT JOIN users  u  ON u.id  = v.salesperson_id
@@ -343,9 +423,12 @@ export async function exportVisitsCSV(req: Request, res: Response) {
              v.vehicle, v.status, v.visit_date,
              v.next_action, v.next_action_date, v.note,
              v.lost_not_interested_reason, v.lost_reason_notes,
+             v.deferral_bucket, v.deferral_notes, v.follow_up_after_date, v.earliest_purchase_intent_date,
+             v.contact_disposition, v.callback_requested_at, v.customer_promised_callback,
              COALESCE(l.is_hot_lead, false) AS is_hot_lead,
              uc.name AS created_by_name, v.created_at,
-             uu.name AS updated_by_name, v.updated_at
+             uu.name AS updated_by_name, v.updated_at,
+             (SELECT MAX(lp.pinged_at) FROM location_pings lp WHERE lp.visit_id = v.id) AS visit_location_captured_at
       FROM visits v
       LEFT JOIN leads l  ON l.id  = v.lead_id
       LEFT JOIN users u  ON u.id  = v.salesperson_id
@@ -354,7 +437,7 @@ export async function exportVisitsCSV(req: Request, res: Response) {
       ORDER BY v.created_at DESC
     `);
     const rows   = (r as any).rows;
-    const header = ['id','lead_cust_code','lead_type','connect_date','cust_name','lead_location','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','lost_not_interested_reason','lost_reason_notes','is_hot_lead','created_by_name','created_at','updated_by_name','updated_at'];
+    const header = ['id','lead_cust_code','lead_type','connect_date','cust_name','lead_location','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','lost_not_interested_reason','lost_reason_notes',...VISIT_CSV_CRM_KEYS,'is_hot_lead','visit_location_captured_at','created_by_name','created_at','updated_by_name','updated_at'];
     const csv    = [header.join(',')].concat(
       rows.map((row: any) => header.map(h => {
         const v = row[h];
@@ -558,9 +641,12 @@ export async function exportVisibleVisitsCSV(req: Request, res: Response) {
              v.vehicle, v.status, v.visit_date,
              v.next_action, v.next_action_date, v.note,
              v.lost_not_interested_reason, v.lost_reason_notes,
+             v.deferral_bucket, v.deferral_notes, v.follow_up_after_date, v.earliest_purchase_intent_date,
+             v.contact_disposition, v.callback_requested_at, v.customer_promised_callback,
              COALESCE(l.is_hot_lead, false) AS is_hot_lead,
              uc.name AS created_by_name, v.created_at,
-             uu.name AS updated_by_name, v.updated_at
+             uu.name AS updated_by_name, v.updated_at,
+             (SELECT MAX(lp.pinged_at) FROM location_pings lp WHERE lp.visit_id = v.id) AS visit_location_captured_at
       FROM visits v
       LEFT JOIN leads l  ON l.id  = v.lead_id
       LEFT JOIN users u  ON u.id  = v.salesperson_id
@@ -570,7 +656,7 @@ export async function exportVisibleVisitsCSV(req: Request, res: Response) {
       ORDER BY v.created_at DESC
     `);
     const rows   = (r as any).rows;
-    const header = ['id','lead_cust_code','lead_type','connect_date','cust_name','lead_location','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','lost_not_interested_reason','lost_reason_notes','is_hot_lead','created_by_name','created_at','updated_by_name','updated_at'];
+    const header = ['id','lead_cust_code','lead_type','connect_date','cust_name','lead_location','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','lost_not_interested_reason','lost_reason_notes',...VISIT_CSV_CRM_KEYS,'is_hot_lead','visit_location_captured_at','created_by_name','created_at','updated_by_name','updated_at'];
     const csv    = [header.join(',')].concat(
       rows.map((row: any) => header.map(h => {
         const v = row[h];

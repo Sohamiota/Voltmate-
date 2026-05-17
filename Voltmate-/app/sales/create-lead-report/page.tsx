@@ -3,6 +3,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SearchableSelect from '@/components/SearchableSelect';
+import {
+  CRM_CONTACT_OPTIONS,
+  CRM_DEFERRAL_OPTIONS,
+  crmPayloadFromForm,
+  isoToDatetimeLocal,
+  labelForContact,
+  labelForDeferral,
+} from '@/lib/crmDeferral';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Lead {
@@ -12,8 +20,17 @@ interface Lead {
   cust_name?: string;
   business?: string;
   phone_no?: string;
+  phone_no_2?: string;
   lead_type?: string;
   note?: string;
+  location?: string | null;
+  deferral_bucket?: string | null;
+  deferral_notes?: string | null;
+  follow_up_after_date?: string | null;
+  earliest_purchase_intent_date?: string | null;
+  contact_disposition?: string | null;
+  callback_requested_at?: string | null;
+  customer_promised_callback?: boolean;
   // audit fields
   created_by_name?: string;
   updated_by_name?: string;
@@ -29,6 +46,13 @@ interface FormState {
   lead_type: string;
   location: string;
   note: string;
+  deferral_bucket: string;
+  deferral_notes: string;
+  follow_up_after_date: string;
+  earliest_purchase_intent_date: string;
+  contact_disposition: string;
+  callback_requested_at: string;
+  customer_promised_callback: boolean;
 }
 
 interface NominatimResult {
@@ -91,6 +115,13 @@ const EMPTY_FORM: FormState = {
   lead_type: '',
   location: '',
   note: '',
+  deferral_bucket: '',
+  deferral_notes: '',
+  follow_up_after_date: '',
+  earliest_purchase_intent_date: '',
+  contact_disposition: '',
+  callback_requested_at: '',
+  customer_promised_callback: false,
 };
 
 function isValidPhone(v: string)         { return /^[6-9]\d{9}$/.test(v.trim()); }
@@ -429,7 +460,7 @@ function SkeletonRows() {
     <>
       {[1, 2, 3, 4, 5].map(n => (
         <tr key={n} className="lm-skel-row">
-          {[28, 72, 80, 130, 140, 90, 110, 100, 60].map((w, i) => (
+          {[28, 72, 80, 130, 140, 90, 110, 100, 88, 96, 110, 60].map((w, i) => (
             <td key={i}><div className="lm-skel" style={{ width: w }} /></td>
           ))}
         </tr>
@@ -619,6 +650,15 @@ export default function CreateLeadReportPage() {
       lead_type:  l.lead_type  || '',
       location:   l.location   || '',
       note:       l.note       || '',
+      deferral_bucket:           l.deferral_bucket ?? '',
+      deferral_notes:            l.deferral_notes ?? '',
+      follow_up_after_date:      l.follow_up_after_date ? String(l.follow_up_after_date).slice(0, 10) : '',
+      earliest_purchase_intent_date: l.earliest_purchase_intent_date
+        ? String(l.earliest_purchase_intent_date).slice(0, 10)
+        : '',
+      contact_disposition:       l.contact_disposition ?? '',
+      callback_requested_at:     isoToDatetimeLocal(l.callback_requested_at ?? undefined),
+      customer_promised_callback: !!l.customer_promised_callback,
     });
     setOpen(true);
   }
@@ -655,7 +695,17 @@ export default function CreateLeadReportPage() {
       return;
     }
 
-    const payload = { ...form, business, location: form.location || null };
+    const payload: Record<string, unknown> = {
+      connect_date: form.connect_date || null,
+      cust_name: form.cust_name,
+      phone_no: form.phone_no,
+      phone_no_2: form.phone_no_2 || null,
+      lead_type: form.lead_type || null,
+      note: form.note || null,
+      location: form.location || null,
+      business,
+      ...crmPayloadFromForm(form),
+    };
 
     try {
       setSubmitting(true);
@@ -846,6 +896,8 @@ export default function CreateLeadReportPage() {
                   <th>Phone No.</th>
                   <th>Location</th>
                   <th>Lead Type</th>
+                  <th>Buy window</th>
+                  <th>Callback</th>
                   <th>Logged By</th>
                   <th>Action</th>
                 </tr>
@@ -855,7 +907,7 @@ export default function CreateLeadReportPage() {
                   <SkeletonRows />
                 ) : leads.length === 0 ? (
                   <tr>
-                    <td colSpan={10}>
+                    <td colSpan={12}>
                       <div className="lm-empty">
                         <div className="lm-empty-icon"></div>
                         <div className="lm-empty-msg">
@@ -889,6 +941,12 @@ export default function CreateLeadReportPage() {
                         <span className={`lm-badge ${leadBadgeClass(l.lead_type)}`}>
                           {l.lead_type || '—'}
                         </span>
+                      </td>
+                      <td style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 88, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={labelForDeferral(l.deferral_bucket)}>
+                        {labelForDeferral(l.deferral_bucket)}
+                      </td>
+                      <td style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={labelForContact(l.contact_disposition)}>
+                        {labelForContact(l.contact_disposition)}
                       </td>
                       <td>
                         <div className="lm-audit-cell">
@@ -1128,6 +1186,101 @@ export default function CreateLeadReportPage() {
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  <div className="lm-fg full" style={{ gridColumn: '1 / -1', marginTop: 8, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 12 }}>
+                      Buying timeframe &amp; call outcome
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 12, lineHeight: 1.45 }}>
+                      If buying window is set (except Unknown) or outcome is busy/callback, set <strong>Follow-up from</strong> or <strong>Callback time</strong>.
+                    </div>
+                  </div>
+
+                  <div className="lm-fg">
+                    <label className="lm-label" htmlFor="lm-deferral">Buying timeframe</label>
+                    <SearchableSelect
+                      id="lm-deferral"
+                      fieldClass="lm-field"
+                      options={CRM_DEFERRAL_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+                      value={form.deferral_bucket}
+                      onChange={v => setForm(f => ({ ...f, deferral_bucket: v }))}
+                      placeholder="Optional"
+                      emptyLabel="Not specified"
+                      accentColor="var(--teal)"
+                    />
+                  </div>
+
+                  <div className="lm-fg">
+                    <label className="lm-label" htmlFor="lm-contact">Call outcome / stall</label>
+                    <SearchableSelect
+                      id="lm-contact"
+                      fieldClass="lm-field"
+                      options={CRM_CONTACT_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+                      value={form.contact_disposition}
+                      onChange={v => setForm(f => ({ ...f, contact_disposition: v }))}
+                      placeholder="Optional"
+                      emptyLabel="Not specified"
+                      accentColor="#6366f1"
+                    />
+                  </div>
+
+                  <div className="lm-fg">
+                    <label className="lm-label" htmlFor="lm-follow">Follow-up from</label>
+                    <input
+                      id="lm-follow"
+                      type="date"
+                      className="lm-field"
+                      value={form.follow_up_after_date}
+                      onChange={e => setForm(f => ({ ...f, follow_up_after_date: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="lm-fg">
+                    <label className="lm-label" htmlFor="lm-earliest">Earliest purchase intent</label>
+                    <input
+                      id="lm-earliest"
+                      type="date"
+                      className="lm-field"
+                      value={form.earliest_purchase_intent_date}
+                      onChange={e => setForm(f => ({ ...f, earliest_purchase_intent_date: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="lm-fg">
+                    <label className="lm-label" htmlFor="lm-callback-at">They asked to call after</label>
+                    <input
+                      id="lm-callback-at"
+                      type="datetime-local"
+                      className="lm-field"
+                      value={form.callback_requested_at}
+                      onChange={e => setForm(f => ({ ...f, callback_requested_at: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="lm-fg full" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      id="lm-promised"
+                      type="checkbox"
+                      checked={form.customer_promised_callback}
+                      onChange={e => setForm(f => ({ ...f, customer_promised_callback: e.target.checked }))}
+                      style={{ width: 18, height: 18, accentColor: '#6366f1', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="lm-promised" style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text)', userSelect: 'none' }}>
+                      Customer promised they will call back
+                    </label>
+                  </div>
+
+                  <div className="lm-fg full">
+                    <label className="lm-label" htmlFor="lm-defer-notes">Timing / callback notes</label>
+                    <textarea
+                      id="lm-defer-notes"
+                      className="lm-field"
+                      rows={2}
+                      placeholder="Optional context…"
+                      value={form.deferral_notes}
+                      onChange={e => setForm(f => ({ ...f, deferral_notes: e.target.value }))}
+                    />
                   </div>
 
                   <div className="lm-fg full">

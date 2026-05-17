@@ -207,7 +207,10 @@ export default function AttendancePage() {
       await fetch(`${API}/api/v1/location/ping`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ lat, lng, accuracy_m: accuracyM, type, note, attendance_id: attendanceId }),
+        body:    JSON.stringify({
+          lat, lng, accuracy_m: accuracyM, type, note, attendance_id: attendanceId,
+          context: 'attendance',
+        }),
       });
       setPingCount(c => c + 1);
     } catch { /* silent — non-critical */ }

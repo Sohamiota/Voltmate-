@@ -45,7 +45,11 @@ Desktop.ini
 # Editor
 .vscode/
 .idea/
-.cursor/
+
+# Cursor — keep `.cursor/rules/` shareable; ignore other local Cursor metadata
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
 
 # Docker
 docker-compose.override.yml
