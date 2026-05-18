@@ -23,6 +23,8 @@ interface Lead {
   contact_disposition?: string | null;
   callback_requested_at?: string | null;
   customer_promised_callback?: boolean;
+  /** Mirrors lead row; often updated when marking hot on a visit. */
+  is_hot_lead?: boolean;
   created_by_name?: string;
   updated_by_name?: string;
   created_at?: string;
@@ -174,6 +176,7 @@ const PAGE_STYLES = `
   .lr-stat-val.emerald { color: var(--emerald); }
   .lr-stat-val.sky     { color: var(--sky); }
   .lr-stat-val.amber   { color: var(--amber); }
+  .lr-stat-val.hot     { color: #f59e0b; }
 
   /* ── Table Card ── */
   .lr-table-card {
@@ -391,7 +394,7 @@ function SkeletonRows() {
     <>
       {[1, 2, 3, 4, 5, 6].map(n => (
         <tr key={n} className="lr-skel-row">
-          {[26, 88, 130, 150, 100, 110, 100, 88, 96, 90, 60].map((w, i) => (
+          {[26, 88, 130, 150, 100, 110, 100, 44, 88, 96, 90, 60].map((w, i) => (
             <td key={i}><div className="lr-skel" style={{ width: w }} /></td>
           ))}
         </tr>
@@ -413,6 +416,7 @@ export default function LeadReportPage() {
   const [filterBusiness, setFilterBusiness] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterHot, setFilterHot] = useState<'all' | 'hot' | 'not_hot'>('all');
 
   // Sorting
   const [sortField, setSortField] = useState<SortField>('connect_date');
@@ -502,6 +506,7 @@ export default function LeadReportPage() {
     setFilterBusiness('');
     setFilterDateFrom('');
     setFilterDateTo('');
+    setFilterHot('all');
     const inputs = document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('.lr-field');
     inputs.forEach(inp => { inp.value = ''; });
   }
@@ -529,6 +534,8 @@ export default function LeadReportPage() {
       const to = new Date(filterDateTo).getTime();
       filtered = filtered.filter(l => l.connect_date && new Date(l.connect_date).getTime() <= to);
     }
+    if (filterHot === 'hot') filtered = filtered.filter(l => !!l.is_hot_lead);
+    if (filterHot === 'not_hot') filtered = filtered.filter(l => !l.is_hot_lead);
 
     filtered.sort((a, b) => {
       let aVal: any = a[sortField];
@@ -545,7 +552,7 @@ export default function LeadReportPage() {
       return 0;
     });
     return filtered;
-  }, [allLeads, searchQuery, filterType, filterBusiness, filterDateFrom, filterDateTo, sortField, sortDir]);
+  }, [allLeads, searchQuery, filterType, filterBusiness, filterDateFrom, filterDateTo, filterHot, sortField, sortDir]);
 
   // ── Stats ──────────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -559,6 +566,7 @@ export default function LeadReportPage() {
         const d = new Date(l.connect_date);
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
       }).length,
+      hot: leads.filter(l => !!l.is_hot_lead).length,
     };
   }, [leads]);
 
@@ -647,6 +655,14 @@ export default function LeadReportPage() {
               <label className="lr-label">Date To</label>
               <input type="date" className="lr-field" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
             </div>
+            <div className="lr-fg">
+              <label className="lr-label">Hot lead</label>
+              <select className="lr-field" value={filterHot} onChange={e => setFilterHot(e.target.value as 'all' | 'hot' | 'not_hot')}>
+                <option value="all">All</option>
+                <option value="hot">Hot only</option>
+                <option value="not_hot">Not hot</option>
+              </select>
+            </div>
             <button className="lr-btn-clear" onClick={clearFilters}>Clear All</button>
           </div>
         </div>
@@ -657,6 +673,7 @@ export default function LeadReportPage() {
           <div className="lr-stat"><div className="lr-stat-label">Digital Leads</div><div className="lr-stat-val emerald">{stats.digital}</div></div>
           <div className="lr-stat"><div className="lr-stat-label">Non-Digital</div><div className="lr-stat-val sky">{stats.nonDigital}</div></div>
           <div className="lr-stat"><div className="lr-stat-label">This Month</div><div className="lr-stat-val amber">{stats.thisMonth}</div></div>
+          <div className="lr-stat"><div className="lr-stat-label">Hot Leads</div><div className="lr-stat-val hot">{stats.hot}</div></div>
         </div>
 
         {/* Table */}
@@ -667,7 +684,7 @@ export default function LeadReportPage() {
                 {leads.length === allLeads.length ? `${allLeads.length} Total Leads` : `${leads.length} of ${allLeads.length} Leads`}
               </div>
               <div className="lr-table-sub">
-                {searchQuery || filterType || filterBusiness || filterDateFrom || filterDateTo ? 'Filtered results' : 'Complete lead pipeline'}
+                {searchQuery || filterType || filterBusiness || filterDateFrom || filterDateTo || filterHot !== 'all' ? 'Filtered results' : 'Complete lead pipeline'}
               </div>
             </div>
             <div className="lr-table-actions">
@@ -686,6 +703,7 @@ export default function LeadReportPage() {
                   <th>Phone</th>
                   <th>Location</th>
                   <th className={`sortable ${sortField === 'lead_type' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('lead_type')}>Lead Type</th>
+                  <th>Hot</th>
                   <th>Buy window</th>
                   <th>Callback</th>
                   <th className={`sortable ${sortField === 'connect_date' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('connect_date')}>Connect Date</th>
@@ -696,11 +714,11 @@ export default function LeadReportPage() {
                 {loading ? (
                   <SkeletonRows />
                 ) : leads.length === 0 ? (
-                  <tr><td colSpan={11}>
+                  <tr><td colSpan={12}>
                     <div className="lr-empty">
                       <div className="lr-empty-icon"></div>
                       <div className="lr-empty-msg">
-                        {searchQuery || filterType || filterBusiness || filterDateFrom || filterDateTo
+                        {searchQuery || filterType || filterBusiness || filterDateFrom || filterDateTo || filterHot !== 'all'
                           ? <>No leads match your filters</>
                           : <>No leads recorded yet</>}
                       </div>
@@ -719,6 +737,13 @@ export default function LeadReportPage() {
                       </td>
                       <td style={{ color: 'var(--text2)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.location || '—'}</td>
                       <td><span className={`lr-badge ${leadBadgeClass(l.lead_type)}`}>{l.lead_type || '—'}</span></td>
+                      <td>
+                        {l.is_hot_lead ? (
+                          <span className="lr-badge" style={{ background: 'rgba(245,158,11,.12)', color: 'var(--amber)', border: '1px solid rgba(245,158,11,.28)', fontSize: 10 }}>Hot</span>
+                        ) : (
+                          <span style={{ color: 'var(--text3)', fontSize: 11 }}>—</span>
+                        )}
+                      </td>
                       <td style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 82 }} title={labelForDeferral(l.deferral_bucket)}>
                         {labelForDeferral(l.deferral_bucket)}
                       </td>
@@ -770,6 +795,10 @@ export default function LeadReportPage() {
                     <div className="lr-pv-field-val">
                       <span className={`lr-badge ${leadBadgeClass(previewLead.lead_type)}`}>{previewLead.lead_type || '—'}</span>
                     </div>
+                  </div>
+                  <div className="lr-pv-field">
+                    <div className="lr-pv-field-label">Hot lead</div>
+                    <div className="lr-pv-field-val">{previewLead.is_hot_lead ? 'Yes' : 'No'}</div>
                   </div>
                   <div className="lr-pv-field">
                     <div className="lr-pv-field-label">Buying timeframe</div>

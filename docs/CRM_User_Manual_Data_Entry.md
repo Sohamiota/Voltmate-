@@ -172,7 +172,7 @@ You get:
 
 - Connection status for the backend (**Backend: Connected / Disconnected**) and **Retry**.
 - **Filters** row.
-- **Summary tiles:** Total Leads, Digital Leads, Non-Digital, This Month (based on **currently filtered** rows).
+- **Summary tiles:** Total Leads, Digital Leads, Non-Digital, This Month, **Hot Leads** (based on **currently filtered** rows).
 - A **sortable table** and **Export CSV**.
 - **Preview** opens a detailed modal per lead.
 
@@ -186,6 +186,7 @@ You get:
 | **Lead Type** | All types, Digital Lead, or Non Digital Lead. |
 | **Business Category** | Searchable; filters leads whose **business** text matches the category choice. |
 | **Date From / Date To** | Filters by **Connect Date** range. Rows without connect date won’t match date filters. |
+| **Hot lead** | All, **Hot only**, or **Not hot** (same flag as visits / `is_hot_lead` on the lead). |
 | **Clear All** | Clears filter UI state. |
 
 When any filter is active, the subtitle says **Filtered results**.
@@ -200,6 +201,7 @@ When any filter is active, the subtitle says **Filtered results**.
 | **Phone** | Primary + optional secondary. |
 | **Location** | Text location if captured. |
 | **Lead Type** | Digital vs Non Digital. |
+| **Hot** | Shows **Hot** when the lead is marked hot (usually from a visit). |
 | **Buy window** | Label from **Buying timeframe** dropdown. |
 | **Callback** | Label from **Call outcome / stall**. |
 | **Connect Date** | Shown in **en-IN** date format. |
