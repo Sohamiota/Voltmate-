@@ -154,7 +154,7 @@ export function collectErrors(checks: Record<string, string | null>): string | n
 // ── Domain constants ──────────────────────────────────────────────────────────
 
 export const VISIT_STATUSES = [
-  'New Lead', 'Demo Scheduled', 'Demo Completed', 'Quotation Shared',
+  'New Lead', 'Demo Scheduled', 'Demo Completed', 'Quotation Shared', 'Catalogue Shared',
   'Demo Follow Up', 'Follow-Up 2', 'Negotiation', 'Booking Date Confirmed',
   'Loan Processing', 'Booking Amount Received', 'Order Confirmed', 'Delivery Scheduled',
   'Delivered (Closed \u2013 Won)',

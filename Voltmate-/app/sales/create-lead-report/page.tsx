@@ -98,6 +98,13 @@ const BUSINESS_OPTIONS: Record<string, string[]> = {
     'Egg Distributor / Poultry',
     'Bakery',
   ],
+  'E-commerce': [
+    'Online retail / D2C',
+    'Marketplace seller (Amazon, Flipkart, etc.)',
+    'Quick commerce / grocery delivery',
+    'Aggregator or logistics partner',
+    'Other e-commerce',
+  ],
   'Passenger & Vehicles': [
     'Passenger Auto',
     'Hi Capacity Passenger',

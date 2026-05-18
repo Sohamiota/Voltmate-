@@ -68,6 +68,7 @@ const VISIT_PIPELINE_STATUSES = [
   'Demo Scheduled',
   'Demo Completed',
   'Quotation Shared',
+  'Catalogue Shared',
   'Demo Follow Up',
   'Follow-Up 2',
   'Negotiation',
@@ -450,6 +451,7 @@ function badgeClass(status?: string | null): string {
   if (s.includes('connected')) return 'connected';
   if (s.includes('test drive') || s.includes('demo')) return 'testdrive';
   if (s.includes('quotation')) return 'quotation';
+  if (s.includes('catalogue')) return 'quotation';
   if (s.includes('delivered') || s.includes('won')) return 'won';
   if (s.includes('lost')) return 'lost';
   return 'default';

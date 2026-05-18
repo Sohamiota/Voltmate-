@@ -23,6 +23,7 @@ const VISIT_REPORT_PIPELINE_ONLY = [
   'Demo Scheduled',
   'Demo Completed',
   'Quotation Shared',
+  'Catalogue Shared',
   'Demo Follow Up',
   'Follow-Up 2',
   'Negotiation',
@@ -490,7 +491,7 @@ export async function listOverdueVisits(_req: Request, res: Response) {
 // Admin-only — used by /admin/sales-analytics page.
 const VISIBLE_STATUSES = [
   'New Lead', 'Attempted Contact', 'Connected', 'Requirement Identified',
-  'Qualified Lead', 'Demo Scheduled', 'Demo Completed', 'Quotation Shared',
+  'Qualified Lead', 'Demo Scheduled', 'Demo Completed', 'Quotation Shared', 'Catalogue Shared',
   'Demo Follow Up', 'Follow-Up 2', 'Negotiation', 'Booking Date Confirmed',
 ];
 const CLOSED_FILTER = `(

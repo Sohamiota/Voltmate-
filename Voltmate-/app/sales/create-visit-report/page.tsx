@@ -183,6 +183,7 @@ const STATUSES = [
   'Demo Scheduled',
   'Demo Completed',
   'Quotation Shared',
+  'Catalogue Shared',
   'Demo Follow Up',
   'Follow-Up 2',
   'Negotiation',
@@ -584,7 +585,7 @@ function badgeClass(status?: string | null): string {
   const s = (status || '').toLowerCase();
   if (s.includes('delivered') || s.includes('closed')) return 'green';
   if (s.includes('lost')) return 'red';
-  if (s.includes('test drive') || s.includes('quotation') || s.includes('demo')) return 'blue';
+  if (s.includes('test drive') || s.includes('quotation') || s.includes('catalogue') || s.includes('demo')) return 'blue';
   if (s.includes('negotiation') || s.includes('follow-up')) return 'amber';
   if (s.includes('new') || s.includes('attempted')) return 'muted';
   return 'teal';

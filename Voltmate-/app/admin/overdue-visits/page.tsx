@@ -58,6 +58,7 @@ const STATUS_COLORS: Record<string, string> = {
   'Demo Scheduled':            '#a78bfa',
   'Demo Completed':            '#8b5cf6',
   'Quotation Shared':          '#0ea5e9',
+  'Catalogue Shared':          '#38bdf8',
   'Negotiation':               '#f59e0b',
   'Booking Date Confirmed':    '#14b8a6',
   'Booking Amount Received':   '#22c55e',

@@ -46,7 +46,7 @@ interface AtRiskVisit {
 
 const FUNNEL_ORDER = [
   'New Lead', 'Attempted Contact', 'Connected', 'Requirement Identified',
-  'Qualified Lead', 'Demo Scheduled', 'Demo Completed', 'Quotation Shared',
+  'Qualified Lead', 'Demo Scheduled', 'Demo Completed', 'Quotation Shared', 'Catalogue Shared',
   'Demo Follow Up', 'Follow-Up 2', 'Negotiation', 'Booking Date Confirmed',
 ];
 
@@ -59,6 +59,7 @@ const STATUS_COLORS: Record<string, string> = {
   'Demo Scheduled':         '#818cf8',
   'Demo Completed':         '#8b5cf6',
   'Quotation Shared':       '#0ea5e9',
+  'Catalogue Shared':       '#38bdf8',
   'Demo Follow Up':         '#fb923c',
   'Follow-Up 2':            '#fbbf24',
   'Negotiation':            '#f59e0b',

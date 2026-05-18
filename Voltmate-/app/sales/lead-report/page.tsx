@@ -52,6 +52,7 @@ const BUSINESS_CATEGORIES = [
   'Distribution & Logistics',
   'Water & Beverages',
   'FMCG & Grocery',
+  'E-commerce',
   'Passenger & Vehicles',
   'Construction & Hardware',
   'Specialty & Others',
