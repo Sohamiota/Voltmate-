@@ -20,6 +20,7 @@ type AttRec = {
   employee_name: string | null;
   employee_email: string | null;
   employee_role: string | null;
+  note?: string | null;
 };
 
 type Employee = {
@@ -63,6 +64,41 @@ function fmtDuration(secs: number | null): string {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+/** Same as fmtDuration but empty when unknown; treats 0 as "0m" (fmtDuration hides 0 due to !secs). */
+function durationForExport(secs: number | null): string {
+  if (secs == null || !Number.isFinite(Number(secs))) return '';
+  const s = Math.max(0, Math.floor(Number(secs)));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function fmtDatePlain(d: string | null): string {
+  if (!d) return '';
+  return d.length > 10 ? d.slice(0, 10) : d;
+}
+
+function employeeDisplayName(r: AttRec): string {
+  const n = r.employee_name?.trim();
+  if (n) return n;
+  if (r.employee_email?.trim()) return r.employee_email.trim();
+  return `User #${r.user_id}`;
+}
+
+function networkTypeLabel(r: AttRec): string {
+  return r.network_verified ? 'Office Network' : 'Outside Network';
+}
+
+function statusDisplay(r: AttRec): string {
+  const s = recStatus(r);
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Pending';
+}
+
+function escapeNote(note: string | null | undefined): string {
+  if (!note) return '';
+  return String(note).replace(/\r?\n/g, ' ').trim();
 }
 
 const S = `
@@ -145,6 +181,19 @@ const S = `
   .btn-trail-primary:hover{background:rgba(99,102,241,.3);}
   .btn-refresh{background:transparent;color:#9ca3af;border:1px solid #2a2a2a;}
   .btn-refresh:hover{border-color:#555;color:#e5e5e5;}
+  .hdr-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;flex-shrink:0;justify-content:flex-end;}
+  /* Excel export — high contrast so it survives prod screenshots */
+  .btn-export{background:#15803d;color:#ecfdf5 !important;border:2px solid #4ade80;font-weight:700;font-size:13px;padding:9px 16px;}
+  .btn-export:hover{background:#16a34a;border-color:#86efac;}
+  .btn-export:disabled{opacity:.45;cursor:not-allowed;}
+  .export-strip{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(135deg,rgba(34,197,94,.14),rgba(22,163,74,.08));border:2px solid rgba(74,222,128,.45);border-radius:14px;padding:14px 18px;margin-bottom:20px;}
+  .export-strip-text{display:flex;flex-direction:column;gap:5px;max-width:520px;}
+  .export-strip-text strong{color:#bbf7d0;font-size:15px;font-weight:700;}
+  .export-strip-text span{color:#a7f3d0;font-size:12px;opacity:.9;line-height:1.35;}
+  .btn-export-xl{background:#22c55e;color:#052e16;font-weight:800;border:none;padding:11px 22px;font-size:14px;border-radius:10px;cursor:pointer;letter-spacing:.02em;}
+  .btn-export-xl:hover{background:#34d399;}
+  .btn-export-xl:disabled{opacity:.45;cursor:not-allowed;background:#166534;color:#a7f3d0;}
+  .section-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px;}
   /* Misc */
   .empty{text-align:center;padding:48px 20px;color:#4b5563;font-size:14px;}
   .loading{text-align:center;padding:48px 20px;color:#6b7280;font-size:14px;}
@@ -154,6 +203,7 @@ export default function AdminAttendancePage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [records,   setRecords]   = useState<AttRec[]>([]);
   const [loading,   setLoading]   = useState(true);
+  const [exporting, setExporting]  = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [filter,    setFilter]    = useState('all');
   const [search,    setSearch]    = useState('');
@@ -187,6 +237,46 @@ export default function AdminAttendancePage() {
     });
     if (res.ok) loadData();
     else alert('Action failed: ' + await res.text());
+  }
+
+  async function exportAttendanceXlsx() {
+    if (records.length === 0) {
+      alert('No attendance records to export.');
+      return;
+    }
+    setExporting(true);
+    try {
+      const XLSX = await import('xlsx');
+      const sorted = [...records].sort((a, b) => {
+        const da = fmtDatePlain(a.date);
+        const db = fmtDatePlain(b.date);
+        if (da !== db) return db.localeCompare(da);
+        return employeeDisplayName(a).localeCompare(employeeDisplayName(b), undefined, { sensitivity: 'base' });
+      });
+
+      const sheetRows = sorted.map(r => ({
+        'Employee Name': employeeDisplayName(r),
+        'Date':          fmtDatePlain(r.date),
+        'Clock In':      r.clock_in_at ? fmtTime(r.clock_in_at) : '',
+        'Clock Out':     r.clock_out_at ? fmtTime(r.clock_out_at) : '',
+        'Duration':      durationForExport(r.duration_seconds),
+        'Network Type': networkTypeLabel(r),
+        'Status':       statusDisplay(r),
+        'IP Address':   r.clock_in_ip ?? '',
+        'Notes':        escapeNote(r.note),
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(sheetRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
+      const stamp = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `attendance-export-${stamp}.xlsx`);
+    } catch (e) {
+      console.error(e);
+      alert('Export failed. Please try again.');
+    } finally {
+      setExporting(false);
+    }
   }
 
   // ── Derived data ─────────────────────────────────────────────────────────────
@@ -260,7 +350,17 @@ export default function AdminAttendancePage() {
               : 'Click an employee to view and manage their attendance records'}
           </div>
         </div>
-        <button className="btn btn-refresh" onClick={loadData}>Refresh</button>
+        <div className="hdr-actions">
+          <button
+            type="button"
+            className="btn btn-export"
+            disabled={loading || exporting || records.length === 0}
+            onClick={() => void exportAttendanceXlsx()}
+          >
+            {exporting ? 'Working…' : 'Excel (.xlsx)'}
+          </button>
+          <button type="button" className="btn btn-refresh" onClick={loadData}>Refresh</button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -282,6 +382,27 @@ export default function AdminAttendancePage() {
           <div className="stat-l">Rejected</div>
         </div>
       </div>
+
+      {/* Full-width Excel export — impossible to miss vs header-only */}
+      {!loading && (
+        <div className="export-strip">
+          <div className="export-strip-text">
+            <strong>Export attendance to Excel</strong>
+            <span>
+              Downloads every loaded row: Employee Name, Date, Clock In/Out, Duration, Network Type, Status, IP, Notes.
+              Uses data already shown in Total Records ({records.length}).
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn-export-xl"
+            disabled={exporting || records.length === 0}
+            onClick={() => void exportAttendanceXlsx()}
+          >
+            {exporting ? 'Building file…' : 'Download .xlsx'}
+          </button>
+        </div>
+      )}
 
       {/* ── Main content ── */}
       {loading ? (

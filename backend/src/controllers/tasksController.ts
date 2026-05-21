@@ -171,9 +171,13 @@ export async function updateTask(req: Request, res: Response) {
 export async function approveTask(req: Request, res: Response) {
   try {
     await ensureTables();
-    const adminId = (req as any).user?.sub;
+    const adminIdRaw = (req as any).user?.sub;
+    const adminId = Number(adminIdRaw);
     const role    = (req as any).user?.role;
-    if (role !== 'admin') return res.status(403).json({ error: 'admin only' });
+    if (!['admin', 'sales_admin'].includes(role))
+      return res.status(403).json({ error: 'admin only' });
+    if (!Number.isFinite(adminId))
+      return res.status(400).json({ error: 'invalid session' });
 
     const vId = reqId(req.params.id);
     if (vId.error) return res.status(400).json({ error: 'invalid id' });
@@ -209,7 +213,8 @@ export async function listTasks(req: Request, res: Response) {
   try {
     await ensureTables();
     const requester   = (req as any).user;
-    const isAdmin     = requester?.role === 'admin';
+    const canSeeAllTasks =
+      requester?.role === 'admin' || requester?.role === 'sales_admin';
     const { limit, offset } = parsePagination(req.query.limit, req.query.offset, 1000);
 
     // Validate the optional approval filter — only accept whitelisted values.
@@ -222,7 +227,7 @@ export async function listTasks(req: Request, res: Response) {
     let sql: string;
     let params: any[];
 
-    if (isAdmin) {
+    if (canSeeAllTasks) {
       if (approvalFilter) {
         sql = `
           SELECT t.*, u.name AS employee_name, u.email AS employee_email,
@@ -296,7 +301,7 @@ export async function getTaskHistory(req: Request, res: Response) {
     const taskRow = await query('SELECT user_id FROM tasks WHERE id=$1', [id]);
     if ((taskRow as any).rowCount === 0) return res.status(404).json({ error: 'task not found' });
     const taskOwnerId = (taskRow as any).rows[0].user_id;
-    if (requester?.role !== 'admin' && String(taskOwnerId) !== String(requester?.sub)) {
+    if (requester?.role !== 'admin' && requester?.role !== 'sales_admin' && String(taskOwnerId) !== String(requester?.sub)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 

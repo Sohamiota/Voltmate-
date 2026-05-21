@@ -458,9 +458,11 @@ export default function AttendancePage() {
               : { color: '#f59e0b', background: 'rgba(245,158,11,.1)', borderColor: 'rgba(245,158,11,.3)' }}
           >
             <span className="att-net-dot" style={{ background: network.allowed ? '#22c55e' : '#f59e0b' }} />
-            {network.allowed
-              ? `On office network${network.label ? ` · ${network.label}` : ''} — attendance will be auto-approved`
-              : 'Outside office network — attendance will be pending; location tracking required for approval'}
+            {network.no_network_rules
+              ? `No office IP whitelist yet — clock-in saves as pending. Server sees IP ${network.ip ?? '—'}; ask admin to add this to Allowed networks if you are on the office LAN.`
+              : network.allowed
+                ? `On office network${network.label ? ` · ${network.label}` : ''} — attendance will be auto-approved`
+                : `Outside office network${network.ip ? ` (${network.ip})` : ''} — attendance will be pending; location tracking helps approval`}
           </div>
         )}
 

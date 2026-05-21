@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { query } from '../db';
-import { optStr, optId, optDate, parsePagination } from '../utils/validate';
 import { getClientIp, isIpAllowed } from '../utils/network';
+import { collectErrors, optDate, optId, optStr, parsePagination } from '../utils/validate';
 
 export async function clockIn(req: Request, res: Response) {
   try {
@@ -257,15 +257,53 @@ export async function adminApproveAttendance(req: Request, res: Response) {
   try {
     const requester = (req as any).user;
     if (!requester || !canApproveAttendance(requester.role)) return res.status(403).json({ error: 'forbidden' });
+
+    const adminId = Number(requester.sub);
+    if (!Number.isFinite(adminId)) return res.status(400).json({ error: 'invalid session' });
+
     const id = parseInt(req.params.id, 10);
-    const { approve, note } = req.body;
-    if (approve) {
-      const r = await query('UPDATE attendance SET status=$1, approved_by=$2, approved_at=now(), updated_at=now() WHERE id=$3 RETURNING *', ['approved', requester.sub, id]);
-      return res.json((r as any).rows[0]);
-    } else {
-      const r = await query('UPDATE attendance SET status=$1, approved_by=$2, approved_at=now(), note=COALESCE(note, $3), updated_at=now() WHERE id=$4 RETURNING *', ['rejected', requester.sub, note || null, id]);
+    if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+
+    const body = req.body || {};
+    const approveRaw = body.approve;
+    if (typeof approveRaw !== 'boolean')
+      return res.status(400).json({ error: 'approve must be a boolean (true to approve, false to reject)' });
+
+    const vNote = optStr(body.note, 500);
+    const noteErr = collectErrors({ note: vNote.error });
+    if (noteErr) return res.status(400).json({ error: noteErr });
+
+    if (approveRaw) {
+      const r = await query(
+        `UPDATE attendance
+           SET status=$1,
+               approved_by=$2,
+               approved_at=now(),
+               needs_approval=false,
+               updated_at=now()
+         WHERE id=$3
+         RETURNING *`,
+        ['approved', adminId, id],
+      );
+      if ((r as any).rowCount === 0) return res.status(404).json({ error: 'not found' });
       return res.json((r as any).rows[0]);
     }
+
+    const rejectNote = vNote.value;
+    const r = await query(
+      `UPDATE attendance
+         SET status=$1,
+             approved_by=$2,
+             approved_at=now(),
+             needs_approval=false,
+             note=COALESCE($3::text, note),
+             updated_at=now()
+       WHERE id=$4
+       RETURNING *`,
+      ['rejected', adminId, rejectNote, id],
+    );
+    if ((r as any).rowCount === 0) return res.status(404).json({ error: 'not found' });
+    return res.json((r as any).rows[0]);
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'failed' });

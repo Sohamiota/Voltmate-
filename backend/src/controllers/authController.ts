@@ -200,15 +200,30 @@ export async function me(req: Request, res: Response) {
   }
 }
 
+function truthyQuery(raw: unknown): boolean {
+  return /^(1|true|yes)$/i.test(String(raw ?? '').trim());
+}
+
 // ─── Expose only non-sensitive fields ─────────────────────────────────────────
+// Default: approved users only (pickers, attendance admin, etc.).
+// Admin-only: ?full_roster=1 → all users so HR can approve pending accounts.
 export async function listEmployees(req: Request, res: Response) {
   try {
-    const r = await query(
-      `SELECT id, name, email, role, is_verified, is_approved, created_at
-         FROM users
-        WHERE is_approved = true
-        ORDER BY created_at DESC`,
-    );
+    const requester = (req as any).user;
+    const fullRoster = truthyQuery(req.query.full_roster);
+    if (fullRoster && requester?.role !== 'admin')
+      return res.status(403).json({ error: 'Forbidden' });
+
+    const sql = fullRoster
+      ? `SELECT id, name, email, role, is_verified, is_approved, created_at
+           FROM users
+          ORDER BY created_at DESC`
+      : `SELECT id, name, email, role, is_verified, is_approved, created_at
+           FROM users
+          WHERE is_approved = true
+          ORDER BY created_at DESC`;
+
+    const r = await query(sql, []);
     res.json({ employees: (r as any).rows });
   } catch (err) {
     console.error('[listEmployees]', err);
@@ -226,7 +241,12 @@ export async function adminApprove(req: Request, res: Response) {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: 'Invalid user id' });
 
-    await query('UPDATE users SET is_approved=true WHERE id=$1', [id]);
+    const up = await query(
+      'UPDATE users SET is_approved=true WHERE id=$1 RETURNING id',
+      [id],
+    );
+    if ((up as any).rowCount === 0)
+      return res.status(404).json({ error: 'User not found' });
     res.json({ message: 'User approved' });
   } catch (err) {
     console.error('[adminApprove]', err);

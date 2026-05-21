@@ -70,6 +70,9 @@ export default function Home() {
     sections.push({ id: 'admin-task-manager', label: 'Admin Task Manager', icon: ClipboardList })
     sections.push({ id: 'sales-analytics',    label: 'Sales Analytics',    icon: BarChart3 })
   }
+  if (userRole === 'sales_admin') {
+    sections.push({ id: 'admin-task-manager', label: 'Admin Task Manager', icon: ClipboardList })
+  }
 
   function handleSectionChange(id: string) {
     setCurrentSection(id)

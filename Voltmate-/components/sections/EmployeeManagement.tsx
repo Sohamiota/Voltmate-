@@ -1,6 +1,6 @@
-import { Search, Plus, MoreVertical } from 'lucide-react'
+import { Search, Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { get } from '@/src/api/client'
+import { get, post } from '@/src/api/client'
 
 type Employee = {
   id: number
@@ -20,6 +20,7 @@ export default function EmployeeManagement({ role }: Props) {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [actingId, setActingId] = useState<number | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -27,7 +28,8 @@ export default function EmployeeManagement({ role }: Props) {
       setError(null)
       try {
         const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
-        const res: any = await get('/employees', token || undefined)
+        const path = role === 'admin' ? '/employees?full_roster=1' : '/employees'
+        const res: any = await get(path, token || undefined)
         setEmployees(res.employees || [])
       } catch (e: any) {
         setError(e?.message || 'Failed to load employees')
@@ -36,7 +38,35 @@ export default function EmployeeManagement({ role }: Props) {
       }
     }
     load()
-  }, [])
+  }, [role])
+
+  async function approveRegistration(userId: number) {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
+    if (!token) return
+    setActingId(userId)
+    try {
+      await post(`/auth/admin/users/${userId}/approve`, {}, token)
+      const path = role === 'admin' ? '/employees?full_roster=1' : '/employees'
+      const res: any = await get(path, token)
+      setEmployees(res.employees || [])
+    } catch (e: any) {
+      alert(e?.message || 'Approve failed')
+    } finally {
+      setActingId(null)
+    }
+  }
+
+  function statusLabel(e: Employee): string {
+    if (!e.is_verified) return 'Awaiting email verification'
+    if (!e.is_approved) return 'Pending admin approval'
+    return 'Active'
+  }
+
+  function statusClass(e: Employee): string {
+    if (!e.is_verified) return 'bg-slate-500/20 text-slate-300'
+    if (!e.is_approved) return 'bg-yellow-500/20 text-yellow-400'
+    return 'bg-green-500/20 text-green-400'
+  }
   return (
     <div className="space-y-6">
       {/* Header — wraps on mobile */}
@@ -90,17 +120,26 @@ export default function EmployeeManagement({ role }: Props) {
                   <td className="px-4 sm:px-6 py-3 sm:py-4 text-muted-foreground text-sm max-w-[160px] truncate">{role === 'admin' ? employee.email : 'Hidden'}</td>
                   <td className="px-4 sm:px-6 py-3 sm:py-4 text-muted-foreground text-sm capitalize">{employee.role || 'employee'}</td>
                   <td className="px-4 sm:px-6 py-3 sm:py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${employee.is_approved ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                      {employee.is_approved ? 'Active' : 'Pending'}
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusClass(employee)}`}>
+                      {statusLabel(employee)}
                     </span>
                   </td>
                   <td className="px-4 sm:px-6 py-3 sm:py-4 text-muted-foreground text-sm hidden sm:table-cell">
                     {new Date(employee.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                   </td>
                   <td className="px-4 sm:px-6 py-3 sm:py-4 text-center">
-                    <button className="p-2 hover:bg-secondary rounded-lg transition-colors">
-                      <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                    </button>
+                    {role === 'admin' && employee.is_verified && !employee.is_approved ? (
+                      <button
+                        type="button"
+                        disabled={actingId === employee.id}
+                        onClick={() => approveRegistration(employee.id)}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-green-600/20 text-green-400 border border-green-500/40 hover:bg-green-600/30 disabled:opacity-50"
+                      >
+                        {actingId === employee.id ? '…' : 'Approve'}
+                      </button>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
                   </td>
                 </tr>
               ))}
