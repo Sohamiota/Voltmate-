@@ -1,6 +1,18 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react';
+import 'react-day-picker/dist/style.css';
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Calendar } from '@/components/ui/calendar';
+import { Button } from '@/components/ui/button';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
@@ -101,6 +113,40 @@ function escapeNote(note: string | null | undefined): string {
   return String(note).replace(/\r?\n/g, ' ').trim();
 }
 
+function startOfToday(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/** Local calendar date YYYY-MM-DD */
+function toYyyyMmDdLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function buildAttendanceSheetRows(source: AttRec[]) {
+  const sorted = [...source].sort((a, b) => {
+    const da = fmtDatePlain(a.date);
+    const db = fmtDatePlain(b.date);
+    if (da !== db) return db.localeCompare(da);
+    return employeeDisplayName(a).localeCompare(employeeDisplayName(b), undefined, { sensitivity: 'base' });
+  });
+  return sorted.map(r => ({
+    'Employee Name': employeeDisplayName(r),
+    'Date':          fmtDatePlain(r.date),
+    'Clock In':      r.clock_in_at ? fmtTime(r.clock_in_at) : '',
+    'Clock Out':     r.clock_out_at ? fmtTime(r.clock_out_at) : '',
+    'Duration':      durationForExport(r.duration_seconds),
+    'Network Type':  networkTypeLabel(r),
+    'Status':        statusDisplay(r),
+    'IP Address':    r.clock_in_ip ?? '',
+    'Notes':         escapeNote(r.note),
+  }));
+}
+
 const S = `
   *{margin:0;padding:0;box-sizing:border-box;}
   .root{min-height:100vh;background:#0a0a0a;color:#e5e5e5;font-family:'Inter',system-ui,sans-serif;padding:clamp(14px,4vw,28px);}
@@ -193,7 +239,11 @@ const S = `
   .btn-export-xl{background:#22c55e;color:#052e16;font-weight:800;border:none;padding:11px 22px;font-size:14px;border-radius:10px;cursor:pointer;letter-spacing:.02em;}
   .btn-export-xl:hover{background:#34d399;}
   .btn-export-xl:disabled{opacity:.45;cursor:not-allowed;background:#166534;color:#a7f3d0;}
-  .section-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px;}
+  .export-strip-inner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;width:100%;}
+  .export-strip-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  .btn-export-day{background:transparent;color:#ecfdf5;font-weight:700;font-size:13px;padding:11px 18px;border-radius:10px;cursor:pointer;border:2px solid rgba(167,243,208,.6);}
+  .btn-export-day:hover{background:rgba(34,197,94,.15);border-color:#a7f3d0;}
+  .btn-export-day:disabled{opacity:.45;cursor:not-allowed;}
   /* Misc */
   .empty{text-align:center;padding:48px 20px;color:#4b5563;font-size:14px;}
   .loading{text-align:center;padding:48px 20px;color:#6b7280;font-size:14px;}
@@ -207,6 +257,8 @@ export default function AdminAttendancePage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [filter,    setFilter]    = useState('all');
   const [search,    setSearch]    = useState('');
+  const [dayExportOpen, setDayExportOpen] = useState(false);
+  const [exportDay, setExportDay] = useState<Date | undefined>(() => startOfToday());
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
 
@@ -239,44 +291,43 @@ export default function AdminAttendancePage() {
     else alert('Action failed: ' + await res.text());
   }
 
+  async function writeAttendanceXlsx(source: AttRec[], filenameSuffix: string): Promise<boolean> {
+    setExporting(true);
+    try {
+      const XLSX = await import('xlsx');
+      const sheetRows = buildAttendanceSheetRows(source);
+      const ws = XLSX.utils.json_to_sheet(sheetRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
+      XLSX.writeFile(wb, `attendance-export-${filenameSuffix}.xlsx`);
+      return true;
+    } catch (e) {
+      console.error(e);
+      alert('Export failed. Please try again.');
+      return false;
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function exportAttendanceXlsx() {
     if (records.length === 0) {
       alert('No attendance records to export.');
       return;
     }
-    setExporting(true);
-    try {
-      const XLSX = await import('xlsx');
-      const sorted = [...records].sort((a, b) => {
-        const da = fmtDatePlain(a.date);
-        const db = fmtDatePlain(b.date);
-        if (da !== db) return db.localeCompare(da);
-        return employeeDisplayName(a).localeCompare(employeeDisplayName(b), undefined, { sensitivity: 'base' });
-      });
+    await writeAttendanceXlsx(records, `all-${new Date().toISOString().slice(0, 10)}`);
+  }
 
-      const sheetRows = sorted.map(r => ({
-        'Employee Name': employeeDisplayName(r),
-        'Date':          fmtDatePlain(r.date),
-        'Clock In':      r.clock_in_at ? fmtTime(r.clock_in_at) : '',
-        'Clock Out':     r.clock_out_at ? fmtTime(r.clock_out_at) : '',
-        'Duration':      durationForExport(r.duration_seconds),
-        'Network Type': networkTypeLabel(r),
-        'Status':       statusDisplay(r),
-        'IP Address':   r.clock_in_ip ?? '',
-        'Notes':        escapeNote(r.note),
-      }));
-
-      const ws = XLSX.utils.json_to_sheet(sheetRows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
-      const stamp = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(wb, `attendance-export-${stamp}.xlsx`);
-    } catch (e) {
-      console.error(e);
-      alert('Export failed. Please try again.');
-    } finally {
-      setExporting(false);
+  async function runDayExport() {
+    if (!exportDay) return;
+    const dayIso = toYyyyMmDdLocal(exportDay);
+    const subset = records.filter(r => fmtDatePlain(r.date) === dayIso);
+    if (subset.length === 0) {
+      alert(`No attendance records for ${dayIso}.`);
+      return;
     }
+    const ok = await writeAttendanceXlsx(subset, `day-${dayIso}`);
+    if (ok) setDayExportOpen(false);
   }
 
   // ── Derived data ─────────────────────────────────────────────────────────────
@@ -353,6 +404,17 @@ export default function AdminAttendancePage() {
         <div className="hdr-actions">
           <button
             type="button"
+            className="btn btn-export-day"
+            disabled={loading || exporting || records.length === 0}
+            onClick={() => {
+              setExportDay(d => d ?? startOfToday());
+              setDayExportOpen(true);
+            }}
+          >
+            Pick date
+          </button>
+          <button
+            type="button"
             className="btn btn-export"
             disabled={loading || exporting || records.length === 0}
             onClick={() => void exportAttendanceXlsx()}
@@ -386,21 +448,37 @@ export default function AdminAttendancePage() {
       {/* Full-width Excel export — impossible to miss vs header-only */}
       {!loading && (
         <div className="export-strip">
-          <div className="export-strip-text">
-            <strong>Export attendance to Excel</strong>
-            <span>
-              Downloads every loaded row: Employee Name, Date, Clock In/Out, Duration, Network Type, Status, IP, Notes.
-              Uses data already shown in Total Records ({records.length}).
-            </span>
+          <div className="export-strip-inner">
+            <div className="export-strip-text">
+              <strong>Export attendance to Excel</strong>
+              <span>
+                Full download: every loaded row. Day download: pick one calendar date — only rows whose
+                attendance <strong>date</strong> matches (same columns: Name, Date, times, network, status, IP,
+                notes). Data is what you already loaded ({records.length} rows).
+              </span>
+            </div>
+            <div className="export-strip-actions">
+              <button
+                type="button"
+                className="btn-export-day"
+                disabled={exporting || records.length === 0}
+                onClick={() => {
+                  setExportDay(d => d ?? startOfToday());
+                  setDayExportOpen(true);
+                }}
+              >
+                Pick date &amp; download
+              </button>
+              <button
+                type="button"
+                className="btn-export-xl"
+                disabled={exporting || records.length === 0}
+                onClick={() => void exportAttendanceXlsx()}
+              >
+                {exporting ? 'Building file…' : 'Download all (.xlsx)'}
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            className="btn-export-xl"
-            disabled={exporting || records.length === 0}
-            onClick={() => void exportAttendanceXlsx()}
-          >
-            {exporting ? 'Building file…' : 'Download .xlsx'}
-          </button>
         </div>
       )}
 
@@ -584,6 +662,38 @@ export default function AdminAttendancePage() {
           )}
         </div>
       )}
+
+      <Dialog open={dayExportOpen} onOpenChange={setDayExportOpen}>
+        <DialogContent className="max-w-md border border-border bg-[hsl(var(--card))] text-foreground shadow-xl">
+          <DialogHeader>
+            <DialogTitle>Download one day</DialogTitle>
+            <DialogDescription>
+              Choose a date in the calendar. The Excel file lists only rows whose attendance date matches
+              that day (same columns as the full export).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center rounded-lg border border-border/50 bg-muted/20 py-2">
+            <Calendar
+              mode="single"
+              selected={exportDay}
+              onSelect={setExportDay}
+              defaultMonth={exportDay ?? new Date()}
+            />
+          </div>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setDayExportOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!exportDay || exporting || records.length === 0}
+              onClick={() => void runDayExport()}
+            >
+              {exporting ? 'Working…' : 'Download .xlsx'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
