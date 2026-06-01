@@ -31,6 +31,9 @@ out/
 .eslintcache
 .turbo/
 
+# Uploaded leave proof documents
+backend/uploads/
+
 # Logs
 logs/
 *.log

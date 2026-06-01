@@ -69,8 +69,13 @@ export default function Home() {
   ]
   if (userRole === 'admin') {
     sections.push({ id: 'admin-attendance',   label: 'Admin Attendance',   icon: UserCheck })
+    sections.push({ id: 'admin-leave',        label: 'Leave Approvals',    icon: Calendar })
     sections.push({ id: 'admin-task-manager', label: 'Admin Task Manager', icon: ClipboardList })
     sections.push({ id: 'sales-analytics',    label: 'Sales Analytics',    icon: BarChart3 })
+  }
+  if (userRole === 'attendance_admin') {
+    sections.push({ id: 'admin-attendance', label: 'Admin Attendance', icon: UserCheck })
+    sections.push({ id: 'admin-leave',      label: 'Leave Approvals',  icon: Calendar })
   }
   if (userRole === 'sales_admin') {
     sections.push({ id: 'admin-task-manager', label: 'Admin Task Manager', icon: ClipboardList })
@@ -81,6 +86,7 @@ export default function Home() {
     // Navigate for standalone pages
     if (id === 'attendance')      { router.push('/attendance');       return }
     if (id === 'admin-attendance'){ router.push('/admin/attendance'); return }
+    if (id === 'admin-leave')     { router.push('/admin/leave'); return }
     if (id === 'task-manager')       { router.push('/task-manager');          return }
     if (id === 'billing')            { router.push('/billing');               return }
     if (id === 'admin-task-manager') { router.push('/admin/task-manager');    return }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Users, TrendingUp, Clock, CheckCircle } from 'lucide-react'
+import { Users, TrendingUp, Clock, CheckCircle, CalendarDays } from 'lucide-react'
 import StatCard from '@/components/StatCard'
 import RecentActivityCard from '@/components/RecentActivityCard'
 import ChartCard from '@/components/ChartCard'
@@ -41,6 +41,9 @@ export default function DashboardOverview() {
   const [visitsMonth,   setVisitsMonth]   = useState<number | null>(null)
   const [pendingCount,  setPendingCount]  = useState<number | null>(null)
   const [attendRate,    setAttendRate]    = useState<number | null>(null)
+  const [leaveCl,       setLeaveCl]       = useState<number | null>(null)
+  const [leaveSl,       setLeaveSl]       = useState<number | null>(null)
+  const [leaveFy,       setLeaveFy]       = useState<string | null>(null)
   const [chartData,     setChartData]     = useState<any[]>([])
   const [loading,       setLoading]       = useState(true)
 
@@ -86,6 +89,18 @@ export default function DashboardOverview() {
         const sj = await statsRes.json()
         setPendingCount(sj.pending_count ?? null)
         setAttendRate(sj.attendance_rate ?? null)
+      }
+
+      // 5. Leave balance
+      const leaveRes = await fetch(`${API_BASE}/api/v1/leave/balance`, { headers: authHdr() })
+      if (leaveRes.ok) {
+        const lj = await leaveRes.json()
+        const b = lj.balance
+        if (b) {
+          setLeaveCl(b.cl_available ?? null)
+          setLeaveSl(b.sl_available ?? null)
+          setLeaveFy(b.fy_label ?? null)
+        }
       }
     } catch (e) {
       console.error('Dashboard fetch error', e)
@@ -149,6 +164,24 @@ export default function DashboardOverview() {
           change="Current month"
           icon={CheckCircle}
           trend={attendRate !== null && attendRate >= 75 ? 'up' : attendRate !== null ? 'down' : 'neutral'}
+        />
+      </div>
+
+      {/* Leave balance */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <StatCard
+          label={`Casual leave available${leaveFy ? ` · FY ${leaveFy}` : ''}`}
+          value={fmt(leaveCl)}
+          change="6 CL max per year · +1 every 2 months after probation"
+          icon={CalendarDays}
+          trend="neutral"
+        />
+        <StatCard
+          label={`Sick leave available${leaveFy ? ` · FY ${leaveFy}` : ''}`}
+          value={fmt(leaveSl)}
+          change="Unused SL carries forward after financial year"
+          icon={CalendarDays}
+          trend="neutral"
         />
       </div>
 

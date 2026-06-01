@@ -112,7 +112,6 @@ const CSS = `
   .bill-v-cat{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#6b7280;}
   .bill-v-pick{margin-top:12px;border-radius:10px;overflow:hidden;border:1px solid #333;background:#0f0f0f;}
   .bill-v-pick img{width:100%;max-height:160px;object-fit:contain;padding:10px;}
-  .bill-doc-mm{background:#fff;padding:40px 48px;min-height:580px;position:relative;font-family:'Times New Roman',Georgia,serif;color:#111;max-width:720px;}
   .bill-doc-brand{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:24px;padding-bottom:14px;margin-bottom:16px;border-bottom:2px solid #0057B8;font-family:Calibri,'Segoe UI',Arial,sans-serif;}
   .bill-doc-brand-vw{display:flex;align-items:center;gap:16px;min-width:0;}
   .bill-doc-brand-vw-meta{min-width:0;}
@@ -124,30 +123,59 @@ const CSS = `
   .bill-doc-brand-meta{font-size:10px;color:#64748b;margin-top:2px;}
   .bill-doc-brand-tag{font-size:10px;font-weight:600;color:#64748b;text-align:right;max-width:140px;line-height:1.35;}
   .bill-doc-foot{margin-top:18px;padding-top:10px;border-top:1px solid #cbd5e1;text-align:center;font-size:10px;color:#64748b;font-family:Calibri,'Segoe UI',Arial,sans-serif;}
-  .bill-mm-letterhead{text-align:center;padding-bottom:18px;margin-bottom:20px;border-bottom:1px solid #cbd5e1;}
-  .bill-mm-co-name{font-size:16px;font-weight:700;line-height:1.45;letter-spacing:.2px;}
-  .bill-mm-co-addr{font-size:13px;margin-top:6px;line-height:1.5;color:#334155;}
-  .bill-mm-title{font-size:16px;font-weight:700;text-decoration:underline;margin-top:20px;letter-spacing:.4px;}
-  .bill-mm-meta-table{display:grid;grid-template-columns:1fr 1fr;border:1px solid #334155;margin-bottom:28px;}
-  .bill-mm-meta-col{border-right:1px solid #334155;}
-  .bill-mm-meta-col:last-child{border-right:none;}
-  .bill-mm-meta-col-right .bill-mm-meta-row{justify-content:flex-end;text-align:right;}
-  .bill-mm-meta-row{display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid #334155;font-size:13px;line-height:1.4;}
-  .bill-mm-meta-row:last-child{border-bottom:none;}
-  .bill-mm-meta-lbl{font-weight:700;white-space:nowrap;}
-  .bill-mm-meta-val{color:#111;}
-  .bill-mm-body{margin-bottom:48px;padding:4px 2px;}
-  .bill-mm-body p{font-size:14px;line-height:1.85;text-align:justify;margin:0;}
-  .bill-mm-cust{font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
-  .bill-mm-amt{font-weight:700;}
-  .bill-mm-footer-row{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-top:32px;min-height:120px;}
+  .bill-doc-mm{background:#fff;padding:0;min-height:580px;position:relative;font-family:'Segoe UI',Calibri,system-ui,sans-serif;color:#0f172a;max-width:720px;overflow:hidden;border-radius:10px;border:1px solid #e2e8f0;}
+  .bill-mm-accent{height:5px;background:linear-gradient(90deg,#0057B8 0%,#0ea5e9 55%,#22d3ee 100%);}
+  .bill-mm-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding:22px 28px 16px;flex-wrap:wrap;}
+  .bill-mm-head-left{flex:1;min-width:200px;}
+  .bill-mm-head-right{flex-shrink:0;}
+  .bill-mm-badge{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#0057B8;background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:999px;margin-bottom:10px;}
+  .bill-mm-co-name{font-size:17px;font-weight:800;color:#0f172a;letter-spacing:-.2px;line-height:1.25;}
+  .bill-mm-co-addr{font-size:11px;color:#64748b;margin-top:5px;line-height:1.5;max-width:340px;}
+  .bill-mm-co-contact{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;font-size:10px;color:#475569;}
+  .bill-mm-id-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;min-width:168px;}
+  .bill-mm-id-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:11px;padding:4px 0;border-bottom:1px dashed #e2e8f0;}
+  .bill-mm-id-row:last-child{border-bottom:none;}
+  .bill-mm-id-row span{color:#64748b;font-weight:500;}
+  .bill-mm-id-row strong{color:#0f172a;font-weight:700;font-variant-numeric:tabular-nums;}
+  .bill-mm-gst-strip{display:flex;flex-wrap:wrap;gap:16px;padding:8px 28px;background:#f1f5f9;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;font-size:11px;color:#334155;}
+  .bill-mm-gst-strip em{font-style:normal;font-weight:600;color:#64748b;margin-right:4px;}
+  .bill-mm-party{padding:18px 28px 14px;border-bottom:1px solid #f1f5f9;}
+  .bill-mm-party-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin-bottom:4px;}
+  .bill-mm-party-name{font-size:18px;font-weight:800;color:#0f172a;letter-spacing:-.2px;}
+  .bill-mm-party-note{font-size:11px;color:#64748b;margin-top:6px;line-height:1.45;}
+  .bill-mm-amount-hero{margin:16px 28px;padding:18px 20px;background:linear-gradient(135deg,#0057B8 0%,#0284c7 100%);border-radius:12px;color:#fff;box-shadow:0 8px 24px rgba(0,87,184,.18);}
+  .bill-mm-amount-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;}
+  .bill-mm-amount-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;opacity:.9;}
+  .bill-mm-amount-fy{font-size:10px;font-weight:600;background:rgba(255,255,255,.15);padding:2px 8px;border-radius:999px;}
+  .bill-mm-amount-val{font-size:32px;font-weight:800;letter-spacing:-.5px;line-height:1.1;font-variant-numeric:tabular-nums;}
+  .bill-mm-amount-words{font-size:11px;margin-top:8px;opacity:.92;line-height:1.45;font-style:italic;}
+  .bill-mm-pay-table{width:calc(100% - 56px);margin:16px 28px 0;border-collapse:collapse;font-size:12px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;}
+  .bill-mm-pay-table th,.bill-mm-pay-table td{padding:10px 12px;text-align:left;border-bottom:1px solid #e2e8f0;}
+  .bill-mm-pay-table th{background:#f8fafc;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#64748b;}
+  .bill-mm-pay-table td:nth-child(3),.bill-mm-pay-table th:nth-child(3){text-align:right;}
+  .bill-mm-pay-table tfoot td{background:#f1f5f9;font-weight:800;color:#0057B8;border-bottom:none;}
+  .bill-mm-pay-amt{font-weight:700;font-variant-numeric:tabular-nums;}
+  .bill-mm-pay-total{font-size:14px;font-variant-numeric:tabular-nums;}
+  .bill-mm-pay-empty{text-align:center;color:#94a3b8;font-style:italic;padding:16px;}
+  .bill-mm-mode{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:3px 8px;border-radius:6px;}
+  .bill-mm-mode-cash{background:#dcfce7;color:#166534;}
+  .bill-mm-mode-upi{background:#ede9fe;color:#5b21b6;}
+  .bill-mm-booking{padding:16px 28px 8px;}
+  .bill-mm-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin-bottom:10px;}
+  .bill-mm-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .bill-mm-detail-cell{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;}
+  .bill-mm-detail-cell span{display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#64748b;margin-bottom:4px;}
+  .bill-mm-detail-cell strong{display:block;font-size:12px;font-weight:700;color:#0f172a;line-height:1.4;}
+  .bill-mm-detail-wide{grid-column:1/-1;}
+  .bill-mm-ack{margin:14px 28px 0;font-size:10px;color:#64748b;line-height:1.55;padding:10px 12px;background:#fafafa;border-left:3px solid #0ea5e9;border-radius:0 6px 6px 0;}
+  .bill-mm-footer-row{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin:24px 28px 20px;min-height:100px;}
   .bill-mm-stamp{flex-shrink:0;}
-  .bill-mm-stamp-ring{width:108px;height:108px;border:2px solid rgba(124,58,237,.65);border-radius:50%;display:flex;align-items:center;justify-content:center;text-align:center;font-size:7.5px;font-weight:700;color:rgba(100,50,180,.85);padding:10px;line-height:1.25;letter-spacing:.3px;}
+  .bill-mm-stamp-ring{width:96px;height:96px;border:2px solid rgba(0,87,184,.35);border-radius:50%;display:flex;align-items:center;justify-content:center;text-align:center;font-size:7px;font-weight:700;color:rgba(0,87,184,.75);padding:10px;line-height:1.25;letter-spacing:.3px;}
   .bill-mm-sign{text-align:center;min-width:180px;margin-left:auto;}
-  .bill-mm-sign-line{border-top:1px solid #334155;width:160px;margin:0 auto 8px;height:48px;}
-  .bill-mm-sign-lbl{display:block;font-size:11px;font-weight:600;color:#334155;}
+  .bill-mm-sign-line{border-top:1px solid #334155;width:160px;margin:0 auto 8px;height:40px;}
+  .bill-mm-sign-lbl{display:block;font-size:10px;font-weight:600;color:#334155;text-transform:uppercase;letter-spacing:.3px;}
   .bill-mm-sign-co{display:block;font-size:10px;color:#64748b;margin-top:3px;}
-  .bill-mm-foot{margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;text-align:center;font-size:10px;color:#64748b;display:flex;justify-content:center;gap:16px;flex-wrap:wrap;font-family:Calibri,'Segoe UI',Arial,sans-serif;}
+  .bill-mm-foot{padding:10px 28px 16px;text-align:center;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9;}
   .bill-doc-qt{padding:24px 28px;font-family:Calibri,'Segoe UI',Arial,sans-serif;font-size:12px;color:#111;min-width:min(100%,720px);}
   .bill-qt-title-bar{background:#fff3cd;border:1px solid #e6c200;text-align:center;font-size:14px;font-weight:800;text-decoration:underline;padding:8px 12px;margin-bottom:14px;letter-spacing:.5px;}
   .bill-qt-info{display:grid;grid-template-columns:1fr 1fr;border:1px solid #333;margin-bottom:14px;}
@@ -183,10 +211,15 @@ const CSS = `
   .bill-qt-terms{margin-bottom:20px;}
   .bill-qt-bank{margin-left:auto;max-width:320px;text-align:left;line-height:1.6;font-size:12px;border-top:1px solid #ccc;padding-top:10px;}
   @media print{
-    body *{visibility:hidden;}
-    #billing-print-root,#billing-print-root *{visibility:visible;}
-    #billing-print-root{position:absolute;left:0;top:0;width:100%;box-shadow:none;border-radius:0;padding:20px;}
-    .bill-root,.bill-preview-wrap{background:#fff;padding:0;}
+    @page{size:A4;margin:10mm;}
+    html,body{height:auto!important;overflow:visible!important;background:#fff!important;margin:0!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    .bill-pg-hdr,.bill-tabs,.bill-brand-bar,.bill-gallery,.bill-panel{display:none!important;}
+    .bill-root{min-height:0!important;padding:0!important;background:#fff!important;}
+    .bill-layout{display:block!important;gap:0!important;}
+    .bill-preview-wrap{max-height:none!important;overflow:visible!important;padding:0!important;margin:0!important;background:#fff!important;border-radius:0!important;box-shadow:none!important;}
+    #billing-print-root{box-shadow:none!important;border-radius:0!important;margin:0!important;padding:0!important;width:100%!important;min-width:0!important;max-width:100%!important;}
+    .bill-doc-mm{border:none!important;border-radius:0!important;max-width:100%!important;min-height:0!important;}
+    .bill-doc-qt{min-width:0!important;max-width:100%!important;padding:16px 0!important;}
   }
 `;
 
@@ -305,6 +338,14 @@ export default function BillingPage() {
   }, [refreshLocation]);
 
   function handlePrint() {
+    const root = document.getElementById('billing-print-root');
+    if (!root) return;
+    document.body.classList.add('billing-print-active');
+    const cleanup = () => {
+      document.body.classList.remove('billing-print-active');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
     window.print();
   }
 

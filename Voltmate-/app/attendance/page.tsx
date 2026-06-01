@@ -124,6 +124,32 @@ const CSS = `
   .att-btn-checkin:hover{background:rgba(99,102,241,.28);}
   .att-btn-checkin:disabled{opacity:.45;cursor:not-allowed;}
   .att-ping-count{font-size:11px;color:#6b7280;margin-left:auto;}
+  /* Leave */
+  .att-leave-panel{background:#111;border:1px solid #2a2a2a;border-radius:14px;padding:16px 18px;margin-bottom:16px;}
+  .att-leave-hdr{font-size:14px;font-weight:700;color:#fff;margin-bottom:12px;}
+  .att-leave-balances{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .att-leave-bal{background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:12px 14px;}
+  .att-leave-bal-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;font-weight:600;}
+  .att-leave-bal-val{font-size:26px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums;}
+  .att-leave-bal-sub{font-size:10px;color:#9ca3af;margin-top:4px;line-height:1.4;}
+  .att-leave-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .att-leave-form.full{grid-column:1/-1;}
+  .att-leave-field label{display:block;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;font-weight:600;}
+  .att-leave-field input,.att-leave-field select,.att-leave-field textarea{width:100%;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:8px 10px;color:#e5e5e5;font-size:13px;font-family:inherit;}
+  .att-leave-field textarea{min-height:56px;resize:vertical;}
+  .att-leave-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+  .att-leave-btn{padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid;}
+  .att-leave-btn-primary{background:rgba(59,130,246,.15);border-color:rgba(59,130,246,.4);color:#93c5fd;}
+  .att-leave-btn-primary:disabled{opacity:.45;cursor:not-allowed;}
+  .att-leave-note{font-size:11px;color:#9ca3af;margin-top:10px;line-height:1.45;}
+  .att-leave-warn{font-size:11px;color:#fcd34d;margin-top:8px;line-height:1.45;padding:8px 10px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:8px;}
+  .att-leave-file{font-size:12px;color:#d1d5db;}
+  .att-leave-proof-btn{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid rgba(168,85,247,.4);background:rgba(168,85,247,.12);color:#d8b4fe;cursor:pointer;}
+  .att-leave-req{margin-top:12px;padding-top:12px;border-top:1px solid #2a2a2a;}
+  .att-leave-req-row{font-size:12px;color:#d1d5db;padding:6px 0;border-bottom:1px dashed #2a2a2a;display:flex;justify-content:space-between;gap:8px;align-items:center;}
+  .att-leave-req-row:last-child{border-bottom:none;}
+  .att-holiday-badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:9px;font-weight:600;border:1px solid rgba(244,114,182,.35);color:#f472b6;background:rgba(244,114,182,.12);}
+  @media(max-width:540px){.att-leave-balances,.att-leave-form{grid-template-columns:1fr;}}
   /* Mobile */
   @media(max-width:540px){
     .att-stat{padding:12px 10px;}
@@ -148,7 +174,13 @@ export default function AttendancePage() {
   const [me,          setMe]          = useState<{ sub?: number; name: string; email: string; role?: string; is_on_probation?: boolean } | null>(null);
   const [elapsed,     setElapsed]     = useState('00:00:00');
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [network,     setNetwork]     = useState<{ allowed: boolean; label: string | null; checked: boolean }>({ allowed: false, label: null, checked: false });
+  const [network,     setNetwork]     = useState<{
+    allowed: boolean;
+    label: string | null;
+    checked: boolean;
+    ip?: string | null;
+    no_network_rules?: boolean;
+  }>({ allowed: false, label: null, checked: false });
 
   const today = new Date();
   const [viewYear,  setViewYear]  = useState(today.getFullYear());
@@ -162,6 +194,43 @@ export default function AttendancePage() {
   const [gpsStatus,   setGpsStatus]   = useState<'idle' | 'granted' | 'denied' | 'unavailable'>('idle');
   const [pingCount,   setPingCount]   = useState(0);
   const [checkingIn,  setCheckingIn]  = useState(false);
+
+  // Leave management
+  const [leaveBalance, setLeaveBalance] = useState<any>(null);
+  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+  const [holidays, setHolidays] = useState<string[]>([]);
+  const [leaveType, setLeaveType] = useState<'CL' | 'SL'>('CL');
+  const [leaveStart, setLeaveStart] = useState('');
+  const [leaveEnd, setLeaveEnd] = useState('');
+  const [leaveReason, setLeaveReason] = useState('');
+  const [leaveDaysPreview, setLeaveDaysPreview] = useState<number | null>(null);
+  const [leaveNeedsProof, setLeaveNeedsProof] = useState(false);
+  const [minClStart, setMinClStart] = useState('');
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [leaveBusy, setLeaveBusy] = useState(false);
+
+  function minClStartLocal(): string {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    return [
+      d.getFullYear(),
+      String(d.getMonth() + 1).padStart(2, '0'),
+      String(d.getDate()).padStart(2, '0'),
+    ].join('-');
+  }
+
+  async function fileToProof(file: File) {
+    return new Promise<{ filename: string; mime_type: string; data_base64: string }>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || '');
+        const base64 = result.includes(',') ? result.split(',')[1] : result;
+        resolve({ filename: file.name, mime_type: file.type || 'application/octet-stream', data_base64: base64 });
+      };
+      reader.onerror = () => reject(new Error('Could not read file'));
+      reader.readAsDataURL(file);
+    });
+  }
 
   const fetchMe = useCallback(async () => {
     if (!token) return;
@@ -188,12 +257,18 @@ export default function AttendancePage() {
       });
       if (res.ok) {
         const j = await res.json();
-        setNetwork({ allowed: !!j.allowed, label: j.label || null, checked: true });
+        setNetwork({
+          allowed: !!j.allowed,
+          label: j.label ?? null,
+          checked: true,
+          ip: typeof j.ip === 'string' ? j.ip : null,
+          no_network_rules: !!j.no_network_rules,
+        });
       } else {
-        setNetwork({ allowed: false, label: null, checked: true });
+        setNetwork({ allowed: false, label: null, checked: true, ip: null, no_network_rules: false });
       }
     } catch {
-      setNetwork({ allowed: false, label: null, checked: true });
+      setNetwork({ allowed: false, label: null, checked: true, ip: null, no_network_rules: false });
     }
   }, [token]);
 
@@ -278,14 +353,134 @@ export default function AttendancePage() {
     setHistory(j.attendance || []);
   }, [token]);
 
+  const fetchLeaveData = useCallback(async () => {
+    if (!token) return;
+    try {
+      const [balRes, reqRes, holRes] = await Promise.all([
+        fetch(`${API}/api/v1/leave/balance`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/api/v1/leave`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/api/v1/leave/holidays?year=${viewYear}`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (balRes.ok) setLeaveBalance((await balRes.json()).balance);
+      if (reqRes.ok) setLeaveRequests((await reqRes.json()).requests || []);
+      if (holRes.ok) {
+        const hj = await holRes.json();
+        setHolidays((hj.holidays || []).map((h: { holiday_date: string }) => h.holiday_date.slice(0, 10)));
+      }
+    } catch { /* ignore */ }
+  }, [token, viewYear]);
+
   const fetchAll = useCallback(async () => {
     if (!token) { setLoading(false); return; }
     setLoading(true);
-    await Promise.all([fetchCurrent(), fetchHistory()]);
+    await Promise.all([fetchCurrent(), fetchHistory(), fetchLeaveData()]);
     setLoading(false);
-  }, [token, fetchCurrent, fetchHistory]);
+  }, [token, fetchCurrent, fetchHistory, fetchLeaveData]);
 
   useEffect(() => { fetchMe(); fetchAll(); fetchNetworkStatus(); }, [fetchMe, fetchAll, fetchNetworkStatus]);
+
+  useEffect(() => {
+    if (!leaveStart || !leaveEnd || !token) {
+      setLeaveDaysPreview(null);
+      setLeaveNeedsProof(false);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `${API}/api/v1/leave/preview-days?start_date=${leaveStart}&end_date=${leaveEnd}&leave_type=${leaveType}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (res.ok) {
+          const j = await res.json();
+          setLeaveDaysPreview(j.days ?? null);
+          setLeaveNeedsProof(!!j.requires_proof);
+          if (j.min_cl_start) setMinClStart(j.min_cl_start);
+        }
+      } catch {
+        setLeaveDaysPreview(null);
+        setLeaveNeedsProof(false);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [leaveStart, leaveEnd, leaveType, token]);
+
+  useEffect(() => {
+    setMinClStart(minClStartLocal());
+  }, []);
+
+  async function submitLeave() {
+    if (!token || !leaveStart || !leaveEnd) return;
+    if (leaveType === 'CL' && leaveStart < (minClStart || minClStartLocal())) {
+      alert(`Casual leave must be applied at least 2 days in advance. Earliest start: ${minClStart || minClStartLocal()}`);
+      return;
+    }
+    setLeaveBusy(true);
+    try {
+      const body: Record<string, unknown> = {
+        leave_type: leaveType,
+        start_date: leaveStart,
+        end_date: leaveEnd,
+        reason: leaveReason,
+      };
+      if (leaveNeedsProof && proofFile) {
+        body.proof = await fileToProof(proofFile);
+      }
+
+      const res = await fetch(`${API}/api/v1/leave`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(j.message || j.error || 'Could not submit leave');
+        return;
+      }
+      setLeaveStart('');
+      setLeaveEnd('');
+      setLeaveReason('');
+      setProofFile(null);
+      setLeaveDaysPreview(null);
+      setLeaveNeedsProof(false);
+      await fetchLeaveData();
+      alert(j.message || 'Leave request submitted for admin approval.');
+    } finally {
+      setLeaveBusy(false);
+    }
+  }
+
+  async function uploadProofForRequest(requestId: number, file: File) {
+    if (!token) return;
+    setLeaveBusy(true);
+    try {
+      const proof = await fileToProof(file);
+      const res = await fetch(`${API}/api/v1/leave/${requestId}/proof`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ proof }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(j.message || j.error || 'Upload failed');
+        return;
+      }
+      await fetchLeaveData();
+      alert('Medical document uploaded. Admin can now review your request.');
+    } finally {
+      setLeaveBusy(false);
+    }
+  }
+
+  async function cancelLeave(id: number) {
+    if (!token || !confirm('Cancel this pending leave request?')) return;
+    const res = await fetch(`${API}/api/v1/leave/${id}/cancel`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) await fetchLeaveData();
+    else alert('Could not cancel request');
+  }
 
   // Live elapsed timer while clocked in
   useEffect(() => {
@@ -322,11 +517,7 @@ export default function AttendancePage() {
       let msg = 'Clock in failed';
       try {
         const j = await res.json();
-        if (j.error === 'network_not_configured') {
-          msg = 'Attendance is currently disabled. Please contact your administrator.';
-        } else {
-          msg = j.message || j.error || msg;
-        }
+        msg = j.message || j.error || msg;
       } catch { msg = await res.text() || msg; }
       alert(msg);
     }
@@ -548,6 +739,159 @@ export default function AttendancePage() {
           </div>
         )}
 
+        {/* ── Leave balance & apply ── */}
+        <div className="att-leave-panel">
+          <div className="att-leave-hdr">Leave balance · FY {leaveBalance?.fy_label || '…'}</div>
+          {leaveBalance?.on_probation ? (
+            <div className="att-leave-note" style={{ color: '#fca5a5', marginBottom: 10 }}>
+              Probation until {leaveBalance.probation_end}. You can apply for leave after completing 3 months from join date.
+            </div>
+          ) : null}
+          <div className="att-leave-balances">
+            <div className="att-leave-bal">
+              <div className="att-leave-bal-lbl">Casual leave (CL)</div>
+              <div className="att-leave-bal-val" style={{ color: '#93c5fd' }}>
+                {leaveBalance ? leaveBalance.cl_available : '…'}
+              </div>
+              <div className="att-leave-bal-sub">
+                Earned {leaveBalance?.cl_earned ?? 0} · Used {leaveBalance?.cl_used ?? 0}
+                {leaveBalance?.cl_pending ? ` · Pending ${leaveBalance.cl_pending}` : ''}
+              </div>
+            </div>
+            <div className="att-leave-bal">
+              <div className="att-leave-bal-lbl">Sick leave (SL)</div>
+              <div className="att-leave-bal-val" style={{ color: '#d8b4fe' }}>
+                {leaveBalance ? leaveBalance.sl_available : '…'}
+              </div>
+              <div className="att-leave-bal-sub">
+                Earned {leaveBalance?.sl_earned ?? 0}
+                {leaveBalance?.sl_carried_forward ? ` + ${leaveBalance.sl_carried_forward} carried` : ''}
+                · Used {leaveBalance?.sl_used ?? 0}
+              </div>
+            </div>
+          </div>
+          {leaveBalance?.next_accrual_note && (
+            <div className="att-leave-note">{leaveBalance.next_accrual_note}</div>
+          )}
+          {leaveType === 'CL' && (
+            <div className="att-leave-warn">
+              Casual leave must be applied at least <strong>2 days before</strong> the start date
+              (earliest: {minClStart || minClStartLocal()}).
+            </div>
+          )}
+
+          <div className="att-leave-form" style={{ marginTop: 14 }}>
+            <div className="att-leave-field">
+              <label>Leave type</label>
+              <select
+                value={leaveType}
+                onChange={e => setLeaveType(e.target.value as 'CL' | 'SL')}
+                disabled={!leaveBalance?.can_apply}
+              >
+                <option value="CL">Casual leave (CL)</option>
+                <option value="SL">Sick leave (SL)</option>
+              </select>
+            </div>
+            <div className="att-leave-field">
+              <label>Working days in range</label>
+              <input readOnly value={leaveDaysPreview != null ? String(leaveDaysPreview) : '—'} />
+            </div>
+            <div className="att-leave-field">
+              <label>From</label>
+              <input
+                type="date"
+                value={leaveStart}
+                min={leaveType === 'CL' ? (minClStart || minClStartLocal()) : undefined}
+                onChange={e => setLeaveStart(e.target.value)}
+                disabled={!leaveBalance?.can_apply}
+              />
+            </div>
+            <div className="att-leave-field">
+              <label>To</label>
+              <input
+                type="date"
+                value={leaveEnd}
+                onChange={e => setLeaveEnd(e.target.value)}
+                disabled={!leaveBalance?.can_apply}
+              />
+            </div>
+            <div className="att-leave-field full">
+              <label>Reason</label>
+              <textarea
+                value={leaveReason}
+                onChange={e => setLeaveReason(e.target.value)}
+                placeholder="Brief reason for leave"
+                disabled={!leaveBalance?.can_apply}
+              />
+            </div>
+            {leaveNeedsProof && (
+              <div className="att-leave-field full">
+                <label>Medical proof (required for admin approval)</label>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
+                  className="att-leave-file"
+                  disabled={!leaveBalance?.can_apply}
+                  onChange={e => setProofFile(e.target.files?.[0] ?? null)}
+                />
+                <div className="att-leave-note" style={{ marginTop: 6 }}>
+                  Sick leave over 2 days requires a medical certificate (PDF or image, max 3 MB).
+                  You can upload now or after submitting the request.
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="att-leave-actions">
+            <button
+              type="button"
+              className="att-leave-btn att-leave-btn-primary"
+              disabled={leaveBusy || !leaveBalance?.can_apply || !leaveStart || !leaveEnd}
+              onClick={() => void submitLeave()}
+            >
+              {leaveBusy ? 'Submitting…' : 'Apply for leave'}
+            </button>
+          </div>
+
+          {leaveRequests.filter(r => r.status === 'pending').length > 0 && (
+            <div className="att-leave-req">
+              <div className="att-leave-hdr" style={{ fontSize: 12, marginBottom: 8 }}>Pending requests</div>
+              {leaveRequests.filter(r => r.status === 'pending').map(r => (
+                <div key={r.id} className="att-leave-req-row">
+                  <span>
+                    {r.leave_type} · {r.start_date?.slice(0, 10)} → {r.end_date?.slice(0, 10)} ({r.days}d)
+                    {r.requires_proof && !r.proof_path && (
+                      <span style={{ color: '#fcd34d' }}> · Proof pending</span>
+                    )}
+                    {r.proof_path && (
+                      <span style={{ color: '#86efac' }}> · Proof uploaded</span>
+                    )}
+                  </span>
+                  <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {r.requires_proof && !r.proof_path && (
+                      <label className="att-leave-proof-btn" style={{ cursor: 'pointer' }}>
+                        Upload proof
+                        <input
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
+                          style={{ display: 'none' }}
+                          onChange={e => {
+                            const f = e.target.files?.[0];
+                            if (f) void uploadProofForRequest(r.id, f);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                    )}
+                    <button type="button" className="att-btn att-btn-ref" onClick={() => void cancelLeave(r.id)}>
+                      Cancel
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* ── Stats row ── */}
         <div className="att-stats">
           <div className="att-stat">
@@ -590,6 +934,7 @@ export default function AttendancePage() {
               const isFuture   = dateStr > todayStr;
               const dow        = new Date(dateStr + 'T00:00:00').getDay();
               const isWeekend  = dow === 0 || dow === 6;
+              const isHoliday  = holidays.includes(dateStr);
               const isSelected = dateStr === selectedDay;
               const cfg        = record && !isFuture ? (STATUS_CONFIG[record.status] ?? STATUS_CONFIG.pending) : null;
 
@@ -619,6 +964,9 @@ export default function AttendancePage() {
                         <div className="att-day-time">{fmtTime(record.clock_in_at)}</div>
                       )}
                     </>
+                  )}
+                  {!cfg && isHoliday && !isFuture && (
+                    <div className="att-holiday-badge">Holiday</div>
                   )}
                 </div>
               );

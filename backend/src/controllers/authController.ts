@@ -191,9 +191,22 @@ export async function login(req: Request, res: Response) {
 export async function me(req: Request, res: Response) {
   try {
     const u = (req as any).user;
-    const r = await query('SELECT is_on_probation FROM users WHERE id=$1', [u.sub]);
-    const is_on_probation = (r && (r as any).rows[0]?.is_on_probation) ?? false;
-    res.json({ ok: true, user: { ...u, is_on_probation } });
+    const r = await query(
+      'SELECT is_on_probation, join_date, created_at FROM users WHERE id=$1',
+      [u.sub],
+    );
+    const row = (r as any).rows[0] || {};
+    const joinDate = row.join_date
+      ? String(row.join_date).slice(0, 10)
+      : String(row.created_at).slice(0, 10);
+    res.json({
+      ok: true,
+      user: {
+        ...u,
+        is_on_probation: row.is_on_probation ?? false,
+        join_date: joinDate,
+      },
+    });
   } catch (err) {
     console.error('[me]', err);
     res.json({ ok: true, user: (req as any).user });

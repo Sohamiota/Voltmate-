@@ -8,9 +8,9 @@ export const DEFAULT_COMPANY: CompanyProfile = {
   address: 'Benuban, Bamunara Durgapur-12',
   state: 'West Bengal',
   phone: '+91 XXXXXXXXXX',
-  email: 'info@voltwheelsind.com',
+  email: 'voltwheelsind@gmail.com',
   gstin: '',
-  website: 'www.voltwheelsind.com',
+  website: 'https://www.eulermotors.com/en/',
   bank: {
     accountName: 'Volt Wheels',
     banker: 'State Bank of India, Durgapur',

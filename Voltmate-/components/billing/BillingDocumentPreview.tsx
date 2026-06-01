@@ -4,15 +4,14 @@ import type { BankDetails, CompanyProfile, QuotationDraft } from '@/lib/billing/
 import { resolveQuoteVehicle } from '@/lib/billing/eulerVehicles';
 import { EulerLogo } from '@/components/billing/BrandMark';
 import {
-  amountInWordsReceipt,
+  amountInWords,
   financialYearLabel,
   fmtBookingDateSlash,
+  fmtInr,
   fmtQuoteDateShort,
   fmtQuotePrice,
-  fmtReceiptAmount,
   fmtReceiptDateDot,
   quoteGrandTotal,
-  receiptPaymentNarrative,
   receiptTotalAmount,
 } from '@/lib/billing/format';
 
@@ -77,53 +76,127 @@ function MarginMoneyReceipt({
   bookingDate,
 }: NonNullable<Props['receipt']> & { company: CompanyProfile }) {
   const fy = company.financialYear || financialYearLabel(date);
-  const branchLine = company.branch
-    ? `${company.name} (${company.branch}) (FY ${fy})`
-    : `${company.name} (FY ${fy})`;
   const total = receiptTotalAmount(cashAmount, upiAmount);
+  const cash = Math.round(Math.max(0, cashAmount));
+  const upi = Math.round(Math.max(0, upiAmount));
+  const branchLabel = company.branch ? `${company.name} · ${company.branch}` : company.name;
 
   return (
     <div className="bill-mm-doc">
-      <header className="bill-mm-letterhead">
-        <div className="bill-mm-co-name">{branchLine}</div>
-        <div className="bill-mm-co-addr">{company.address}</div>
-        <h1 className="bill-mm-title">Margin Money Receipt</h1>
+      <div className="bill-mm-accent" aria-hidden />
+
+      <header className="bill-mm-head">
+        <div className="bill-mm-head-left">
+          <span className="bill-mm-badge">Margin Money Receipt</span>
+          <div className="bill-mm-co-name">{branchLabel}</div>
+          <div className="bill-mm-co-addr">{company.address}</div>
+          {(company.phone && company.phone !== '+91 XXXXXXXXXX') || company.email ? (
+            <div className="bill-mm-co-contact">
+              {company.phone && company.phone !== '+91 XXXXXXXXXX' && <span>{company.phone}</span>}
+              {company.email && <span>{company.email}</span>}
+            </div>
+          ) : null}
+        </div>
+        <div className="bill-mm-head-right">
+          <div className="bill-mm-id-card">
+            <div className="bill-mm-id-row">
+              <span>Receipt No.</span>
+              <strong>{docNo || '—'}</strong>
+            </div>
+            <div className="bill-mm-id-row">
+              <span>Date</span>
+              <strong>{fmtReceiptDateDot(date)}</strong>
+            </div>
+            <div className="bill-mm-id-row">
+              <span>Financial Year</span>
+              <strong>{fy}</strong>
+            </div>
+          </div>
+        </div>
       </header>
 
-      <div className="bill-mm-meta-table">
-        <div className="bill-mm-meta-col">
-          <div className="bill-mm-meta-row">
-            <span className="bill-mm-meta-lbl">GSTIN/UIN:</span>
-            <span className="bill-mm-meta-val">{company.gstin || '—'}</span>
-          </div>
-          <div className="bill-mm-meta-row">
-            <span className="bill-mm-meta-lbl">State Name:</span>
-            <span className="bill-mm-meta-val">{company.state || '—'}</span>
-          </div>
-        </div>
-        <div className="bill-mm-meta-col bill-mm-meta-col-right">
-          <div className="bill-mm-meta-row">
-            <span className="bill-mm-meta-lbl">RECIPT NO –</span>
-            <span className="bill-mm-meta-val">{docNo || '—'}</span>
-          </div>
-          <div className="bill-mm-meta-row">
-            <span className="bill-mm-meta-lbl">DATE-</span>
-            <span className="bill-mm-meta-val">{fmtReceiptDateDot(date)}</span>
-          </div>
-        </div>
+      <div className="bill-mm-gst-strip">
+        <span><em>GSTIN</em> {company.gstin || '—'}</span>
+        <span><em>State</em> {company.state || '—'}</span>
       </div>
 
-      <div className="bill-mm-body">
-        <p>
-          Receive with Thanks{' '}
-          <strong className="bill-mm-cust">{customerName || '—'}</strong>{' '}
-          The sum of rupees. Amount:{' '}
-          <strong className="bill-mm-amt">{fmtReceiptAmount(total)}</strong>{' '}
-          (<strong>{amountInWordsReceipt(total)}</strong>) via{' '}
-          {receiptPaymentNarrative(cashAmount, upiAmount, upiRef)} Against booking of{' '}
-          <strong>{vehicleModel || '—'}</strong>. Dated- {fmtBookingDateSlash(bookingDate || date)}.
+      <section className="bill-mm-party">
+        <div className="bill-mm-party-lbl">Received from</div>
+        <div className="bill-mm-party-name">{customerName?.trim() || '—'}</div>
+        <p className="bill-mm-party-note">
+          Margin money received against vehicle booking as detailed below.
         </p>
-      </div>
+      </section>
+
+      <section className="bill-mm-amount-hero">
+        <div className="bill-mm-amount-meta">
+          <span className="bill-mm-amount-lbl">Total amount received</span>
+          <span className="bill-mm-amount-fy">FY {fy}</span>
+        </div>
+        <div className="bill-mm-amount-val">{fmtInr(total)}</div>
+        <div className="bill-mm-amount-words">{amountInWords(total)}</div>
+      </section>
+
+      <table className="bill-mm-pay-table">
+        <thead>
+          <tr>
+            <th>Payment mode</th>
+            <th>Reference / remarks</th>
+            <th>Amount (₹)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {cash > 0 && (
+            <tr>
+              <td><span className="bill-mm-mode bill-mm-mode-cash">Cash</span></td>
+              <td>—</td>
+              <td className="bill-mm-pay-amt">{fmtInr(cash)}</td>
+            </tr>
+          )}
+          {upi > 0 && (
+            <tr>
+              <td><span className="bill-mm-mode bill-mm-mode-upi">UPI</span></td>
+              <td>{upiRef?.trim() || '—'}</td>
+              <td className="bill-mm-pay-amt">{fmtInr(upi)}</td>
+            </tr>
+          )}
+          {total === 0 && (
+            <tr>
+              <td colSpan={3} className="bill-mm-pay-empty">Enter cash or UPI amount</td>
+            </tr>
+          )}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={2}>Grand total</td>
+            <td className="bill-mm-pay-total">{fmtInr(total)}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <section className="bill-mm-booking">
+        <div className="bill-mm-section-title">Booking details</div>
+        <div className="bill-mm-detail-grid">
+          <div className="bill-mm-detail-cell">
+            <span>Vehicle model</span>
+            <strong>{vehicleModel?.trim() || '—'}</strong>
+          </div>
+          <div className="bill-mm-detail-cell">
+            <span>Booking date</span>
+            <strong>{fmtBookingDateSlash(bookingDate || date)}</strong>
+          </div>
+          <div className="bill-mm-detail-cell bill-mm-detail-wide">
+            <span>Purpose</span>
+            <strong>Margin money against vehicle booking</strong>
+          </div>
+        </div>
+      </section>
+
+      <p className="bill-mm-ack">
+        We acknowledge receipt of the above sum as margin money towards the stated booking.
+        This is a computer-generated receipt and is valid subject to realisation of payment
+        and company terms &amp; conditions.
+      </p>
 
       <div className="bill-mm-footer-row">
         <div className="bill-mm-stamp">
@@ -133,16 +206,15 @@ function MarginMoneyReceipt({
         </div>
         <div className="bill-mm-sign">
           <div className="bill-mm-sign-line" />
-          <span className="bill-mm-sign-lbl">Authorised Signatory</span>
-          <span className="bill-mm-sign-co">{company.name}{company.branch ? ` (${company.branch})` : ''}</span>
+          <span className="bill-mm-sign-lbl">Authorised signatory</span>
+          <span className="bill-mm-sign-co">
+            {company.name}{company.branch ? ` (${company.branch})` : ''}
+          </span>
         </div>
       </div>
 
-      {(company.phone || company.email) && (
-        <footer className="bill-mm-foot">
-          {company.phone && company.phone !== '+91 XXXXXXXXXX' && <span>Ph: {company.phone}</span>}
-          {company.email && <span>{company.email}</span>}
-        </footer>
+      {company.website && (
+        <footer className="bill-mm-foot">{company.website}</footer>
       )}
     </div>
   );
