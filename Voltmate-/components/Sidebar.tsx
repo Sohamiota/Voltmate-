@@ -50,13 +50,12 @@ export default function Sidebar({
       >
         {/* Logo + close button */}
         <div className="px-4 py-5 border-b border-sidebar-border flex items-center justify-between gap-2 flex-shrink-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <img
-              src="/voltwheels-logo.png"
-              alt="VoltWheels — Euler Motors"
-              className="h-9 w-auto object-contain"
+              src="/voltmate-logo.svg"
+              alt="Voltmate"
+              className="h-9 w-auto max-w-[140px] object-contain flex-shrink-0"
             />
-            <span className="font-semibold text-sm text-sidebar-foreground">VoltWheels</span>
           </div>
           <button
             onClick={onClose}
