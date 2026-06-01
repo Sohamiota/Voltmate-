@@ -2,16 +2,16 @@
 
 import type { BankDetails, CompanyProfile, QuotationDraft } from '@/lib/billing/types';
 import { resolveQuoteVehicle } from '@/lib/billing/eulerVehicles';
-import { EulerLogo, VoltWheelsWordmark } from '@/components/billing/BrandMark';
+import { EulerLogo } from '@/components/billing/BrandMark';
 import {
   amountInWordsReceipt,
   financialYearLabel,
   fmtBookingDateSlash,
   fmtQuoteDateShort,
   fmtQuotePrice,
-  fmtQuotePriceDecimal,
   fmtReceiptAmount,
   fmtReceiptDateDot,
+  quoteGrandTotal,
   receiptPaymentNarrative,
   receiptTotalAmount,
 } from '@/lib/billing/format';
@@ -33,16 +33,14 @@ type Props = {
 };
 
 function DocumentBrandHeader({ company }: { company: CompanyProfile }) {
-  const displayName = company.branch
-    ? `${company.name} (${company.branch})`
-    : company.name;
-
   return (
     <header className="bill-doc-brand">
       <div className="bill-doc-brand-vw">
-        <VoltWheelsWordmark />
         <div className="bill-doc-brand-vw-meta">
-          <div className="bill-doc-brand-name">{displayName}</div>
+          <div className="bill-doc-brand-vw-title">{company.name}</div>
+          {company.branch && (
+            <div className="bill-doc-brand-name">{company.branch}</div>
+          )}
           <div className="bill-doc-brand-addr">{company.address}</div>
           {company.phone && company.phone !== '+91 XXXXXXXXXX' && (
             <div className="bill-doc-brand-meta">Ph: {company.phone}</div>
@@ -86,44 +84,66 @@ function MarginMoneyReceipt({
 
   return (
     <div className="bill-mm-doc">
-      <DocumentBrandHeader company={company} />
-
-      <div className="bill-mm-hdr">
+      <header className="bill-mm-letterhead">
         <div className="bill-mm-co-name">{branchLine}</div>
+        <div className="bill-mm-co-addr">{company.address}</div>
         <h1 className="bill-mm-title">Margin Money Receipt</h1>
-      </div>
+      </header>
 
-      <div className="bill-mm-meta">
+      <div className="bill-mm-meta-table">
         <div className="bill-mm-meta-col">
-          <div><span>GSTIN/UIN:</span> {company.gstin || ''}</div>
-          <div><span>State Name:</span> {company.state || '—'}</div>
+          <div className="bill-mm-meta-row">
+            <span className="bill-mm-meta-lbl">GSTIN/UIN:</span>
+            <span className="bill-mm-meta-val">{company.gstin || '—'}</span>
+          </div>
+          <div className="bill-mm-meta-row">
+            <span className="bill-mm-meta-lbl">State Name:</span>
+            <span className="bill-mm-meta-val">{company.state || '—'}</span>
+          </div>
         </div>
-        <div className="bill-mm-meta-col bill-mm-meta-right">
-          <div><span>RECIPT NO –</span> {docNo || '—'}</div>
-          <div><span>DATE-</span>{fmtReceiptDateDot(date)}</div>
-        </div>
-      </div>
-
-      <p className="bill-mm-body">
-        Receive with Thanks{' '}
-        <strong className="bill-mm-cust">{customerName || '—'}</strong>{' '}
-        The sum of rupees. Amount:{' '}
-        <strong>{fmtReceiptAmount(total)}</strong>{' '}
-        (<strong>{amountInWordsReceipt(total)}</strong>) via{' '}
-        {receiptPaymentNarrative(cashAmount, upiAmount, upiRef)} Against booking of{' '}
-        {vehicleModel || '—'}. Dated- {fmtBookingDateSlash(bookingDate || date)}.
-      </p>
-
-      <div className="bill-mm-stamp">
-        <div className="bill-mm-stamp-ring">
-          <span className="bill-mm-stamp-vw">VW</span>
-        </div>
-        <div className="bill-mm-stamp-label">
-          VOLT WHEELS {company.branch?.toUpperCase() || 'DURGAPUR'} - 12
+        <div className="bill-mm-meta-col bill-mm-meta-col-right">
+          <div className="bill-mm-meta-row">
+            <span className="bill-mm-meta-lbl">RECIPT NO –</span>
+            <span className="bill-mm-meta-val">{docNo || '—'}</span>
+          </div>
+          <div className="bill-mm-meta-row">
+            <span className="bill-mm-meta-lbl">DATE-</span>
+            <span className="bill-mm-meta-val">{fmtReceiptDateDot(date)}</span>
+          </div>
         </div>
       </div>
 
-      <DocumentBrandFooter company={company} />
+      <div className="bill-mm-body">
+        <p>
+          Receive with Thanks{' '}
+          <strong className="bill-mm-cust">{customerName || '—'}</strong>{' '}
+          The sum of rupees. Amount:{' '}
+          <strong className="bill-mm-amt">{fmtReceiptAmount(total)}</strong>{' '}
+          (<strong>{amountInWordsReceipt(total)}</strong>) via{' '}
+          {receiptPaymentNarrative(cashAmount, upiAmount, upiRef)} Against booking of{' '}
+          <strong>{vehicleModel || '—'}</strong>. Dated- {fmtBookingDateSlash(bookingDate || date)}.
+        </p>
+      </div>
+
+      <div className="bill-mm-footer-row">
+        <div className="bill-mm-stamp">
+          <div className="bill-mm-stamp-ring">
+            VOLT WHEELS {company.branch?.toUpperCase() || 'DURGAPUR'} - 12
+          </div>
+        </div>
+        <div className="bill-mm-sign">
+          <div className="bill-mm-sign-line" />
+          <span className="bill-mm-sign-lbl">Authorised Signatory</span>
+          <span className="bill-mm-sign-co">{company.name}{company.branch ? ` (${company.branch})` : ''}</span>
+        </div>
+      </div>
+
+      {(company.phone || company.email) && (
+        <footer className="bill-mm-foot">
+          {company.phone && company.phone !== '+91 XXXXXXXXXX' && <span>Ph: {company.phone}</span>}
+          {company.email && <span>{company.email}</span>}
+        </footer>
+      )}
     </div>
   );
 }
@@ -142,6 +162,7 @@ function BankBlock({ bank }: { bank: BankDetails }) {
 function VoltWheelsQuotation({ company, quote }: { company: CompanyProfile; quote: QuotationDraft }) {
   const quoteVehicle = resolveQuoteVehicle(quote.vehicleModel);
   const inclusionLines = quote.inclusions.split('\n').map(l => l.trim()).filter(Boolean);
+  const grandTotal = quoteGrandTotal(quote.rows);
 
   return (
     <div className="bill-qt-doc">
@@ -172,19 +193,31 @@ function VoltWheelsQuotation({ company, quote }: { company: CompanyProfile; quot
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>1</td>
-            <td>
-              <div className="bill-qt-vmodel">{quote.vehicleModel || '—'}</div>
-              {quoteVehicle && (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={quoteVehicle.image} alt={quote.vehicleModel} className="bill-qt-vimg" />
-              )}
-            </td>
-            <td className="bill-qt-price">{fmtQuotePrice(quote.exShowroomPrice)}</td>
-            <td>{quote.vehicleRemarks || '—'}</td>
-          </tr>
+          {quote.rows.length === 0 ? (
+            <tr><td colSpan={4} className="bill-qt-empty">Add line items</td></tr>
+          ) : quote.rows.map((row, i) => (
+            <tr key={row.id}>
+              <td>{i + 1}</td>
+              <td>
+                <div className="bill-qt-vmodel">{row.description || '—'}</div>
+                {i === 0 && quoteVehicle && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={quoteVehicle.image} alt={row.description} className="bill-qt-vimg" />
+                )}
+              </td>
+              <td className="bill-qt-price">{fmtQuotePrice(row.amount)}</td>
+              <td>{row.remarks || '—'}</td>
+            </tr>
+          ))}
         </tbody>
+        <tfoot>
+          <tr className="bill-qt-total-row">
+            <td />
+            <td className="bill-qt-total-lbl">Grand Total</td>
+            <td className="bill-qt-price bill-qt-total-val">{fmtQuotePrice(grandTotal)}</td>
+            <td />
+          </tr>
+        </tfoot>
       </table>
 
       <div className="bill-qt-section">
@@ -198,14 +231,6 @@ function VoltWheelsQuotation({ company, quote }: { company: CompanyProfile; quot
           ) : inclusionLines.map((line, i) => (
             <li key={i}>{line.replace(/^\d+\.\s*/, '')}</li>
           ))}
-        </ol>
-      </div>
-
-      <div className="bill-qt-section">
-        <div className="bill-qt-section-h">Additional Cost :</div>
-        <ol className="bill-qt-list">
-          <li>Insurance charges — {fmtQuotePriceDecimal(quote.insuranceCharges)}</li>
-          <li>Registration charges — {fmtQuotePriceDecimal(quote.registrationCharges)}</li>
         </ol>
       </div>
 

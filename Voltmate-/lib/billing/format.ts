@@ -1,3 +1,5 @@
+import type { QuoteTableRow } from './types';
+
 const ONES = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
   'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
 const TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
@@ -113,6 +115,28 @@ export function fmtQuotePrice(amount: number): string {
 
 export function fmtQuotePriceDecimal(amount: number): string {
   return `₹ ${Math.max(0, amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+export function newQuoteRow(partial?: Partial<QuoteTableRow>): QuoteTableRow {
+  return {
+    id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    description: '',
+    amount: 0,
+    remarks: '',
+    ...partial,
+  };
+}
+
+export function defaultQuoteRows(vehicleName: string, vehicleRemarks = ''): QuoteTableRow[] {
+  return [
+    newQuoteRow({ id: 'row-vehicle', description: vehicleName, amount: 0, remarks: vehicleRemarks }),
+    newQuoteRow({ id: 'row-insurance', description: 'Insurance charges', amount: 26000, remarks: '' }),
+    newQuoteRow({ id: 'row-registration', description: 'Registration charges', amount: 12000, remarks: '' }),
+  ];
+}
+
+export function quoteGrandTotal(rows: { amount: number }[]): number {
+  return rows.reduce((s, r) => s + Math.round(Math.max(0, r.amount)), 0);
 }
 
 export function fmtInr(n: number): string {

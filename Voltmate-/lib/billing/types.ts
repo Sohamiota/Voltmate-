@@ -28,6 +28,13 @@ export type BankDetails = {
   ifsc: string;
 };
 
+export type QuoteTableRow = {
+  id: string;
+  description: string;
+  amount: number;
+  remarks: string;
+};
+
 export type QuotationDraft = {
   quoteNo: string;
   date: string;
@@ -38,11 +45,8 @@ export type QuotationDraft = {
   sharedBy: string;
   sharedByPhone: string;
   vehicleModel: string;
-  exShowroomPrice: number;
-  vehicleRemarks: string;
+  rows: QuoteTableRow[];
   inclusions: string;
-  insuranceCharges: number;
-  registrationCharges: number;
   terms: string;
   notes: string;
 };

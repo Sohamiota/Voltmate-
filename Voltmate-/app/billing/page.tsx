@@ -2,15 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import BillingDocumentPreview from '@/components/billing/BillingDocumentPreview';
-import { EulerLogo, VoltWheelsWordmark } from '@/components/billing/BrandMark';
 import { DEFAULT_COMPANY, detectCompanyAddress } from '@/lib/billing/company';
 import {
-  addDaysIso, receiptTotalAmount, todayIso,
+  addDaysIso, defaultQuoteRows, newQuoteRow, quoteGrandTotal, receiptTotalAmount, todayIso,
 } from '@/lib/billing/format';
 import { nextQuoteNo, nextReceiptNo } from '@/lib/billing/numbering';
 import { EULER_VEHICLES, EULER_VEHICLE_NAMES, resolveQuoteVehicle, vehicleByName } from '@/lib/billing/eulerVehicles';
 import type {
-  CompanyProfile, QuotationDraft, ReceiptDraft,
+  CompanyProfile, QuotationDraft, QuoteTableRow, ReceiptDraft,
 } from '@/lib/billing/types';
 
 const DEFAULT_QUOTE_TERMS = `1. The above prices are inclusive of GST 5%
@@ -97,19 +96,9 @@ const CSS = `
   .bill-vehicle-showcase-tag{font-size:11px;color:#475569;margin-top:4px;line-height:1.4;}
   .bill-vehicle-showcase-cat{display:inline-block;margin-top:8px;font-size:9px;text-transform:uppercase;letter-spacing:.4px;font-weight:700;color:#0057B8;background:#e0f2fe;padding:3px 8px;border-radius:4px;}
   .bill-vehicle-showcase-img{max-width:min(100%,280px);max-height:140px;object-fit:contain;flex-shrink:0;}
-  .bill-brand-bar{display:flex;align-items:center;gap:16px;margin-bottom:18px;padding:14px 18px;background:#111;border:1px solid #2a2a2a;border-radius:14px;flex-wrap:wrap;}
-  .bill-brand-bar-x{color:#4b5563;font-size:18px;line-height:1;user-select:none;}
-  .bill-brand-bar-euler{height:32px;width:auto;object-fit:contain;flex-shrink:0;}
-  .bill-brand-bar-tag{font-size:13px;color:#9ca3af;}
-  .bill-vw-mark{display:flex;flex-direction:column;line-height:1;flex-shrink:0;}
-  .bill-vw-mark-volt{font-weight:900;color:#00d9ff;letter-spacing:2px;}
-  .bill-vw-mark-wheels{font-weight:800;color:#e5e5e5;letter-spacing:1.5px;margin-top:3px;}
-  .bill-vw-mark-sm .bill-vw-mark-volt{font-size:15px;}
-  .bill-vw-mark-sm .bill-vw-mark-wheels{font-size:10px;margin-top:2px;}
-  .bill-vw-mark-md .bill-vw-mark-volt{font-size:22px;}
-  .bill-vw-mark-md .bill-vw-mark-wheels{font-size:13px;}
-  .bill-vw-mark-lg .bill-vw-mark-volt{font-size:28px;}
-  .bill-vw-mark-lg .bill-vw-mark-wheels{font-size:16px;}
+  .bill-brand-bar{display:flex;align-items:baseline;gap:10px;margin-bottom:18px;padding:14px 18px;background:#111;border:1px solid #2a2a2a;border-radius:14px;flex-wrap:wrap;}
+  .bill-brand-bar-title{font-size:15px;font-weight:700;color:#fff;letter-spacing:.2px;}
+  .bill-brand-bar-sub{font-size:13px;color:#9ca3af;}
   .bill-gallery{margin-bottom:20px;}
   .bill-gallery-title{font-size:14px;font-weight:700;color:#fff;margin-bottom:12px;}
   .bill-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;}
@@ -123,31 +112,42 @@ const CSS = `
   .bill-v-cat{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#6b7280;}
   .bill-v-pick{margin-top:12px;border-radius:10px;overflow:hidden;border:1px solid #333;background:#0f0f0f;}
   .bill-v-pick img{width:100%;max-height:160px;object-fit:contain;padding:10px;}
-  .bill-doc-mm{background:#fff;padding:32px 36px;min-height:520px;position:relative;font-family:'Times New Roman',Georgia,serif;color:#111;}
+  .bill-doc-mm{background:#fff;padding:40px 48px;min-height:580px;position:relative;font-family:'Times New Roman',Georgia,serif;color:#111;max-width:720px;}
   .bill-doc-brand{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:24px;padding-bottom:14px;margin-bottom:16px;border-bottom:2px solid #0057B8;font-family:Calibri,'Segoe UI',Arial,sans-serif;}
   .bill-doc-brand-vw{display:flex;align-items:center;gap:16px;min-width:0;}
   .bill-doc-brand-vw-meta{min-width:0;}
   .bill-doc-brand-euler{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:5px;flex-shrink:0;padding-left:16px;border-left:1px solid #e2e8f0;}
   .bill-doc-brand-euler-logo{height:38px;width:auto;max-width:110px;object-fit:contain;display:block;}
-  .bill-doc-brand-name{font-size:15px;font-weight:800;color:#0f172a;letter-spacing:.2px;line-height:1.3;}
+  .bill-doc-brand-vw-title{font-size:18px;font-weight:800;color:#0f172a;letter-spacing:.3px;line-height:1.2;}
+  .bill-doc-brand-name{font-size:13px;font-weight:600;color:#334155;margin-top:2px;line-height:1.3;}
   .bill-doc-brand-addr{font-size:11px;color:#475569;margin-top:3px;line-height:1.45;}
   .bill-doc-brand-meta{font-size:10px;color:#64748b;margin-top:2px;}
   .bill-doc-brand-tag{font-size:10px;font-weight:600;color:#64748b;text-align:right;max-width:140px;line-height:1.35;}
   .bill-doc-foot{margin-top:18px;padding-top:10px;border-top:1px solid #cbd5e1;text-align:center;font-size:10px;color:#64748b;font-family:Calibri,'Segoe UI',Arial,sans-serif;}
-  .bill-mm-hdr{text-align:center;margin-bottom:22px;}
-  .bill-mm-co-name{font-size:15px;font-weight:700;line-height:1.4;}
-  .bill-mm-co-addr{font-size:13px;margin-top:4px;line-height:1.4;}
-  .bill-mm-title{font-size:15px;font-weight:700;text-decoration:underline;margin-top:18px;letter-spacing:.3px;}
-  .bill-mm-meta{display:flex;justify-content:space-between;gap:24px;margin-bottom:28px;font-size:13px;line-height:1.7;flex-wrap:wrap;}
-  .bill-mm-meta-col{min-width:180px;}
-  .bill-mm-meta-right{text-align:right;}
-  .bill-mm-meta span{font-weight:700;}
-  .bill-mm-body{font-size:13px;line-height:1.75;text-align:justify;margin-bottom:80px;}
-  .bill-mm-cust{font-weight:700;text-transform:uppercase;}
-  .bill-mm-stamp{position:absolute;bottom:48px;right:36px;display:flex;flex-direction:column;align-items:center;gap:6px;}
-  .bill-mm-stamp-ring{width:88px;height:88px;border:2px solid rgba(124,58,237,.55);border-radius:50%;display:flex;align-items:center;justify-content:center;}
-  .bill-mm-stamp-vw{font-size:26px;font-weight:900;color:rgba(124,58,237,.8);letter-spacing:1px;line-height:1;}
-  .bill-mm-stamp-label{text-align:center;font-size:7px;font-weight:700;color:rgba(124,58,237,.75);letter-spacing:.2px;max-width:100px;line-height:1.25;}
+  .bill-mm-letterhead{text-align:center;padding-bottom:18px;margin-bottom:20px;border-bottom:1px solid #cbd5e1;}
+  .bill-mm-co-name{font-size:16px;font-weight:700;line-height:1.45;letter-spacing:.2px;}
+  .bill-mm-co-addr{font-size:13px;margin-top:6px;line-height:1.5;color:#334155;}
+  .bill-mm-title{font-size:16px;font-weight:700;text-decoration:underline;margin-top:20px;letter-spacing:.4px;}
+  .bill-mm-meta-table{display:grid;grid-template-columns:1fr 1fr;border:1px solid #334155;margin-bottom:28px;}
+  .bill-mm-meta-col{border-right:1px solid #334155;}
+  .bill-mm-meta-col:last-child{border-right:none;}
+  .bill-mm-meta-col-right .bill-mm-meta-row{justify-content:flex-end;text-align:right;}
+  .bill-mm-meta-row{display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid #334155;font-size:13px;line-height:1.4;}
+  .bill-mm-meta-row:last-child{border-bottom:none;}
+  .bill-mm-meta-lbl{font-weight:700;white-space:nowrap;}
+  .bill-mm-meta-val{color:#111;}
+  .bill-mm-body{margin-bottom:48px;padding:4px 2px;}
+  .bill-mm-body p{font-size:14px;line-height:1.85;text-align:justify;margin:0;}
+  .bill-mm-cust{font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
+  .bill-mm-amt{font-weight:700;}
+  .bill-mm-footer-row{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-top:32px;min-height:120px;}
+  .bill-mm-stamp{flex-shrink:0;}
+  .bill-mm-stamp-ring{width:108px;height:108px;border:2px solid rgba(124,58,237,.65);border-radius:50%;display:flex;align-items:center;justify-content:center;text-align:center;font-size:7.5px;font-weight:700;color:rgba(100,50,180,.85);padding:10px;line-height:1.25;letter-spacing:.3px;}
+  .bill-mm-sign{text-align:center;min-width:180px;margin-left:auto;}
+  .bill-mm-sign-line{border-top:1px solid #334155;width:160px;margin:0 auto 8px;height:48px;}
+  .bill-mm-sign-lbl{display:block;font-size:11px;font-weight:600;color:#334155;}
+  .bill-mm-sign-co{display:block;font-size:10px;color:#64748b;margin-top:3px;}
+  .bill-mm-foot{margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;text-align:center;font-size:10px;color:#64748b;display:flex;justify-content:center;gap:16px;flex-wrap:wrap;font-family:Calibri,'Segoe UI',Arial,sans-serif;}
   .bill-doc-qt{padding:24px 28px;font-family:Calibri,'Segoe UI',Arial,sans-serif;font-size:12px;color:#111;min-width:min(100%,720px);}
   .bill-qt-title-bar{background:#fff3cd;border:1px solid #e6c200;text-align:center;font-size:14px;font-weight:800;text-decoration:underline;padding:8px 12px;margin-bottom:14px;letter-spacing:.5px;}
   .bill-qt-info{display:grid;grid-template-columns:1fr 1fr;border:1px solid #333;margin-bottom:14px;}
@@ -166,6 +166,17 @@ const CSS = `
   .bill-qt-vmodel{font-weight:700;margin-bottom:8px;}
   .bill-qt-vimg{max-width:160px;max-height:90px;object-fit:contain;display:block;margin-top:4px;}
   .bill-qt-price{font-weight:700;white-space:nowrap;}
+  .bill-qt-empty{text-align:center;color:#94a3b8;font-style:italic;padding:16px;}
+  .bill-qt-total-row td{background:#f1f5f9;border-top:2px solid #333;}
+  .bill-qt-total-lbl{text-align:right;font-weight:800;}
+  .bill-qt-total-val{font-size:13px;color:#0057B8;}
+  .bill-quote-rows{margin-top:16px;}
+  .bill-quote-row-hdr{display:grid;grid-template-columns:1fr 110px 1fr 36px;gap:8px;margin-bottom:6px;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;font-weight:600;}
+  .bill-quote-row{display:grid;grid-template-columns:1fr 110px 1fr 36px;gap:8px;margin-bottom:8px;align-items:center;}
+  @media(max-width:640px){.bill-quote-row-hdr,.bill-quote-row{grid-template-columns:1fr 1fr;}}
+  .bill-quote-row input{background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:8px;color:#e5e5e5;font-size:12px;width:100%;}
+  .bill-quote-grand{margin-top:12px;padding:10px 12px;background:#0f0f0f;border:1px solid #333;border-radius:8px;display:flex;justify-content:space-between;align-items:center;font-size:13px;}
+  .bill-quote-grand strong{color:#00d9ff;font-size:15px;}
   .bill-qt-section{margin-bottom:12px;}
   .bill-qt-section-h{font-weight:700;margin-bottom:4px;}
   .bill-qt-list,.bill-qt-terms{margin-left:22px;line-height:1.55;}
@@ -178,6 +189,69 @@ const CSS = `
     .bill-root,.bill-preview-wrap{background:#fff;padding:0;}
   }
 `;
+
+function QuoteRowsEditor({
+  rows,
+  onChange,
+}: {
+  rows: QuoteTableRow[];
+  onChange: (rows: QuoteTableRow[]) => void;
+}) {
+  function update(id: string, patch: Partial<QuoteTableRow>) {
+    onChange(rows.map(r => (r.id === id ? { ...r, ...patch } : r)));
+  }
+
+  return (
+    <div className="bill-quote-rows">
+      <div className="bill-panel-title">
+        Quotation line items
+        <button type="button" className="bill-btn bill-btn-primary" onClick={() => onChange([...rows, newQuoteRow()])}>
+          + Add row
+        </button>
+      </div>
+      <div className="bill-quote-row-hdr">
+        <span>Description / vehicle model</span>
+        <span>Amount (₹)</span>
+        <span>Remarks</span>
+        <span />
+      </div>
+      {rows.map((row, i) => (
+        <div key={row.id} className="bill-quote-row">
+          <input
+            placeholder={i === 0 ? 'Vehicle model' : 'Insurance charges'}
+            value={row.description}
+            onChange={e => update(row.id, { description: e.target.value })}
+          />
+          <input
+            type="number"
+            min={0}
+            placeholder="0"
+            value={row.amount || ''}
+            onChange={e => update(row.id, { amount: Math.max(0, parseFloat(e.target.value) || 0) })}
+          />
+          <input
+            placeholder="Remarks"
+            value={row.remarks}
+            onChange={e => update(row.id, { remarks: e.target.value })}
+          />
+          <button
+            type="button"
+            className="bill-item-del"
+            onClick={() => onChange(rows.filter(r => r.id !== row.id))}
+            title="Remove row"
+            disabled={rows.length <= 1}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      <div className="bill-quote-grand">
+        <span>Grand Total</span>
+        <strong>₹ {quoteGrandTotal(rows).toLocaleString('en-IN')}</strong>
+      </div>
+    </div>
+  );
+}
 
 export default function BillingPage() {
   const [tab, setTab] = useState<'receipt' | 'quotation'>('receipt');
@@ -208,11 +282,8 @@ export default function BillingPage() {
     sharedBy: '',
     sharedByPhone: '',
     vehicleModel: EULER_VEHICLES[0].name,
-    exShowroomPrice: 0,
-    vehicleRemarks: EULER_VEHICLES[0].tagline || '',
+    rows: defaultQuoteRows(EULER_VEHICLES[0].name, EULER_VEHICLES[0].tagline || ''),
     inclusions: DEFAULT_INCLUSIONS,
-    insuranceCharges: 26000,
-    registrationCharges: 12000,
     terms: DEFAULT_QUOTE_TERMS,
     notes: '',
   }));
@@ -266,11 +337,8 @@ export default function BillingPage() {
       sharedBy: '',
       sharedByPhone: '',
       vehicleModel: EULER_VEHICLES[0].name,
-      exShowroomPrice: 0,
-      vehicleRemarks: EULER_VEHICLES[0].tagline || '',
+      rows: defaultQuoteRows(EULER_VEHICLES[0].name, EULER_VEHICLES[0].tagline || ''),
       inclusions: DEFAULT_INCLUSIONS,
-      insuranceCharges: 26000,
-      registrationCharges: 12000,
       terms: DEFAULT_QUOTE_TERMS,
       notes: '',
     });
@@ -278,11 +346,30 @@ export default function BillingPage() {
 
   function selectQuoteVehicle(name: string) {
     const v = vehicleByName(name);
+    setQuote(q => {
+      const rows = q.rows.length > 0 ? [...q.rows] : defaultQuoteRows(name);
+      rows[0] = {
+        ...rows[0],
+        description: name,
+        remarks: v?.tagline || rows[0].remarks,
+      };
+      return { ...q, vehicleModel: name, rows };
+    });
+  }
+
+  function updateQuoteRows(rows: QuoteTableRow[]) {
     setQuote(q => ({
       ...q,
-      vehicleModel: name,
-      vehicleRemarks: v?.tagline || q.vehicleRemarks,
+      rows,
+      vehicleModel: rows[0]?.description ?? q.vehicleModel,
     }));
+  }
+
+  function onVehicleModelChange(name: string) {
+    setQuote(q => {
+      const rows = q.rows.length > 0 ? q.rows.map((r, i) => (i === 0 ? { ...r, description: name } : r)) : defaultQuoteRows(name);
+      return { ...q, vehicleModel: name, rows };
+    });
   }
 
   const selectedVehicle = resolveQuoteVehicle(quote.vehicleModel);
@@ -315,10 +402,8 @@ export default function BillingPage() {
       </div>
 
       <div className="bill-brand-bar">
-        <VoltWheelsWordmark size="sm" />
-        <span className="bill-brand-bar-x" aria-hidden>×</span>
-        <EulerLogo className="bill-brand-bar-euler" />
-        <span className="bill-brand-bar-tag">Authorized Euler Motors Dealer</span>
+        <span className="bill-brand-bar-title">Volt Wheels</span>
+        <span className="bill-brand-bar-sub">Billing &amp; Documents</span>
       </div>
 
       {tab === 'quotation' && (
@@ -542,11 +627,11 @@ export default function BillingPage() {
                   <textarea value={quote.customerAddress} onChange={e => setQuote(q => ({ ...q, customerAddress: e.target.value }))} placeholder="Opposite to DPL Gate, DGP - 1" />
                 </div>
                 <div className="bill-field full">
-                  <label>Vehicle model</label>
+                  <label>Vehicle model (row 1 — shows image when in catalogue)</label>
                   <input
                     list="quote-vehicle-models"
                     value={quote.vehicleModel}
-                    onChange={e => setQuote(q => ({ ...q, vehicleModel: e.target.value }))}
+                    onChange={e => onVehicleModelChange(e.target.value)}
                     placeholder="STORM T1500 PV"
                   />
                   <datalist id="quote-vehicle-models">
@@ -558,42 +643,6 @@ export default function BillingPage() {
                       <img src={selectedVehicle.image} alt={selectedVehicle.name} />
                     </div>
                   )}
-                </div>
-                <div className="bill-field">
-                  <label>Ex showroom price (₹)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={quote.exShowroomPrice || ''}
-                    onChange={e => setQuote(q => ({ ...q, exShowroomPrice: Math.max(0, parseFloat(e.target.value) || 0) }))}
-                    placeholder="965000"
-                  />
-                </div>
-                <div className="bill-field full">
-                  <label>Vehicle remarks / specs</label>
-                  <textarea
-                    value={quote.vehicleRemarks}
-                    onChange={e => setQuote(q => ({ ...q, vehicleRemarks: e.target.value }))}
-                    placeholder="Payload - 1500 kg. ; Range - 140 km ; Torque - 180 NM;"
-                  />
-                </div>
-                <div className="bill-field">
-                  <label>Insurance charges (₹)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={quote.insuranceCharges || ''}
-                    onChange={e => setQuote(q => ({ ...q, insuranceCharges: Math.max(0, parseFloat(e.target.value) || 0) }))}
-                  />
-                </div>
-                <div className="bill-field">
-                  <label>Registration charges (₹)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={quote.registrationCharges || ''}
-                    onChange={e => setQuote(q => ({ ...q, registrationCharges: Math.max(0, parseFloat(e.target.value) || 0) }))}
-                  />
                 </div>
                 <div className="bill-field full">
                   <label>Price inclusions (one per line)</label>
@@ -608,6 +657,7 @@ export default function BillingPage() {
                   <textarea value={quote.notes} onChange={e => setQuote(q => ({ ...q, notes: e.target.value }))} />
                 </div>
               </div>
+              <QuoteRowsEditor rows={quote.rows} onChange={updateQuoteRows} />
               <div className="bill-btn-row">
                 <button type="button" className="bill-btn bill-btn-ghost" onClick={resetQuote}>New quotation</button>
               </div>
