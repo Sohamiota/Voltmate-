@@ -38,8 +38,8 @@ export default function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
           {/* Logo shown when sidebar is closed */}
           {!isSidebarOpen && (
             <div className="hidden sm:flex items-center gap-2">
-              <img src="/voltmate-logo.png" alt="Voltmate" className="h-8 w-8 rounded-full object-cover" />
-              <span className="font-semibold text-sm text-foreground">Voltmate</span>
+              <img src="/voltwheels-logo.png" alt="VoltWheels" className="h-8 w-auto object-contain" />
+              <span className="font-semibold text-sm text-foreground">VoltWheels</span>
             </div>
           )}
         </div>
