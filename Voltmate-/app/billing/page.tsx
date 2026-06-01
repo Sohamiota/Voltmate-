@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import BillingDocumentPreview from '@/components/billing/BillingDocumentPreview';
+import { EulerLogo, VoltWheelsWordmark } from '@/components/billing/BrandMark';
 import { DEFAULT_COMPANY, detectCompanyAddress } from '@/lib/billing/company';
 import {
   addDaysIso, receiptTotalAmount, todayIso,
@@ -96,10 +97,19 @@ const CSS = `
   .bill-vehicle-showcase-tag{font-size:11px;color:#475569;margin-top:4px;line-height:1.4;}
   .bill-vehicle-showcase-cat{display:inline-block;margin-top:8px;font-size:9px;text-transform:uppercase;letter-spacing:.4px;font-weight:700;color:#0057B8;background:#e0f2fe;padding:3px 8px;border-radius:4px;}
   .bill-vehicle-showcase-img{max-width:min(100%,280px);max-height:140px;object-fit:contain;flex-shrink:0;}
-  .bill-brand-bar{display:flex;align-items:center;gap:14px;margin-bottom:18px;padding:14px 18px;background:#111;border:1px solid #2a2a2a;border-radius:14px;}
-  .bill-brand-bar img{height:36px;width:auto;}
-  .bill-brand-bar span{font-size:13px;color:#9ca3af;}
-  .bill-brand-bar strong{color:#00d9ff;font-weight:600;}
+  .bill-brand-bar{display:flex;align-items:center;gap:16px;margin-bottom:18px;padding:14px 18px;background:#111;border:1px solid #2a2a2a;border-radius:14px;flex-wrap:wrap;}
+  .bill-brand-bar-x{color:#4b5563;font-size:18px;line-height:1;user-select:none;}
+  .bill-brand-bar-euler{height:32px;width:auto;object-fit:contain;flex-shrink:0;}
+  .bill-brand-bar-tag{font-size:13px;color:#9ca3af;}
+  .bill-vw-mark{display:flex;flex-direction:column;line-height:1;flex-shrink:0;}
+  .bill-vw-mark-volt{font-weight:900;color:#00d9ff;letter-spacing:2px;}
+  .bill-vw-mark-wheels{font-weight:800;color:#e5e5e5;letter-spacing:1.5px;margin-top:3px;}
+  .bill-vw-mark-sm .bill-vw-mark-volt{font-size:15px;}
+  .bill-vw-mark-sm .bill-vw-mark-wheels{font-size:10px;margin-top:2px;}
+  .bill-vw-mark-md .bill-vw-mark-volt{font-size:22px;}
+  .bill-vw-mark-md .bill-vw-mark-wheels{font-size:13px;}
+  .bill-vw-mark-lg .bill-vw-mark-volt{font-size:28px;}
+  .bill-vw-mark-lg .bill-vw-mark-wheels{font-size:16px;}
   .bill-gallery{margin-bottom:20px;}
   .bill-gallery-title{font-size:14px;font-weight:700;color:#fff;margin-bottom:12px;}
   .bill-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;}
@@ -114,16 +124,15 @@ const CSS = `
   .bill-v-pick{margin-top:12px;border-radius:10px;overflow:hidden;border:1px solid #333;background:#0f0f0f;}
   .bill-v-pick img{width:100%;max-height:160px;object-fit:contain;padding:10px;}
   .bill-doc-mm{background:#fff;padding:32px 36px;min-height:520px;position:relative;font-family:'Times New Roman',Georgia,serif;color:#111;}
-  .bill-doc-brand{display:flex;align-items:center;justify-content:space-between;gap:20px;padding-bottom:14px;margin-bottom:16px;border-bottom:2px solid #0057B8;flex-wrap:wrap;font-family:Calibri,'Segoe UI',Arial,sans-serif;}
-  .bill-doc-brand-vw,.bill-doc-brand-euler{display:flex;align-items:center;gap:12px;}
-  .bill-doc-brand-euler{text-align:right;flex-direction:row-reverse;}
-  .bill-doc-brand-vw-logo{height:52px;width:auto;object-fit:contain;}
-  .bill-doc-brand-euler-logo{height:44px;width:auto;object-fit:contain;}
-  .bill-doc-brand-name{font-size:16px;font-weight:800;color:#0f172a;letter-spacing:.2px;}
-  .bill-doc-brand-addr{font-size:11px;color:#475569;margin-top:2px;line-height:1.4;max-width:280px;}
+  .bill-doc-brand{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:24px;padding-bottom:14px;margin-bottom:16px;border-bottom:2px solid #0057B8;font-family:Calibri,'Segoe UI',Arial,sans-serif;}
+  .bill-doc-brand-vw{display:flex;align-items:center;gap:16px;min-width:0;}
+  .bill-doc-brand-vw-meta{min-width:0;}
+  .bill-doc-brand-euler{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:5px;flex-shrink:0;padding-left:16px;border-left:1px solid #e2e8f0;}
+  .bill-doc-brand-euler-logo{height:38px;width:auto;max-width:110px;object-fit:contain;display:block;}
+  .bill-doc-brand-name{font-size:15px;font-weight:800;color:#0f172a;letter-spacing:.2px;line-height:1.3;}
+  .bill-doc-brand-addr{font-size:11px;color:#475569;margin-top:3px;line-height:1.45;}
   .bill-doc-brand-meta{font-size:10px;color:#64748b;margin-top:2px;}
-  .bill-doc-brand-euler-lbl{font-size:12px;font-weight:700;color:#0057B8;text-transform:uppercase;letter-spacing:.4px;}
-  .bill-doc-brand-tag{font-size:10px;font-weight:600;color:#334155;margin-top:2px;max-width:180px;line-height:1.35;}
+  .bill-doc-brand-tag{font-size:10px;font-weight:600;color:#64748b;text-align:right;max-width:140px;line-height:1.35;}
   .bill-doc-foot{margin-top:18px;padding-top:10px;border-top:1px solid #cbd5e1;text-align:center;font-size:10px;color:#64748b;font-family:Calibri,'Segoe UI',Arial,sans-serif;}
   .bill-mm-hdr{text-align:center;margin-bottom:22px;}
   .bill-mm-co-name{font-size:15px;font-weight:700;line-height:1.4;}
@@ -135,9 +144,10 @@ const CSS = `
   .bill-mm-meta span{font-weight:700;}
   .bill-mm-body{font-size:13px;line-height:1.75;text-align:justify;margin-bottom:80px;}
   .bill-mm-cust{font-weight:700;text-transform:uppercase;}
-  .bill-mm-stamp{position:absolute;bottom:36px;right:36px;width:120px;height:120px;display:flex;align-items:center;justify-content:center;}
-  .bill-mm-stamp-img{width:56px;height:auto;opacity:.85;}
-  .bill-mm-stamp-ring{position:absolute;inset:0;border:2px solid rgba(124,58,237,.55);border-radius:50%;display:flex;align-items:center;justify-content:center;text-align:center;font-size:7px;font-weight:700;color:rgba(124,58,237,.75);padding:8px;line-height:1.2;letter-spacing:.2px;}
+  .bill-mm-stamp{position:absolute;bottom:48px;right:36px;display:flex;flex-direction:column;align-items:center;gap:6px;}
+  .bill-mm-stamp-ring{width:88px;height:88px;border:2px solid rgba(124,58,237,.55);border-radius:50%;display:flex;align-items:center;justify-content:center;}
+  .bill-mm-stamp-vw{font-size:26px;font-weight:900;color:rgba(124,58,237,.8);letter-spacing:1px;line-height:1;}
+  .bill-mm-stamp-label{text-align:center;font-size:7px;font-weight:700;color:rgba(124,58,237,.75);letter-spacing:.2px;max-width:100px;line-height:1.25;}
   .bill-doc-qt{padding:24px 28px;font-family:Calibri,'Segoe UI',Arial,sans-serif;font-size:12px;color:#111;min-width:min(100%,720px);}
   .bill-qt-title-bar{background:#fff3cd;border:1px solid #e6c200;text-align:center;font-size:14px;font-weight:800;text-decoration:underline;padding:8px 12px;margin-bottom:14px;letter-spacing:.5px;}
   .bill-qt-info{display:grid;grid-template-columns:1fr 1fr;border:1px solid #333;margin-bottom:14px;}
@@ -305,11 +315,10 @@ export default function BillingPage() {
       </div>
 
       <div className="bill-brand-bar">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/voltwheels-logo.png" alt="Volt Wheels" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/branding/euler-logo-black.png" alt="Euler Motors" style={{ height: 32 }} />
-        <span><strong>Volt Wheels</strong> · Authorized Euler Motors Dealer</span>
+        <VoltWheelsWordmark size="sm" />
+        <span className="bill-brand-bar-x" aria-hidden>×</span>
+        <EulerLogo className="bill-brand-bar-euler" />
+        <span className="bill-brand-bar-tag">Authorized Euler Motors Dealer</span>
       </div>
 
       {tab === 'quotation' && (

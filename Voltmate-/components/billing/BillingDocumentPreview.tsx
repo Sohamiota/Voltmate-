@@ -1,7 +1,8 @@
 'use client';
 
 import type { BankDetails, CompanyProfile, QuotationDraft } from '@/lib/billing/types';
-import { BRAND_LOGO_DARK, resolveQuoteVehicle, VOLTWHEELS_LOGO } from '@/lib/billing/eulerVehicles';
+import { resolveQuoteVehicle } from '@/lib/billing/eulerVehicles';
+import { EulerLogo, VoltWheelsWordmark } from '@/components/billing/BrandMark';
 import {
   amountInWordsReceipt,
   financialYearLabel,
@@ -39,9 +40,8 @@ function DocumentBrandHeader({ company }: { company: CompanyProfile }) {
   return (
     <header className="bill-doc-brand">
       <div className="bill-doc-brand-vw">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={VOLTWHEELS_LOGO} alt="Volt Wheels" className="bill-doc-brand-vw-logo" />
-        <div>
+        <VoltWheelsWordmark />
+        <div className="bill-doc-brand-vw-meta">
           <div className="bill-doc-brand-name">{displayName}</div>
           <div className="bill-doc-brand-addr">{company.address}</div>
           {company.phone && company.phone !== '+91 XXXXXXXXXX' && (
@@ -50,12 +50,8 @@ function DocumentBrandHeader({ company }: { company: CompanyProfile }) {
         </div>
       </div>
       <div className="bill-doc-brand-euler">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={BRAND_LOGO_DARK} alt="Euler Motors" className="bill-doc-brand-euler-logo" />
-        <div>
-          <div className="bill-doc-brand-euler-lbl">Euler Motors</div>
-          <div className="bill-doc-brand-tag">{company.tagline || 'Authorized Euler Motors Dealer'}</div>
-        </div>
+        <EulerLogo className="bill-doc-brand-euler-logo" />
+        <div className="bill-doc-brand-tag">Authorized Euler Motors Dealer</div>
       </div>
     </header>
   );
@@ -91,9 +87,9 @@ function MarginMoneyReceipt({
   return (
     <div className="bill-mm-doc">
       <DocumentBrandHeader company={company} />
+
       <div className="bill-mm-hdr">
         <div className="bill-mm-co-name">{branchLine}</div>
-        <div className="bill-mm-co-addr">{company.address}</div>
         <h1 className="bill-mm-title">Margin Money Receipt</h1>
       </div>
 
@@ -119,12 +115,14 @@ function MarginMoneyReceipt({
       </p>
 
       <div className="bill-mm-stamp">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={VOLTWHEELS_LOGO} alt="Volt Wheels" className="bill-mm-stamp-img" />
         <div className="bill-mm-stamp-ring">
+          <span className="bill-mm-stamp-vw">VW</span>
+        </div>
+        <div className="bill-mm-stamp-label">
           VOLT WHEELS {company.branch?.toUpperCase() || 'DURGAPUR'} - 12
         </div>
       </div>
+
       <DocumentBrandFooter company={company} />
     </div>
   );
