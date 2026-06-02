@@ -1,6 +1,18 @@
 import { Search, Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { get, post } from '@/src/api/client'
+import { get, post, patch } from '@/src/api/client'
+
+const ROLES = ['employee', 'sales_admin', 'attendance_admin', 'admin', 'sales', 'service'] as const
+type RoleValue = typeof ROLES[number]
+
+const ROLE_LABELS: Record<RoleValue, string> = {
+  employee:          'Employee',
+  sales_admin:       'Sales Admin',
+  attendance_admin:  'Attendance Admin',
+  admin:             'Admin',
+  sales:             'Sales',
+  service:           'Service',
+}
 
 type Employee = {
   id: number
@@ -17,28 +29,28 @@ type Props = {
 }
 
 export default function EmployeeManagement({ role }: Props) {
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [actingId, setActingId] = useState<number | null>(null)
+  const [employees, setEmployees]   = useState<Employee[]>([])
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState<string | null>(null)
+  const [actingId, setActingId]     = useState<number | null>(null)
+  const [roleActingId, setRoleActingId] = useState<number | null>(null)
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true)
-      setError(null)
-      try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
-        const path = role === 'admin' ? '/employees?full_roster=1' : '/employees'
-        const res: any = await get(path, token || undefined)
-        setEmployees(res.employees || [])
-      } catch (e: any) {
-        setError(e?.message || 'Failed to load employees')
-      } finally {
-        setLoading(false)
-      }
+  async function loadEmployees() {
+    setLoading(true)
+    setError(null)
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
+      const path = role === 'admin' ? '/employees?full_roster=1' : '/employees'
+      const res: any = await get(path, token || undefined)
+      setEmployees(res.employees || [])
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load employees')
+    } finally {
+      setLoading(false)
     }
-    load()
-  }, [role])
+  }
+
+  useEffect(() => { loadEmployees() }, [role]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function approveRegistration(userId: number) {
     const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
@@ -46,13 +58,26 @@ export default function EmployeeManagement({ role }: Props) {
     setActingId(userId)
     try {
       await post(`/auth/admin/users/${userId}/approve`, {}, token)
-      const path = role === 'admin' ? '/employees?full_roster=1' : '/employees'
-      const res: any = await get(path, token)
-      setEmployees(res.employees || [])
+      await loadEmployees()
     } catch (e: any) {
       alert(e?.message || 'Approve failed')
     } finally {
       setActingId(null)
+    }
+  }
+
+  async function changeRole(userId: number, newRole: RoleValue) {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
+    if (!token) return
+    if (!confirm(`Change role to "${ROLE_LABELS[newRole]}"?`)) return
+    setRoleActingId(userId)
+    try {
+      await patch(`/auth/admin/users/${userId}/role`, { role: newRole }, token)
+      setEmployees(prev => prev.map(e => e.id === userId ? { ...e, role: newRole } : e))
+    } catch (e: any) {
+      alert(e?.message || 'Role change failed')
+    } finally {
+      setRoleActingId(null)
     }
   }
 
@@ -118,7 +143,22 @@ export default function EmployeeManagement({ role }: Props) {
                 <tr key={employee.id} className={index !== employees.length - 1 ? 'border-b border-border' : ''}>
                   <td className="px-4 sm:px-6 py-3 sm:py-4 text-foreground font-medium text-sm">{employee.name}</td>
                   <td className="px-4 sm:px-6 py-3 sm:py-4 text-muted-foreground text-sm max-w-[160px] truncate">{role === 'admin' ? employee.email : 'Hidden'}</td>
-                  <td className="px-4 sm:px-6 py-3 sm:py-4 text-muted-foreground text-sm capitalize">{employee.role || 'employee'}</td>
+                  <td className="px-4 sm:px-6 py-3 sm:py-4 text-sm">
+                    {role === 'admin' && employee.is_approved ? (
+                      <select
+                        value={employee.role || 'employee'}
+                        disabled={roleActingId === employee.id}
+                        onChange={e => changeRole(employee.id, e.target.value as RoleValue)}
+                        className="bg-secondary border border-border rounded-md px-2 py-1 text-xs text-foreground focus:outline-none focus:border-primary disabled:opacity-50 cursor-pointer"
+                      >
+                        {ROLES.map(r => (
+                          <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-muted-foreground capitalize">{employee.role || 'employee'}</span>
+                    )}
+                  </td>
                   <td className="px-4 sm:px-6 py-3 sm:py-4">
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusClass(employee)}`}>
                       {statusLabel(employee)}
