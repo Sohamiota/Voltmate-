@@ -149,6 +149,8 @@ const CSS = `
   .att-leave-req-row{font-size:12px;color:#d1d5db;padding:6px 0;border-bottom:1px dashed #2a2a2a;display:flex;justify-content:space-between;gap:8px;align-items:center;}
   .att-leave-req-row:last-child{border-bottom:none;}
   .att-holiday-badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:9px;font-weight:600;border:1px solid rgba(244,114,182,.35);color:#f472b6;background:rgba(244,114,182,.12);}
+  .att-day.att-holiday{background:rgba(244,114,182,.04);}
+  .att-day.att-holiday:hover{background:rgba(244,114,182,.09);}
   @media(max-width:540px){.att-leave-balances,.att-leave-form{grid-template-columns:1fr;}}
   /* Mobile */
   @media(max-width:540px){
@@ -198,7 +200,7 @@ export default function AttendancePage() {
   // Leave management
   const [leaveBalance, setLeaveBalance] = useState<any>(null);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
-  const [holidays, setHolidays] = useState<string[]>([]);
+  const [holidays, setHolidays] = useState<{ date: string; name: string }[]>([]);
   const [leaveType, setLeaveType] = useState<'CL' | 'SL'>('CL');
   const [leaveStart, setLeaveStart] = useState('');
   const [leaveEnd, setLeaveEnd] = useState('');
@@ -337,20 +339,36 @@ export default function AttendancePage() {
 
   const fetchCurrent = useCallback(async () => {
     if (!token) return;
-    const res = await fetch(`${API}/api/v1/attendance/current`, { headers: { Authorization: `Bearer ${token}` } });
-    setCurrent(res.status === 204 ? null : await res.json());
+    try {
+      const res = await fetch(`${API}/api/v1/attendance/current`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 204) { setCurrent(null); return; }
+      if (!res.ok) { setCurrent(null); return; }
+      const j = await res.json();
+      // Only accept a valid open session (must have clock_in_at but no clock_out_at)
+      setCurrent(j?.clock_in_at && !j?.clock_out_at ? j : null);
+    } catch {
+      setCurrent(null);
+    }
   }, [token]);
 
   const fetchHistory = useCallback(async () => {
     if (!token) return;
-    // Always scope to the current user's own records.
-    // Without userId, admins would receive all employees' records.
-    const jwt   = token ? JSON.parse(atob(token.split('.')[1])) : null;
-    const myId  = jwt?.sub;
-    const qs    = myId ? `?limit=200&userId=${myId}` : '?limit=200';
-    const res   = await fetch(`${API}/api/v1/attendance${qs}`, { headers: { Authorization: `Bearer ${token}` } });
-    const j     = await res.json();
-    setHistory(j.attendance || []);
+    try {
+      // Always scope to the current user's own records.
+      // Without userId, admins would receive all employees' records.
+      let myId: string | number | null = null;
+      try {
+        const jwt = JSON.parse(atob(token.split('.')[1]));
+        myId = jwt?.sub ?? null;
+      } catch { /* malformed token — fall back to no userId filter */ }
+      const qs  = myId ? `?limit=300&userId=${myId}` : '?limit=300';
+      const res = await fetch(`${API}/api/v1/attendance${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return;
+      const j = await res.json();
+      setHistory(j.attendance || []);
+    } catch {
+      setHistory([]);
+    }
   }, [token]);
 
   const fetchLeaveData = useCallback(async () => {
@@ -365,7 +383,12 @@ export default function AttendancePage() {
       if (reqRes.ok) setLeaveRequests((await reqRes.json()).requests || []);
       if (holRes.ok) {
         const hj = await holRes.json();
-        setHolidays((hj.holidays || []).map((h: { holiday_date: string }) => h.holiday_date.slice(0, 10)));
+        setHolidays(
+          (hj.holidays || []).map((h: { holiday_date: string; name: string }) => ({
+            date: h.holiday_date.slice(0, 10),
+            name: h.name,
+          })),
+        );
       }
     } catch { /* ignore */ }
   }, [token, viewYear]);
@@ -373,8 +396,13 @@ export default function AttendancePage() {
   const fetchAll = useCallback(async () => {
     if (!token) { setLoading(false); return; }
     setLoading(true);
-    await Promise.all([fetchCurrent(), fetchHistory(), fetchLeaveData()]);
-    setLoading(false);
+    try {
+      await Promise.all([fetchCurrent(), fetchHistory(), fetchLeaveData()]);
+    } catch {
+      /* individual fetches handle their own errors; this prevents an uncaught rejection */
+    } finally {
+      setLoading(false);
+    }
   }, [token, fetchCurrent, fetchHistory, fetchLeaveData]);
 
   useEffect(() => { fetchMe(); fetchAll(); fetchNetworkStatus(); }, [fetchMe, fetchAll, fetchNetworkStatus]);
@@ -501,41 +529,47 @@ export default function AttendancePage() {
 
   async function clockIn() {
     setBusy(true);
-    const res = await fetch(`${API}/api/v1/attendance/clockin`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body:    JSON.stringify({ note: 'Clock in via UI' }),
-    });
-    if (res.ok) {
-      const record = await res.json();
-      await fetchAll();
-      setPingCount(0);
-      // Always request + track location — required for off-network attendance review
-      await requestLocation(record?.id, 'Clock in');
-      startLocationInterval(record?.id);
-    } else {
-      let msg = 'Clock in failed';
-      try {
-        const j = await res.json();
-        msg = j.message || j.error || msg;
-      } catch { msg = await res.text() || msg; }
-      alert(msg);
+    try {
+      const res = await fetch(`${API}/api/v1/attendance/clockin`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({ note: 'Clock in via UI' }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        await fetchAll();
+        setPingCount(0);
+        // Always request + track location — required for off-network attendance review
+        await requestLocation(body?.id, 'Clock in');
+        startLocationInterval(body?.id);
+      } else {
+        alert(body?.message || body?.error || 'Clock in failed');
+      }
+    } catch {
+      alert('Clock in failed — check your connection');
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   }
 
   async function clockOut() {
     setBusy(true);
     // Stop auto-ping interval before clocking out
     if (locationRef.current) { clearInterval(locationRef.current); locationRef.current = null; }
-    const res = await fetch(`${API}/api/v1/attendance/clockout`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body:    JSON.stringify({ note: 'Clock out via UI' }),
-    });
-    if (res.ok) await fetchAll();
-    else alert('Clock out failed: ' + await res.text());
-    setBusy(false);
+    try {
+      const res  = await fetch(`${API}/api/v1/attendance/clockout`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({ note: 'Clock out via UI' }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) await fetchAll();
+      else alert(body?.message || body?.error || 'Clock out failed');
+    } catch {
+      alert('Clock out failed — check your connection');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handleManualCheckIn() {
@@ -579,9 +613,12 @@ export default function AttendancePage() {
     return s;
   }
 
-  // Build date → record map for O(1) calendar lookups
+  // Build date → record map for O(1) calendar lookups.
+  // History arrives newest-first (DESC created_at). Iterate oldest-first so that
+  // newer records (e.g. a 'leave' entry inserted when leave was approved) always
+  // overwrite older ones (e.g. the original clock-in record for the same date).
   const dayMap: Record<string, any> = {};
-  history.forEach(a => {
+  [...history].reverse().forEach(a => {
     const key = toDateKey(a.date);
     if (key) dayMap[key] = { ...a, _dateKey: key };
   });
@@ -608,7 +645,8 @@ export default function AttendancePage() {
   const daysInMonth    = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Sun
 
-  const selectedRecord = selectedDay ? dayMap[selectedDay] ?? null : null;
+  const selectedRecord  = selectedDay ? dayMap[selectedDay] ?? null : null;
+  const selectedHoliday = selectedDay ? holidays.find(h => h.date === selectedDay) ?? null : null;
   const initials       = me ? getInitials(me.name) : '?';
 
   const roleLabel = me?.role
@@ -934,7 +972,8 @@ export default function AttendancePage() {
               const isFuture   = dateStr > todayStr;
               const dow        = new Date(dateStr + 'T00:00:00').getDay();
               const isWeekend  = dow === 0 || dow === 6;
-              const isHoliday  = holidays.includes(dateStr);
+              const holidayObj = holidays.find(h => h.date === dateStr);
+              const isHoliday  = !!holidayObj;
               const isSelected = dateStr === selectedDay;
               const cfg        = record && !isFuture ? (STATUS_CONFIG[record.status] ?? STATUS_CONFIG.pending) : null;
 
@@ -945,6 +984,7 @@ export default function AttendancePage() {
                     'att-day',
                     isToday    ? 'att-today'    : '',
                     isWeekend  ? 'att-weekend'  : '',
+                    isHoliday  ? 'att-holiday'  : '',
                     isSelected ? 'att-selected' : '',
                   ].filter(Boolean).join(' ')}
                   onClick={() => setSelectedDay(isSelected ? null : dateStr)}
@@ -952,6 +992,11 @@ export default function AttendancePage() {
                   <div className="att-day-num-wrap">
                     <span className="att-day-num">{day}</span>
                   </div>
+                  {isHoliday && (
+                    <div className="att-holiday-badge" title={holidayObj?.name}>
+                      {holidayObj?.name || 'Holiday'}
+                    </div>
+                  )}
                   {cfg && (
                     <>
                       <div
@@ -964,9 +1009,6 @@ export default function AttendancePage() {
                         <div className="att-day-time">{fmtTime(record.clock_in_at)}</div>
                       )}
                     </>
-                  )}
-                  {!cfg && isHoliday && !isFuture && (
-                    <div className="att-holiday-badge">Holiday</div>
                   )}
                 </div>
               );
@@ -994,36 +1036,53 @@ export default function AttendancePage() {
 
         {/* ── Day detail panel ── */}
         <div className="att-detail">
-          {!selectedRecord ? (
+          {!selectedDay ? (
             <span className="att-detail-empty">Click on any day to view details</span>
           ) : (
             <div className="att-detail-grid">
               <div className="att-detail-item">
                 <label>Date</label>
-                <span>{fmtDate(selectedRecord.date)}</span>
+                <span>{fmtDate(selectedDay)}</span>
               </div>
-              <div className="att-detail-item">
-                <label>Status</label>
-                <span style={{ color: (STATUS_CONFIG[selectedRecord.status] ?? STATUS_CONFIG.pending).color }}>
-                  {(STATUS_CONFIG[selectedRecord.status] ?? STATUS_CONFIG.pending).label}
-                </span>
-              </div>
-              <div className="att-detail-item">
-                <label>Clock In</label>
-                <span>{fmtTime(selectedRecord.clock_in_at) || '—'}</span>
-              </div>
-              <div className="att-detail-item">
-                <label>Clock Out</label>
-                <span>{fmtTime(selectedRecord.clock_out_at) || '—'}</span>
-              </div>
-              <div className="att-detail-item">
-                <label>Duration</label>
-                <span>{fmtDuration(selectedRecord.duration_seconds)}</span>
-              </div>
-              {selectedRecord.note && (
+              {selectedHoliday && (
                 <div className="att-detail-item">
-                  <label>Note</label>
-                  <span style={{ fontSize: 12 }}>{selectedRecord.note}</span>
+                  <label>Holiday</label>
+                  <span style={{ color: '#f472b6' }}>{selectedHoliday.name}</span>
+                </div>
+              )}
+              {selectedRecord ? (
+                <>
+                  <div className="att-detail-item">
+                    <label>Status</label>
+                    <span style={{ color: (STATUS_CONFIG[selectedRecord.status] ?? STATUS_CONFIG.pending).color }}>
+                      {(STATUS_CONFIG[selectedRecord.status] ?? STATUS_CONFIG.pending).label}
+                    </span>
+                  </div>
+                  <div className="att-detail-item">
+                    <label>Clock In</label>
+                    <span>{fmtTime(selectedRecord.clock_in_at) || '—'}</span>
+                  </div>
+                  <div className="att-detail-item">
+                    <label>Clock Out</label>
+                    <span>{fmtTime(selectedRecord.clock_out_at) || '—'}</span>
+                  </div>
+                  <div className="att-detail-item">
+                    <label>Duration</label>
+                    <span>{fmtDuration(selectedRecord.duration_seconds)}</span>
+                  </div>
+                  {selectedRecord.note && (
+                    <div className="att-detail-item">
+                      <label>Note</label>
+                      <span style={{ fontSize: 12 }}>{selectedRecord.note}</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="att-detail-item" style={{ gridColumn: '1/-1' }}>
+                  <label>Status</label>
+                  <span style={{ color: '#6b7280' }}>
+                    {selectedDay > todayStr ? 'Not yet' : selectedHoliday ? 'Company holiday' : 'No record'}
+                  </span>
                 </div>
               )}
             </div>
