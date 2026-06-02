@@ -8,6 +8,7 @@ import {
   listEmployees,
   adminApprove,
   adminChangeRole,
+  adminCreateUser,
 } from '../controllers/authController';
 import { authMiddleware } from '../middlewares/auth';
 
@@ -52,6 +53,7 @@ router.get('/me',        authMiddleware, me);
 router.get('/employees', authMiddleware, listEmployees);
 
 // Admin-only routes
+router.post('/admin/users',               authMiddleware, adminCreateUser);
 router.post('/admin/users/:id/approve',   authMiddleware, adminApprove);
 router.patch('/admin/users/:id/role',     authMiddleware, adminChangeRole);
 

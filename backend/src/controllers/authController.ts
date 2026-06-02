@@ -267,6 +267,54 @@ export async function adminApprove(req: Request, res: Response) {
   }
 }
 
+// ─── Admin-only: create a fully verified + approved account directly ──────────
+export async function adminCreateUser(req: Request, res: Response) {
+  try {
+    const requester = (req as any).user;
+    if (!requester || requester.role !== 'admin')
+      return res.status(403).json({ error: 'Forbidden' });
+
+    const body = req.body || {};
+    const vName  = reqStr(body.name, 100);
+    const vEmail = reqEmail(body.email);
+    const rawPw  = typeof body.password === 'string' ? body.password : '';
+
+    const ALLOWED_ROLES = ['admin', 'attendance_admin', 'sales_admin', 'sales', 'service', 'employee'] as const;
+    const vRole = optEnum(body.role ?? 'employee', ALLOWED_ROLES);
+
+    const fieldErr = collectErrors({
+      name:     vName.error,
+      email:    vEmail.error,
+      password: !rawPw ? 'required' : rawPw.length > 128 ? 'too long (max 128)' : null,
+      role:     vRole.error,
+    });
+    if (fieldErr) return res.status(400).json({ error: fieldErr });
+
+    const name  = vName.value  as string;
+    const email = vEmail.value as string;
+    const role  = vRole.value  ?? 'employee';
+
+    const exists = await query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+    if ((exists as any).rowCount > 0)
+      return res.status(409).json({ error: 'Email already registered' });
+
+    const hash = await bcrypt.hash(rawPw, 12);
+
+    const r = await query(
+      `INSERT INTO users
+         (name, email, password_hash, is_verified, is_approved, role, created_at)
+       VALUES ($1, $2, $3, true, true, $4, now())
+       RETURNING id, name, email, role, is_verified, is_approved, created_at`,
+      [name, email, hash, role],
+    );
+    const user = (r as any).rows[0];
+    res.status(201).json({ message: 'Account created successfully', user });
+  } catch (err) {
+    console.error('[adminCreateUser]', err);
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+}
+
 // ─── Admin-only: change a user's role ─────────────────────────────────────────
 export async function adminChangeRole(req: Request, res: Response) {
   try {

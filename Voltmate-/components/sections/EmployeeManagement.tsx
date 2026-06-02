@@ -1,4 +1,4 @@
-import { Search, Plus } from 'lucide-react'
+import { Search, Plus, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { get, post, patch } from '@/src/api/client'
 
@@ -28,12 +28,19 @@ type Props = {
   role?: string | null
 }
 
+const EMPTY_FORM = { name: '', email: '', password: '', role: 'employee' as RoleValue }
+
 export default function EmployeeManagement({ role }: Props) {
-  const [employees, setEmployees]   = useState<Employee[]>([])
-  const [loading, setLoading]       = useState(false)
-  const [error, setError]           = useState<string | null>(null)
-  const [actingId, setActingId]     = useState<number | null>(null)
+  const [employees, setEmployees]       = useState<Employee[]>([])
+  const [loading, setLoading]           = useState(false)
+  const [error, setError]               = useState<string | null>(null)
+  const [actingId, setActingId]         = useState<number | null>(null)
   const [roleActingId, setRoleActingId] = useState<number | null>(null)
+  const [showModal, setShowModal]       = useState(false)
+  const [form, setForm]                 = useState(EMPTY_FORM)
+  const [formBusy, setFormBusy]         = useState(false)
+  const [formError, setFormError]       = useState<string | null>(null)
+  const [search, setSearch]             = useState('')
 
   async function loadEmployees() {
     setLoading(true)
@@ -81,6 +88,24 @@ export default function EmployeeManagement({ role }: Props) {
     }
   }
 
+  async function createEmployee(e: React.FormEvent) {
+    e.preventDefault()
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
+    if (!token) return
+    setFormBusy(true)
+    setFormError(null)
+    try {
+      await post('/auth/admin/users', form, token)
+      setShowModal(false)
+      setForm(EMPTY_FORM)
+      await loadEmployees()
+    } catch (err: any) {
+      setFormError(err?.message || 'Failed to create account')
+    } finally {
+      setFormBusy(false)
+    }
+  }
+
   function statusLabel(e: Employee): string {
     if (!e.is_verified) return 'Awaiting email verification'
     if (!e.is_approved) return 'Pending admin approval'
@@ -92,19 +117,107 @@ export default function EmployeeManagement({ role }: Props) {
     if (!e.is_approved) return 'bg-yellow-500/20 text-yellow-400'
     return 'bg-green-500/20 text-green-400'
   }
+  const filtered = employees.filter(e => {
+    if (!search.trim()) return true
+    const q = search.toLowerCase()
+    return e.name.toLowerCase().includes(q) || e.email.toLowerCase().includes(q) || (e.role || '').toLowerCase().includes(q)
+  })
+
   return (
     <div className="space-y-6">
-      {/* Header — wraps on mobile */}
+      {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Employee Management</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage your team members and their information</p>
         </div>
-        <button className="flex items-center gap-2 bg-gradient-to-r from-primary to-secondary text-primary-foreground px-4 py-2 sm:px-6 sm:py-3 rounded-lg hover:shadow-lg hover:shadow-primary/30 transition-all font-semibold text-sm">
-          <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-          <span>Add Employee</span>
-        </button>
+        {role === 'admin' && (
+          <button
+            onClick={() => { setShowModal(true); setFormError(null); setForm(EMPTY_FORM) }}
+            className="flex items-center gap-2 bg-gradient-to-r from-primary to-secondary text-primary-foreground px-4 py-2 sm:px-6 sm:py-3 rounded-lg hover:shadow-lg hover:shadow-primary/30 transition-all font-semibold text-sm"
+          >
+            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span>Add Employee</span>
+          </button>
+        )}
       </div>
+
+      {/* Create Employee Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-bold text-foreground">Add New Employee</h2>
+              <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={createEmployee} className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Full Name</label>
+                <input
+                  required
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g. Saheb Banerjee"
+                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Email</label>
+                <input
+                  required
+                  type="email"
+                  value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  placeholder="e.g. saheb@example.com"
+                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Password</label>
+                <input
+                  required
+                  type="password"
+                  value={form.password}
+                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  placeholder="Set a login password"
+                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Role</label>
+                <select
+                  value={form.role}
+                  onChange={e => setForm(f => ({ ...f, role: e.target.value as RoleValue }))}
+                  className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary"
+                >
+                  {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                </select>
+              </div>
+              {formError && (
+                <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">{formError}</p>
+              )}
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 px-4 py-2 text-sm font-semibold rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={formBusy}
+                  className="flex-1 px-4 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-primary to-secondary text-primary-foreground disabled:opacity-50 hover:shadow-lg transition-all"
+                >
+                  {formBusy ? 'Creating…' : 'Create Account'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Search Bar */}
       <div className="bg-card border border-border rounded-xl p-3 sm:p-4">
@@ -112,7 +225,9 @@ export default function EmployeeManagement({ role }: Props) {
           <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           <input
             type="text"
-            placeholder="Search employees by name, role..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search employees by name, email, role…"
             className="flex-1 bg-transparent border-none outline-none text-foreground placeholder-muted-foreground text-sm"
           />
         </div>
@@ -139,7 +254,7 @@ export default function EmployeeManagement({ role }: Props) {
               {error && (
                 <tr><td colSpan={6} className="px-6 py-8 text-center text-red-400 text-sm">{error}</td></tr>
               )}
-              {!loading && !error && employees.map((employee, index) => (
+              {!loading && !error && filtered.map((employee, index) => (
                 <tr key={employee.id} className={index !== employees.length - 1 ? 'border-b border-border' : ''}>
                   <td className="px-4 sm:px-6 py-3 sm:py-4 text-foreground font-medium text-sm">{employee.name}</td>
                   <td className="px-4 sm:px-6 py-3 sm:py-4 text-muted-foreground text-sm max-w-[160px] truncate">{role === 'admin' ? employee.email : 'Hidden'}</td>
