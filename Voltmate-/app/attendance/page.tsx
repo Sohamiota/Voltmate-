@@ -2,6 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+/** Returns an AbortSignal that fires after `ms` milliseconds. */
+function timeoutSignal(ms: number): AbortSignal {
+  if (typeof AbortSignal !== 'undefined' && (AbortSignal as any).timeout) {
+    return (AbortSignal as any).timeout(ms);
+  }
+  const ctrl = new AbortController();
+  setTimeout(() => ctrl.abort(), ms);
+  return ctrl.signal;
+}
+
 const API = (process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
     ? 'https://voltmate.onrender.com'
@@ -340,7 +350,10 @@ export default function AttendancePage() {
   const fetchCurrent = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${API}/api/v1/attendance/current`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API}/api/v1/attendance/current`, {
+        signal:  timeoutSignal(10_000),
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.status === 204) { setCurrent(null); return; }
       if (!res.ok) { setCurrent(null); return; }
       const j = await res.json();
@@ -362,7 +375,10 @@ export default function AttendancePage() {
         myId = jwt?.sub ?? null;
       } catch { /* malformed token — fall back to no userId filter */ }
       const qs  = myId ? `?limit=300&userId=${myId}` : '?limit=300';
-      const res = await fetch(`${API}/api/v1/attendance${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API}/api/v1/attendance${qs}`, {
+        signal:  timeoutSignal(12_000),
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) return;
       const j = await res.json();
       setHistory(j.attendance || []);
@@ -373,11 +389,14 @@ export default function AttendancePage() {
 
   const fetchLeaveData = useCallback(async () => {
     if (!token) return;
+    // Leave data is non-critical — use a generous timeout so a slow/cold backend
+    // never blocks the main attendance UI.
+    const sig = timeoutSignal(15_000);
     try {
       const [balRes, reqRes, holRes] = await Promise.all([
-        fetch(`${API}/api/v1/leave/balance`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API}/api/v1/leave`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API}/api/v1/leave/holidays?year=${viewYear}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/api/v1/leave/balance`,              { signal: sig, headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/api/v1/leave`,                      { signal: sig, headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/api/v1/leave/holidays?year=${viewYear}`, { signal: sig, headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (balRes.ok) setLeaveBalance((await balRes.json()).balance);
       if (reqRes.ok) setLeaveRequests((await reqRes.json()).requests || []);
@@ -390,16 +409,19 @@ export default function AttendancePage() {
           })),
         );
       }
-    } catch { /* ignore */ }
+    } catch { /* timeout or network error — leave panel shows gracefully degraded state */ }
   }, [token, viewYear]);
 
   const fetchAll = useCallback(async () => {
     if (!token) { setLoading(false); return; }
     setLoading(true);
+    // Leave data (balance, requests, holidays) is non-critical — fetch it in the
+    // background so a slow / cold backend never stalls the attendance UI.
+    fetchLeaveData();
     try {
-      await Promise.all([fetchCurrent(), fetchHistory(), fetchLeaveData()]);
+      await Promise.all([fetchCurrent(), fetchHistory()]);
     } catch {
-      /* individual fetches handle their own errors; this prevents an uncaught rejection */
+      /* individual fetches handle their own errors */
     } finally {
       setLoading(false);
     }
