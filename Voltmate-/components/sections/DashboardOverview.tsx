@@ -69,7 +69,7 @@ export default function DashboardOverview() {
       const now = new Date()
       const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
       const visitsRes = await fetch(
-        `${API_BASE}/api/v1/visits?limit=500`,
+        `${API_BASE}/api/v1/visits?limit=100000`,
         { headers: authHdr() }
       )
       let allVisits: any[] = []

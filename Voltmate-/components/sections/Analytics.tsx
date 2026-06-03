@@ -120,8 +120,8 @@ export default function Analytics() {
     try {
       const [empRes, attRes, leadRes] = await Promise.all([
         get('/auth/employees', token),
-        get(`/attendance?limit=500&startDate=${startDate}&endDate=${endDate}`, token),
-        get(`/leads?limit=500&startDate=${startDate}&endDate=${endDate}`, token),
+        get(`/attendance?limit=100000&startDate=${startDate}&endDate=${endDate}`, token),
+        get(`/leads?limit=100000&startDate=${startDate}&endDate=${endDate}`, token),
       ])
       setEmployees(empRes.employees || [])
       setAttendance(attRes.attendance || [])
