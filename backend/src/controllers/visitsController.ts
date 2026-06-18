@@ -336,6 +336,24 @@ export async function listVisits(req: Request, res: Response) {
   const { limit, offset } = parsePagination(req.query.limit, req.query.offset);
   try {
     await ensureVisitsCols();
+
+    // Optional date filter: ?visit_date_from=YYYY-MM-DD restricts to visits on or after that date.
+    // Used by the dashboard to fetch only the last 30 days instead of all-time data.
+    const rawFrom = req.query.visit_date_from;
+    const visitDateFrom = rawFrom && /^\d{4}-\d{2}-\d{2}$/.test(String(rawFrom))
+      ? String(rawFrom) : null;
+
+    const params: (string | number)[] = visitDateFrom
+      ? [visitDateFrom, limit, offset]
+      : [limit, offset];
+
+    const dateClause = visitDateFrom
+      ? `WHERE v.visit_date >= $1`
+      : '';
+
+    const limitPlaceholder  = visitDateFrom ? '$2' : '$1';
+    const offsetPlaceholder = visitDateFrom ? '$3' : '$2';
+
     const r = await query(
       `SELECT v.id, v.lead_id, v.lead_cust_code, v.salesperson_id, v.vehicle, v.status,
               v.visit_date, v.next_action, v.next_action_date, v.note, v.phone_no, v.phone_no_2,
@@ -357,9 +375,10 @@ ${VISIT_CRM_SQL},
        LEFT JOIN users  u  ON u.id  = v.salesperson_id
        LEFT JOIN users  uc ON uc.id = v.created_by
        LEFT JOIN users  uu ON uu.id = v.updated_by
+       ${dateClause}
        ORDER BY v.created_at DESC
-       LIMIT $1 OFFSET $2`,
-      [limit, offset],
+       LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}`,
+      params,
     );
     res.json({ visits: (r as any).rows, limit, offset });
   } catch (e) {

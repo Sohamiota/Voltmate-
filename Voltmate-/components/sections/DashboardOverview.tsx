@@ -66,10 +66,15 @@ export default function DashboardOverview() {
       }
 
       // 3. Visits this month (proxy for "Sales This Month")
+      // Fetch only the last 30 days — the dashboard chart and monthly count
+      // never need data older than that, so there is no reason to load the
+      // entire visits table on every page load.
       const now = new Date()
       const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+      const since30 = new Date(now); since30.setDate(now.getDate() - 30)
+      const since30Str = since30.toISOString().slice(0, 10)
       const visitsRes = await fetch(
-        `${API_BASE}/api/v1/visits?limit=100000`,
+        `${API_BASE}/api/v1/visits?limit=1000&visit_date_from=${since30Str}`,
         { headers: authHdr() }
       )
       let allVisits: any[] = []

@@ -138,7 +138,10 @@ export function parsePagination(
   offsetRaw: unknown,
   maxLimit = 100000,
 ): { limit: number; offset: number } {
-  const limit  = Math.min(Math.max(parseInt(String(limitRaw  ?? '100000'), 10) || 100000, 1), maxLimit);
+  // Default to 200 rows when no limit is supplied so a missing param never
+  // silently fetches the entire table. Callers that legitimately need more
+  // rows must pass an explicit limit (the hard ceiling is still maxLimit).
+  const limit  = Math.min(Math.max(parseInt(String(limitRaw  ?? '200'), 10) || 200, 1), maxLimit);
   const offset = Math.max(parseInt(String(offsetRaw ?? '0'),  10) || 0, 0);
   return { limit, offset };
 }

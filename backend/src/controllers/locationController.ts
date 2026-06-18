@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { query } from '../db';
-import { optStr, optDate, optId, optEnum } from '../utils/validate';
+import { optDate, optEnum, optId, optStr } from '../utils/validate';
 
 /** Who may view trails and team snapshots (read-only CRM / attendance oversight). */
 function canViewLocationTrails(role: string | undefined): boolean {
@@ -124,7 +124,7 @@ export async function getDayTrail(req: Request, res: Response) {
       `SELECT
          a.*,
          u.name  AS employee_name,
-         u.email AS employee_email
+         u.email  AS employee_email
        FROM attendance a
        LEFT JOIN users u ON u.id = a.user_id
        WHERE a.user_id = $1
