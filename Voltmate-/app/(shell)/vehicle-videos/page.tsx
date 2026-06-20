@@ -2,8 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { YouTubeVideo, YouTubePlaylistResponse } from '@/types/api';
+import { API_BASE, getStoredToken } from '@/src/api/client';
 
-const YT_API_KEY = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
+// YouTube calls are proxied through the backend so the API key is never
+// bundled into the client JS bundle or visible in browser DevTools.
+const YT_BASE = `${API_BASE.replace(/\/api\/v1\/?$/, '')}/api/v1/youtube`;
+function ytFetch(resource: string, params: Record<string, string>) {
+  const qs = new URLSearchParams(params).toString();
+  return fetch(`${YT_BASE}/${resource}?${qs}`, {
+    headers: { Authorization: `Bearer ${getStoredToken()}` },
+  });
+}
+
 const EULER_CHANNEL = '@EulerMotors';
 
 interface Video {
@@ -48,7 +58,7 @@ export default function VehicleVideosPage() {
 
   async function resolveChannelId(handle: string): Promise<string> {
     const clean = handle.startsWith('@') ? handle.slice(1) : handle;
-    const r = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=${clean}&key=${YT_API_KEY}`);
+    const r = await ytFetch('channels', { part: 'id', forHandle: clean });
     const d = await r.json();
     if (d.items?.[0]?.id) return d.items[0].id;
     throw new Error('Channel not found.');
@@ -59,21 +69,22 @@ export default function VehicleVideosPage() {
     setError(null);
     try {
       const channelId = await resolveChannelId(EULER_CHANNEL);
-      const chRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails&id=${channelId}&key=${YT_API_KEY}`);
+      const chRes = await ytFetch('channels', { part: 'snippet,contentDetails', id: channelId });
       const chData = await chRes.json();
       if (!chData.items?.length) throw new Error('Channel not found.');
       setChannelTitle(chData.items[0].snippet.title);
       const uploadsId: string = chData.items[0].contentDetails.relatedPlaylists.uploads;
 
-      const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsId}&maxResults=24&key=${YT_API_KEY}${pageToken ? `&pageToken=${pageToken}` : ''}`;
-      const plRes = await fetch(url);
+      const plParams: Record<string, string> = { part: 'snippet', playlistId: uploadsId, maxResults: '24' };
+      if (pageToken) plParams.pageToken = pageToken;
+      const plRes = await ytFetch('playlistItems', plParams);
       const plData: YouTubePlaylistResponse = await plRes.json();
       if ((plData as any).error) throw new Error((plData as any).error.message);
       if (!plData.items) return;
       setNextPageToken(plData.nextPageToken || null);
 
       const videoIds: string = plData.items.map((i: any) => i.snippet.resourceId.videoId).join(',');
-      const statsRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${videoIds}&key=${YT_API_KEY}`);
+      const statsRes = await ytFetch('videos', { part: 'statistics', id: videoIds });
       const statsData = await statsRes.json();
       const statsMap: Record<string, YouTubeVideo> = {};
       statsData.items?.forEach((v: YouTubeVideo) => { statsMap[(v as any).id] = v; });

@@ -15,19 +15,30 @@ function isAdmin(req: Request): boolean {
 export async function checkNetworkStatus(req: Request, res: Response) {
   try {
     const ip = getClientIp(req);
-    const r = await query(
-      'SELECT label, ip_cidr FROM allowed_networks WHERE is_active = true',
-      [],
-    );
-    const rows = (r as any).rows as Array<{ label: string; ip_cidr: string }>;
+    let rows: Array<{ label: string; ip_cidr: string }> = [];
+
+    try {
+      const r = await query(
+        'SELECT label, ip_cidr FROM allowed_networks WHERE is_active = true',
+        [],
+      );
+      rows = (r as any).rows;
+    } catch (dbErr: unknown) {
+      const msg = dbErr instanceof Error ? dbErr.message : String(dbErr);
+      if (/relation.*allowed_networks.*does not exist/i.test(msg)) {
+        // Table not yet created — return open-mode response, same as empty table
+        return res.json({ allowed: true, label: 'No restriction', ip, no_network_rules: true });
+      }
+      throw dbErr;
+    }
 
     if (rows.length === 0) {
-      // No networks configured — open mode, all IPs allowed
-      return res.json({ allowed: true, label: 'No restriction', ip });
+      // No active networks configured — open mode, all IPs allowed
+      return res.json({ allowed: true, label: 'No restriction', ip, no_network_rules: true });
     }
 
     const { allowed, label } = isIpAllowed(ip, rows);
-    return res.json({ allowed, label, ip });
+    return res.json({ allowed, label, ip, no_network_rules: false });
   } catch (e) {
     console.error('[checkNetworkStatus]', e);
     res.status(500).json({ error: 'failed' });

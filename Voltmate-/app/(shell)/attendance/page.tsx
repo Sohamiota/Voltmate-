@@ -156,22 +156,25 @@ export default function AttendancePage() {
     if (!token) return;
     try {
       const res = await fetch(`${API}/api/v1/networks/status`, {
+        signal:  timeoutSignal(12_000),
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const j = await res.json();
         setNetwork({
-          allowed: !!j.allowed,
-          label: j.label ?? null,
-          checked: true,
-          ip: typeof j.ip === 'string' ? j.ip : null,
+          allowed:          !!j.allowed,
+          label:            j.label ?? null,
+          checked:          true,
+          ip:               typeof j.ip === 'string' ? j.ip : null,
           no_network_rules: !!j.no_network_rules,
         });
       } else {
-        setNetwork({ allowed: false, label: null, checked: true, ip: null, no_network_rules: false });
+        // Non-OK response — treat as "status unknown, allow clock-in anyway"
+        setNetwork({ allowed: true, label: null, checked: true, ip: null, no_network_rules: true });
       }
     } catch {
-      setNetwork({ allowed: false, label: null, checked: true, ip: null, no_network_rules: false });
+      // Network / timeout error — don't block employees by showing "outside office"
+      setNetwork({ allowed: true, label: null, checked: true, ip: null, no_network_rules: true });
     }
   }, [token]);
 
@@ -617,10 +620,10 @@ export default function AttendancePage() {
           >
             <span className="w-2 h-2 rounded-full shrink-0" style={{ background: network.allowed ? '#22c55e' : '#f59e0b' }} />
             {network.no_network_rules
-              ? `No office IP whitelist yet — clock-in saves as pending. Server sees IP ${network.ip ?? '—'}; ask admin to add this to Allowed networks if you are on the office LAN.`
+              ? 'No office network restriction — attendance will be auto-approved'
               : network.allowed
                 ? `On office network${network.label ? ` · ${network.label}` : ''} — attendance will be auto-approved`
-                : `Outside office network${network.ip ? ` (${network.ip})` : ''} — attendance will be pending; location tracking helps approval`}
+                : `Outside office network${network.ip ? ` (${network.ip})` : ''} — you can still clock in, attendance will be sent for admin approval`}
           </div>
         )}
 
@@ -642,7 +645,12 @@ export default function AttendancePage() {
             </div>
           ) : (
             <>
-              <div className="text-[13px] text-zinc-400">{loading ? 'Loading…' : 'Not clocked in'}</div>
+              <div className="text-[13px] text-zinc-400">
+                {loading ? 'Loading…' : 'Not clocked in'}
+                {!loading && !network.allowed && network.checked && !network.no_network_rules && (
+                  <span className="ml-2 text-amber-400">(remote — will need approval)</span>
+                )}
+              </div>
               <button
                 className={`${btnBase} bg-green-500 text-white`}
                 onClick={clockIn}

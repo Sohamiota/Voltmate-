@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Users, TrendingUp, Clock, CheckCircle, CalendarDays } from 'lucide-react'
+import { Users, TrendingUp, Clock, CheckCircle, CalendarDays, WifiOff } from 'lucide-react'
 import StatCard from '@/components/StatCard'
 import RecentActivityCard from '@/components/RecentActivityCard'
 import ChartCard from '@/components/ChartCard'
@@ -11,13 +11,24 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
     ? 'https://voltmate.onrender.com'
     : 'http://localhost:8081')).replace(/\/api\/v1\/?$/, '')
 
+// Timeout for each individual request. 20 s covers a Render cold-start.
+const FETCH_TIMEOUT_MS = 20_000
+
 function tok() {
   if (typeof window === 'undefined') return ''
   return localStorage.getItem('auth_token') || ''
 }
 
-function authHdr() {
+function authHdr(): Record<string, string> {
   return { Authorization: `Bearer ${tok()}` }
+}
+
+/** fetch() wrapper that aborts after FETCH_TIMEOUT_MS */
+function apiFetch(url: string) {
+  return fetch(url, {
+    headers: authHdr(),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  })
 }
 
 // Build an array of {name, sales} for each day in the last N days
@@ -46,72 +57,95 @@ export default function DashboardOverview() {
   const [leaveFy,       setLeaveFy]       = useState<string | null>(null)
   const [chartData,     setChartData]     = useState<any[]>([])
   const [loading,       setLoading]       = useState(true)
+  const [backendError,  setBackendError]  = useState<string | null>(null)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
-    try {
-      // 1. Who's logged in
-      const meRes = await fetch(`${API_BASE}/api/v1/auth/me`, { headers: authHdr() })
-      if (meRes.ok) {
-        const mj = await meRes.json()
-        const n = mj.user?.name || mj.user?.email || 'Manager'
-        setUserName(n.split(' ')[0]) // first name only
-      }
+    setBackendError(null)
 
-      // 2. Employee count
-      const empRes = await fetch(`${API_BASE}/api/v1/auth/employees`, { headers: authHdr() })
-      if (empRes.ok) {
-        const ej = await empRes.json()
-        setEmpCount((ej.employees || []).length)
-      }
+    const now = new Date()
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    const since30 = new Date(now)
+    since30.setDate(now.getDate() - 30)
+    const since30Str = since30.toISOString().slice(0, 10)
 
-      // 3. Visits this month (proxy for "Sales This Month")
-      // Fetch only the last 30 days — the dashboard chart and monthly count
-      // never need data older than that, so there is no reason to load the
-      // entire visits table on every page load.
-      const now = new Date()
-      const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
-      const since30 = new Date(now); since30.setDate(now.getDate() - 30)
-      const since30Str = since30.toISOString().slice(0, 10)
-      const visitsRes = await fetch(
-        `${API_BASE}/api/v1/visits?limit=1000&visit_date_from=${since30Str}`,
-        { headers: authHdr() }
-      )
-      let allVisits: any[] = []
-      if (visitsRes.ok) {
-        const vj = await visitsRes.json()
-        allVisits = vj.visits || []
-        const monthVisits = allVisits.filter(v =>
-          (v.visit_date || '').slice(0, 10) >= monthStart
-        )
-        setVisitsMonth(monthVisits.length)
-      }
-      setChartData(buildDailySales(allVisits, 30))
+    // Fire all 5 requests in parallel — a slow/cold backend won't block
+    // individual cards from rendering as soon as their own data arrives.
+    const [meResult, empResult, visitsResult, statsResult, leaveResult] =
+      await Promise.allSettled([
+        apiFetch(`${API_BASE}/api/v1/auth/me`),
+        apiFetch(`${API_BASE}/api/v1/auth/employees`),
+        apiFetch(`${API_BASE}/api/v1/visits?limit=1000&visit_date_from=${since30Str}`),
+        apiFetch(`${API_BASE}/api/v1/attendance/stats`),
+        apiFetch(`${API_BASE}/api/v1/leave/balance`),
+      ])
 
-      // 4. Attendance stats (pending + rate)
-      const statsRes = await fetch(`${API_BASE}/api/v1/attendance/stats`, { headers: authHdr() })
-      if (statsRes.ok) {
-        const sj = await statsRes.json()
-        setPendingCount(sj.pending_count ?? null)
-        setAttendRate(sj.attendance_rate ?? null)
-      }
+    // Track how many endpoints actually responded so we can show an error
+    // banner if the backend is completely unreachable.
+    let successCount = 0
 
-      // 5. Leave balance
-      const leaveRes = await fetch(`${API_BASE}/api/v1/leave/balance`, { headers: authHdr() })
-      if (leaveRes.ok) {
-        const lj = await leaveRes.json()
-        const b = lj.balance
-        if (b) {
-          setLeaveCl(b.cl_available ?? null)
-          setLeaveSl(b.sl_available ?? null)
-          setLeaveFy(b.fy_label ?? null)
-        }
-      }
-    } catch (e) {
-      console.error('Dashboard fetch error', e)
-    } finally {
-      setLoading(false)
+    // 1. Who's logged in
+    if (meResult.status === 'fulfilled' && meResult.value.ok) {
+      successCount++
+      const mj = await meResult.value.json()
+      const n = mj.user?.name || mj.user?.email || 'Manager'
+      setUserName(n.split(' ')[0])
     }
+
+    // 2. Employee count
+    if (empResult.status === 'fulfilled' && empResult.value.ok) {
+      successCount++
+      const ej = await empResult.value.json()
+      setEmpCount((ej.employees || []).length)
+    }
+
+    // 3. Visits this month + chart
+    let allVisits: any[] = []
+    if (visitsResult.status === 'fulfilled' && visitsResult.value.ok) {
+      successCount++
+      const vj = await visitsResult.value.json()
+      allVisits = vj.visits || []
+      const monthVisits = allVisits.filter(v =>
+        (v.visit_date || '').slice(0, 10) >= monthStart
+      )
+      setVisitsMonth(monthVisits.length)
+    }
+    setChartData(buildDailySales(allVisits, 30))
+
+    // 4. Attendance stats
+    if (statsResult.status === 'fulfilled' && statsResult.value.ok) {
+      successCount++
+      const sj = await statsResult.value.json()
+      setPendingCount(sj.pending_count ?? null)
+      setAttendRate(sj.attendance_rate ?? null)
+    }
+
+    // 5. Leave balance
+    if (leaveResult.status === 'fulfilled' && leaveResult.value.ok) {
+      successCount++
+      const lj = await leaveResult.value.json()
+      const b = lj.balance
+      if (b) {
+        setLeaveCl(b.cl_available ?? null)
+        setLeaveSl(b.sl_available ?? null)
+        setLeaveFy(b.fy_label ?? null)
+      }
+    }
+
+    // Show a banner if every request failed (backend down / cold-starting)
+    if (successCount === 0) {
+      const isTimeout = [meResult, empResult, visitsResult, statsResult, leaveResult]
+        .some(r => r.status === 'rejected' && (r.reason as Error)?.name === 'TimeoutError')
+      setBackendError(
+        isTimeout
+          ? 'Backend is waking up (cold start). Retrying in 15 s…'
+          : 'Unable to reach the backend. Check your connection and try again.'
+      )
+      // Auto-retry once after 15 s for cold-start scenario
+      if (isTimeout) setTimeout(fetchAll, 15_000)
+    }
+
+    setLoading(false)
   }, [])
 
   useEffect(() => { fetchAll() }, [fetchAll])
@@ -121,6 +155,14 @@ export default function DashboardOverview() {
 
   return (
     <div className="space-y-8">
+
+      {/* Backend unreachable / cold-start banner */}
+      {backendError && (
+        <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 text-sm text-amber-400">
+          <WifiOff className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <span>{backendError}</span>
+        </div>
+      )}
 
       {/* Welcome Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">

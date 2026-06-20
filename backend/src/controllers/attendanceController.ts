@@ -9,27 +9,44 @@ export async function clockIn(req: Request, res: Response) {
     if (!userId) return res.status(401).json({ error: 'missing user' });
 
     // ── Network check ─────────────────────────────────────────────────────────
-    const clientIp       = getClientIp(req);
-    const netRows        = await query(
-      'SELECT label, ip_cidr FROM allowed_networks WHERE is_active = true', [],
-    );
-    const activeNetworks = (netRows as any).rows as Array<{ label: string; ip_cidr: string }>;
-
+    // Wrapped in its own try-catch so a missing/unrun migration (allowed_networks
+    // table not yet created in production) degrades gracefully to "open mode"
+    // instead of blocking all clock-ins with a 500.
+    const clientIp = getClientIp(req);
     let networkVerified = false;
     let networkLabel: string | null = null;
-    if (activeNetworks.length === 0) {
-      // No networks configured — clock-in is locked until admin sets up an office network
-      return res.status(403).json({
-        error: 'network_not_configured',
-        message: 'Clock-in is currently disabled. Please contact your administrator.',
-      });
+    let networkColumnsExist = true; // assume migration 009 has been applied
+
+    try {
+      const netRows        = await query(
+        'SELECT label, ip_cidr FROM allowed_networks WHERE is_active = true', [],
+      );
+      const activeNetworks = (netRows as any).rows as Array<{ label: string; ip_cidr: string }>;
+
+      if (activeNetworks.length === 0) {
+        // No networks configured — open mode: auto-approve so employees aren't locked out
+        networkVerified = true;
+        networkLabel    = null;
+      } else {
+        const check = isIpAllowed(clientIp, activeNetworks);
+        if (check.allowed) {
+          networkVerified = true;
+          networkLabel    = check.label;
+        }
+        // Off-network: allowed but status = 'pending', admin reviews location trail
+      }
+    } catch (netErr: unknown) {
+      // allowed_networks table doesn't exist yet (migration not run) — treat as open mode
+      const msg = netErr instanceof Error ? netErr.message : String(netErr);
+      if (/relation.*allowed_networks.*does not exist/i.test(msg) ||
+          /column.*network_verified.*does not exist/i.test(msg)) {
+        console.warn('[clockIn] allowed_networks table missing — running in open mode until migration is applied');
+        networkVerified      = true;
+        networkColumnsExist  = false;
+      } else {
+        throw netErr; // unexpected DB error — rethrow
+      }
     }
-    const check = isIpAllowed(clientIp, activeNetworks);
-    if (check.allowed) {
-      networkVerified = true;
-      networkLabel    = check.label;
-    }
-    // Off-network: allowed through but status = 'pending', admin reviews location trail
 
     // ── Guard duplicate open session ───────────────────────────────────────────
     const open = await query(
@@ -48,24 +65,39 @@ export async function clockIn(req: Request, res: Response) {
     const tz       = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
 
     // ── Insert ─────────────────────────────────────────────────────────────────
-    // On-network → auto-approve immediately; off-network → pending, needs trail review
-    const r = networkVerified
-      ? await query(
-          `INSERT INTO attendance
-             (user_id, clock_in_at, date, timezone, location, note,
-              needs_approval, clock_in_ip, network_verified, status, approved_at, created_at)
-           VALUES ($1, now(), CURRENT_DATE, $2, $3, $4, false, $5, true, 'approved', now(), now())
-           RETURNING *`,
-          [userId, tz, location, vNote.value, clientIp],
-        )
-      : await query(
-          `INSERT INTO attendance
-             (user_id, clock_in_at, date, timezone, location, note,
-              needs_approval, clock_in_ip, network_verified, status, created_at)
-           VALUES ($1, now(), CURRENT_DATE, $2, $3, $4, true, $5, false, 'pending', now())
-           RETURNING *`,
-          [userId, tz, location, vNote.value, clientIp],
-        );
+    // If the network columns don't exist yet (migration pending) use the legacy
+    // insert so the clock-in still succeeds.
+    let r;
+    if (!networkColumnsExist) {
+      r = await query(
+        `INSERT INTO attendance
+           (user_id, clock_in_at, date, timezone, location, note,
+            needs_approval, status, created_at)
+         VALUES ($1, now(), CURRENT_DATE, $2, $3, $4, false, 'approved', now())
+         RETURNING *`,
+        [userId, tz, location, vNote.value],
+      );
+    } else if (networkVerified) {
+      // On-network (or open mode) → auto-approve immediately
+      r = await query(
+        `INSERT INTO attendance
+           (user_id, clock_in_at, date, timezone, location, note,
+            needs_approval, clock_in_ip, network_verified, status, approved_at, created_at)
+         VALUES ($1, now(), CURRENT_DATE, $2, $3, $4, false, $5, true, 'approved', now(), now())
+         RETURNING *`,
+        [userId, tz, location, vNote.value, clientIp],
+      );
+    } else {
+      // Off-network → pending, admin reviews location trail
+      r = await query(
+        `INSERT INTO attendance
+           (user_id, clock_in_at, date, timezone, location, note,
+            needs_approval, clock_in_ip, network_verified, status, created_at)
+         VALUES ($1, now(), CURRENT_DATE, $2, $3, $4, true, $5, false, 'pending', now())
+         RETURNING *`,
+        [userId, tz, location, vNote.value, clientIp],
+      );
+    }
 
     res.status(201).json((r as any).rows[0]);
   } catch (e) {
@@ -197,10 +229,8 @@ export async function attendanceStats(req: Request, res: Response) {
       FROM attendance
       WHERE user_id=$1 AND date BETWEEN $2 AND $3
     `;
-    console.log('attendanceStats params', { userId, startDate, endDate });
     const r = await query(statsSql, [userId, startDate, endDate]);
     const row = (r as any).rows[0];
-    console.log('attendanceStats row', row);
     try {
       const totalSeconds = parseInt(row.total_seconds || '0', 10);
       const totalHours = +(totalSeconds / 3600).toFixed(2);
