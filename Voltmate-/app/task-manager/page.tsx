@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Task } from '@/types/api';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
@@ -10,16 +11,22 @@ const API = (process.env.NEXT_PUBLIC_API_URL ||
 const STATUSES = ['Just Assigned', 'Under Process', 'Completed'] as const;
 type Status = typeof STATUSES[number];
 
-const STATUS_COLOR: Record<Status, string> = {
-  'Just Assigned': 'bg-blue-500/12 text-blue-400 border-blue-500/25',
-  'Under Process': 'bg-yellow-500/12 text-yellow-400 border-yellow-500/25',
-  'Completed':     'bg-green-500/12 text-green-400 border-green-500/25',
-};
+function badgeClass(s: string): string {
+  if (s === 'Completed')     return 'bg-green-500/[.12] text-green-500 border-green-500/25';
+  if (s === 'Under Process') return 'bg-amber-400/[.12] text-amber-400 border-amber-400/25';
+  return                            'bg-blue-400/[.12] text-blue-400 border-blue-400/25';
+}
 
-function approvalStyle(s: string): React.CSSProperties {
-  if (s === 'Approved') return { background: 'rgba(34,197,94,.13)',  color: '#22c55e', borderColor: 'rgba(34,197,94,.3)' };
-  if (s === 'Rejected') return { background: 'rgba(239,68,68,.12)',  color: '#ef4444', borderColor: 'rgba(239,68,68,.28)' };
-  return                       { background: 'rgba(251,191,36,.12)', color: '#fbbf24', borderColor: 'rgba(251,191,36,.28)' };
+function approvalClass(s: string): string {
+  if (s === 'Approved') return 'bg-green-500/[.13] text-green-500 border-green-500/30';
+  if (s === 'Rejected') return 'bg-red-500/[.12] text-red-500 border-red-500/[.28]';
+  return                       'bg-amber-400/[.12] text-amber-400 border-amber-400/[.28]';
+}
+
+function selectClass(s: string): string {
+  if (s === 'Completed')     return 'border-green-500/40 text-green-500';
+  if (s === 'Under Process') return 'border-amber-400/40 text-amber-400';
+  return                            'border-blue-400/40 text-blue-400';
 }
 
 function tok() {
@@ -43,8 +50,8 @@ function todayISO() {
 
 export default function TaskManagerPage() {
   const [me,           setMe]           = useState<{ name: string; email: string } | null>(null);
-  const [todayTask,    setTodayTask]    = useState<any>(null);
-  const [tasks,        setTasks]        = useState<any[]>([]);
+  const [todayTask,    setTodayTask]    = useState<Task | null>(null);
+  const [tasks,        setTasks]        = useState<Task[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [saving,       setSaving]       = useState(false);
   const [description,  setDescription]  = useState('');
@@ -55,13 +62,13 @@ export default function TaskManagerPage() {
   const [errorMsg,     setErrorMsg]     = useState('');
 
   // Edit modal
-  const [editTask,     setEditTask]     = useState<any>(null);
+  const [editTask,     setEditTask]     = useState<Task | null>(null);
   const [editDesc,     setEditDesc]     = useState('');
   const [editStatus,   setEditStatus]   = useState<Status>('Just Assigned');
   const [editSaving,   setEditSaving]   = useState(false);
 
   // History modal
-  const [histTask,     setHistTask]     = useState<any>(null);
+  const [histTask,     setHistTask]     = useState<Task | null>(null);
   const [history,      setHistory]      = useState<any[]>([]);
   const [histLoading,  setHistLoading]  = useState(false);
 
@@ -119,7 +126,7 @@ export default function TaskManagerPage() {
   }
 
   // ── Inline status change from table ───────────────────────────────────────
-  async function handleStatusChange(task: any, newStatus: Status) {
+  async function handleStatusChange(task: Task, newStatus: Status) {
     const r = await fetch(`${API}/api/v1/tasks/${task.id}`, {
       method: 'PATCH',
       headers: authHdr({ 'Content-Type': 'application/json' }),
@@ -135,7 +142,7 @@ export default function TaskManagerPage() {
   async function handleEditSave() {
     if (!editDesc.trim()) return;
     setEditSaving(true);
-    const r = await fetch(`${API}/api/v1/tasks/${editTask.id}`, {
+    const r = await fetch(`${API}/api/v1/tasks/${editTask!.id}`, {
       method: 'PATCH',
       headers: authHdr({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ description: editDesc.trim(), status: editStatus }),
@@ -143,13 +150,13 @@ export default function TaskManagerPage() {
     if (r.ok) {
       setEditTask(null);
       await fetchList();
-      if (editTask.task_date === todayISO()) await fetchToday();
+      if (editTask!.task_date === todayISO()) await fetchToday();
     }
     setEditSaving(false);
   }
 
   // ── History modal ──────────────────────────────────────────────────────────
-  async function openHistory(task: any) {
+  async function openHistory(task: Task) {
     setHistTask(task); setHistLoading(true); setHistory([]);
     const r = await fetch(`${API}/api/v1/tasks/${task.id}/history`, { headers: authHdr() });
     if (r.ok) { const j = await r.json(); setHistory(j.history || []); }
@@ -169,31 +176,31 @@ export default function TaskManagerPage() {
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#e5e5e5', fontFamily: "'Inter',system-ui,sans-serif", padding: 'clamp(16px, 4vw, 28px) clamp(12px, 4vw, 24px)' }}>
+    <div className="min-h-screen bg-zinc-950 text-zinc-200 font-sans p-4 sm:p-6 lg:p-7">
 
       {/* ── Header ── */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ fontSize: 26, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Task Manager</div>
-        <div style={{ fontSize: 13, color: '#9ca3af' }}>
+      <div className="mb-7">
+        <div className="text-[26px] font-bold text-white mb-1">Task Manager</div>
+        <div className="text-[13px] text-zinc-400">
           {me ? `${me.name} · ${me.email} · ` : ''}{today}
         </div>
       </div>
 
       {/* ── Today's Task Card ── */}
-      <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 14, padding: '24px', marginBottom: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+      <div className="bg-zinc-900 border border-zinc-800 rounded-[14px] p-6 mb-7">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2.5">
           <div>
-            <div style={{ fontWeight: 600, fontSize: 15, color: '#fff' }}>
+            <div className="font-semibold text-[15px] text-white">
               {todayTask ? "Today's Task (already saved — you can update it)" : "Enter Today's Task"}
             </div>
-            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>One task entry per day. Saving again will update and log the edit.</div>
+            <div className="text-xs text-zinc-500 mt-0.5">One task entry per day. Saving again will update and log the edit.</div>
           </div>
           {todayTask && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ padding: '3px 12px', borderRadius: 8, fontSize: 12, border: '1px solid', ...badgeInline(todayTask.status) }}>
+            <div className="flex gap-2 flex-wrap items-center">
+              <span className={`px-3 py-0.5 rounded-lg text-xs border ${badgeClass(todayTask.status)}`}>
                 {todayTask.status}
               </span>
-              <span style={{ padding: '3px 12px', borderRadius: 8, fontSize: 12, border: '1px solid', fontWeight: 600, ...approvalStyle(todayTask.approval_status || 'Pending') }}>
+              <span className={`px-3 py-0.5 rounded-lg text-xs border font-semibold ${approvalClass(todayTask.approval_status || 'Pending')}`}>
                 {todayTask.approval_status || 'Pending'}
               </span>
             </div>
@@ -206,18 +213,16 @@ export default function TaskManagerPage() {
           onChange={e => setDescription(e.target.value)}
           rows={4}
           placeholder="Describe what you're working on today…"
-          style={{ width: '100%', background: '#111', border: '1px solid #333', borderRadius: 8, padding: '12px 14px', color: '#e5e5e5', fontSize: 14, resize: 'vertical', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box' }}
-          onFocus={e => (e.target.style.borderColor = '#00d9ff')}
-          onBlur={e => (e.target.style.borderColor = '#333')}
+          className="w-full bg-[#111] border border-[#333] rounded-lg px-3.5 py-3 text-zinc-200 text-sm resize-y outline-none leading-relaxed box-border focus:border-cyan-400 transition-colors"
         />
 
-        <div style={{ display: 'flex', gap: 12, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="flex gap-3 mt-3.5 flex-wrap items-center">
           <div>
-            <label style={{ fontSize: 12, color: '#9ca3af', display: 'block', marginBottom: 4 }}>Status</label>
+            <label className="text-xs text-zinc-400 block mb-1">Status</label>
             <select
               value={status}
               onChange={e => setStatus(e.target.value as Status)}
-              style={{ background: '#111', border: '1px solid #333', borderRadius: 8, padding: '8px 14px', color: '#e5e5e5', fontSize: 13, outline: 'none', cursor: 'pointer' }}
+              className="bg-[#111] border border-[#333] rounded-lg py-2 px-3.5 text-zinc-200 text-[13px] outline-none cursor-pointer"
             >
               {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -226,33 +231,31 @@ export default function TaskManagerPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            style={{ marginTop: 20, padding: '9px 24px', background: '#00d9ff', color: '#0a0a0a', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
+            className={`mt-5 px-6 py-2.5 bg-cyan-400 text-zinc-950 border-none rounded-lg font-semibold text-sm ${saving ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
           >
             {saving ? 'Saving…' : todayTask ? 'Update Task' : 'Save Task'}
           </button>
         </div>
 
-        {successMsg && <div style={{ marginTop: 12, color: '#22c55e', fontSize: 13 }}>{successMsg}</div>}
-        {errorMsg   && <div style={{ marginTop: 12, color: '#ef4444', fontSize: 13 }}>{errorMsg}</div>}
+        {successMsg && <div className="mt-3 text-green-500 text-[13px]">{successMsg}</div>}
+        {errorMsg   && <div className="mt-3 text-red-500 text-[13px]">{errorMsg}</div>}
       </div>
 
       {/* ── Task History Table ── */}
-      <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 14, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid #2a2a2a', flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ fontWeight: 600, fontSize: 15, color: '#fff' }}>Task History</div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <div className="bg-zinc-900 border border-zinc-800 rounded-[14px] overflow-hidden">
+        <div className="flex justify-between items-center px-6 py-[18px] border-b border-zinc-800 flex-wrap gap-3">
+          <div className="font-semibold text-[15px] text-white">Task History</div>
+          <div className="flex gap-2.5 flex-wrap">
             <input
               placeholder="Search tasks…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              style={{ background: '#111', border: '1px solid #333', borderRadius: 8, padding: '7px 13px', color: '#e5e5e5', fontSize: 13, outline: 'none', width: 200 }}
-              onFocus={e => (e.target.style.borderColor = '#00d9ff')}
-              onBlur={e => (e.target.style.borderColor = '#333')}
+              className="bg-[#111] border border-[#333] rounded-lg py-1.5 px-3 text-zinc-200 text-[13px] outline-none w-[200px] focus:border-cyan-400 transition-colors"
             />
             <select
               value={filterStatus}
               onChange={e => setFilterStatus(e.target.value)}
-              style={{ background: '#111', border: '1px solid #333', borderRadius: 8, padding: '7px 13px', color: '#e5e5e5', fontSize: 13, outline: 'none', cursor: 'pointer' }}
+              className="bg-[#111] border border-[#333] rounded-lg py-1.5 px-3 text-zinc-200 text-[13px] outline-none cursor-pointer"
             >
               <option value="all">All Statuses</option>
               {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -260,24 +263,24 @@ export default function TaskManagerPage() {
             <button
               onClick={fetchAll}
               disabled={loading}
-              style={{ padding: '7px 16px', background: 'transparent', border: '1px solid #333', borderRadius: 8, color: '#9ca3af', fontSize: 13, cursor: 'pointer' }}
+              className="py-1.5 px-4 bg-transparent border border-[#333] rounded-lg text-zinc-400 text-[13px] cursor-pointer"
             >
               {loading ? 'Loading…' : 'Refresh'}
             </button>
           </div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div className="overflow-x-auto">
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '50px 20px', color: '#6b7280' }}>Loading tasks…</div>
+            <div className="text-center py-[50px] px-5 text-zinc-500">Loading tasks…</div>
           ) : filtered.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '50px 20px', color: '#6b7280' }}>No tasks found.</div>
+            <div className="text-center py-[50px] px-5 text-zinc-500">No tasks found.</div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+            <table className="w-full border-collapse min-w-[700px]">
               <thead>
-                <tr style={{ borderBottom: '1px solid #2a2a2a' }}>
+                <tr className="border-b border-zinc-800">
                   {['#', 'Date', 'Employee', 'Task Description', 'Status', 'Approval', 'Last Updated', 'Edits', 'Actions'].map(h => (
-                    <th key={h} style={{ padding: '11px 16px', textAlign: 'left', color: '#9ca3af', fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
+                    <th key={h} className="px-4 py-[11px] text-left text-zinc-400 text-[11px] font-medium uppercase tracking-[0.5px] whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -285,69 +288,54 @@ export default function TaskManagerPage() {
               </thead>
               <tbody>
                 {filtered.map((t, i) => (
-                  <tr key={t.id} style={{ borderBottom: '1px solid #1f1f1f', transition: 'background .12s' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#1f1f1f')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                    <td style={{ padding: '14px 16px', color: '#6b7280', fontSize: 12 }}>{i + 1}</td>
-                    <td style={{ padding: '14px 16px', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}>
+                  <tr key={t.id} className="border-b border-[#1f1f1f] transition-colors duration-[120ms] hover:bg-[#1f1f1f]">
+                    <td className="px-4 py-3.5 text-zinc-500 text-xs">{i + 1}</td>
+                    <td className="px-4 py-3.5 font-semibold text-[13px] whitespace-nowrap">
                       {fmtDate(t.task_date)}
                       {t.task_date === todayISO() && (
-                        <span style={{ marginLeft: 6, fontSize: 10, padding: '2px 6px', background: 'rgba(0,217,255,.12)', color: '#00d9ff', borderRadius: 4, border: '1px solid rgba(0,217,255,.25)' }}>TODAY</span>
+                        <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-cyan-400/[.12] text-cyan-400 rounded border border-cyan-400/25">TODAY</span>
                       )}
                     </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <div style={{ fontWeight: 500, fontSize: 13, color: '#fff' }}>{t.employee_name || '—'}</div>
-                      <div style={{ fontSize: 11, color: '#6b7280' }}>{t.employee_email || ''}</div>
+                    <td className="px-4 py-3.5">
+                      <div className="font-medium text-[13px] text-white">{t.employee_name || '—'}</div>
+                      <div className="text-[11px] text-zinc-500">{t.employee_email || ''}</div>
                     </td>
-                    <td style={{ padding: '14px 16px', maxWidth: 280 }}>
-                      <div style={{ fontSize: 13, color: '#e5e5e5', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{t.description}</div>
+                    <td className="px-4 py-3.5 max-w-[280px]">
+                      <div className="text-[13px] text-zinc-200 whitespace-pre-wrap break-words">{t.description}</div>
                     </td>
-                    <td style={{ padding: '14px 16px' }}>
+                    <td className="px-4 py-3.5">
                       {/* Inline status dropdown */}
                       <select
                         value={t.status}
                         onChange={e => handleStatusChange(t, e.target.value as Status)}
-                        style={{
-                          background: 'transparent',
-                          border: '1px solid',
-                          borderRadius: 6,
-                          padding: '3px 8px',
-                          fontSize: 12,
-                          cursor: 'pointer',
-                          outline: 'none',
-                          ...selectInline(t.status),
-                        }}
+                        className={`bg-transparent border rounded-md px-2 py-0.5 text-xs cursor-pointer outline-none ${selectClass(t.status)}`}
                       >
-                        {STATUSES.map(s => <option key={s} value={s} style={{ background: '#1a1a1a', color: '#e5e5e5' }}>{s}</option>)}
+                        {STATUSES.map(s => <option key={s} value={s} className="bg-zinc-900 text-zinc-200">{s}</option>)}
                       </select>
                     </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center',
-                        padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                        border: '1px solid', ...approvalStyle(t.approval_status || 'Pending'),
-                      }}>
+                    <td className="px-4 py-3.5">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${approvalClass(t.approval_status || 'Pending')}`}>
                         {t.approval_status || 'Pending'}
                       </span>
                       {t.approved_by_name && (
-                        <div style={{ fontSize: 10, color: '#6b7280', marginTop: 3 }}>by {t.approved_by_name}</div>
+                        <div className="text-[10px] text-zinc-500 mt-0.5">by {t.approved_by_name}</div>
                       )}
                     </td>
-                    <td style={{ padding: '14px 16px', fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap' }}>
-                      {fmtTs(t.updated_at || t.created_at)}
+                    <td className="px-4 py-3.5 text-xs text-zinc-400 whitespace-nowrap">
+                      {fmtTs(t.updated_at || t.created_at || '')}
                     </td>
-                    <td style={{ padding: '14px 16px' }}>
+                    <td className="px-4 py-3.5">
                       <button
                         onClick={() => openHistory(t)}
-                        style={{ padding: '4px 12px', background: 'rgba(124,58,237,.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,.25)', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}
+                        className="px-3 py-1 bg-violet-600/[.12] text-violet-400 border border-violet-600/25 rounded-md text-xs cursor-pointer"
                       >
                         History
                       </button>
                     </td>
-                    <td style={{ padding: '14px 16px' }}>
+                    <td className="px-4 py-3.5">
                       <button
                         onClick={() => { setEditTask(t); setEditDesc(t.description); setEditStatus(t.status as Status); }}
-                        style={{ padding: '4px 14px', background: 'rgba(0,217,255,.12)', color: '#00d9ff', border: '1px solid rgba(0,217,255,.25)', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}
+                        className="px-3.5 py-1 bg-cyan-400/[.12] text-cyan-400 border border-cyan-400/25 rounded-md text-xs cursor-pointer"
                       >
                         Edit
                       </button>
@@ -362,38 +350,36 @@ export default function TaskManagerPage() {
 
       {/* ── Edit Modal ── */}
       {editTask && (
-        <div style={overlayStyle} onClick={e => e.target === e.currentTarget && setEditTask(null)}>
-          <div style={modalStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+        <div className="fixed inset-0 bg-black/75 z-[100] flex items-start justify-center p-4 overflow-y-auto" onClick={e => e.target === e.currentTarget && setEditTask(null)}>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-[14px] p-5 w-full max-w-[520px] relative my-auto">
+            <div className="flex justify-between items-center mb-[18px]">
               <div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: '#fff' }}>Edit Task</div>
-                <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{fmtDate(editTask.task_date)} · {editTask.employee_name}</div>
+                <div className="font-bold text-base text-white">Edit Task</div>
+                <div className="text-xs text-zinc-400 mt-0.5">{fmtDate(editTask.task_date)} · {editTask.employee_name}</div>
               </div>
-              <button onClick={() => setEditTask(null)} style={closeBtnStyle}>Close</button>
+              <button onClick={() => setEditTask(null)} className="bg-transparent border-none text-zinc-400 cursor-pointer text-base px-2 py-1">Close</button>
             </div>
 
-            <label style={labelStyle}>Task Description</label>
+            <label className="text-xs text-zinc-400 block mb-1.5">Task Description</label>
             <textarea
               value={editDesc}
               onChange={e => setEditDesc(e.target.value)}
               rows={5}
-              style={{ ...inputStyle, resize: 'vertical' as const }}
-              onFocus={e => (e.target.style.borderColor = '#00d9ff')}
-              onBlur={e => (e.target.style.borderColor = '#333')}
+              className="w-full bg-[#111] border border-[#333] rounded-lg py-2.5 px-3 text-zinc-200 text-[13px] outline-none box-border resize-y focus:border-cyan-400 transition-colors"
             />
 
-            <label style={{ ...labelStyle, marginTop: 14 }}>Status</label>
+            <label className="text-xs text-zinc-400 block mb-1.5 mt-3.5">Status</label>
             <select
               value={editStatus}
               onChange={e => setEditStatus(e.target.value as Status)}
-              style={{ ...inputStyle, cursor: 'pointer' }}
+              className="w-full bg-[#111] border border-[#333] rounded-lg py-2.5 px-3 text-zinc-200 text-[13px] outline-none box-border cursor-pointer"
             >
               {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
 
-            <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
-              <button onClick={() => setEditTask(null)} style={cancelBtnStyle}>Cancel</button>
-              <button onClick={handleEditSave} disabled={editSaving} style={saveBtnStyle}>
+            <div className="flex gap-2.5 mt-5 justify-end">
+              <button onClick={() => setEditTask(null)} className="py-2.5 px-5 bg-transparent border border-[#374151] rounded-lg text-zinc-400 text-[13px] cursor-pointer">Cancel</button>
+              <button onClick={handleEditSave} disabled={editSaving} className="py-2.5 px-6 bg-cyan-400 border-none rounded-lg text-zinc-950 font-semibold text-[13px] cursor-pointer">
                 {editSaving ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
@@ -403,46 +389,46 @@ export default function TaskManagerPage() {
 
       {/* ── History Modal ── */}
       {histTask && (
-        <div style={overlayStyle} onClick={e => e.target === e.currentTarget && setHistTask(null)}>
-          <div style={{ ...modalStyle, maxWidth: 640 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+        <div className="fixed inset-0 bg-black/75 z-[100] flex items-start justify-center p-4 overflow-y-auto" onClick={e => e.target === e.currentTarget && setHistTask(null)}>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-[14px] p-5 w-full max-w-[640px] relative my-auto">
+            <div className="flex justify-between items-center mb-[18px]">
               <div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: '#fff' }}>Edit History</div>
-                <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{fmtDate(histTask.task_date)} · {histTask.employee_name}</div>
+                <div className="font-bold text-base text-white">Edit History</div>
+                <div className="text-xs text-zinc-400 mt-0.5">{fmtDate(histTask.task_date)} · {histTask.employee_name}</div>
               </div>
-              <button onClick={() => setHistTask(null)} style={closeBtnStyle}>Close</button>
+              <button onClick={() => setHistTask(null)} className="bg-transparent border-none text-zinc-400 cursor-pointer text-base px-2 py-1">Close</button>
             </div>
 
             {histLoading ? (
-              <div style={{ textAlign: 'center', padding: 30, color: '#9ca3af' }}>Loading…</div>
+              <div className="text-center p-[30px] text-zinc-400">Loading…</div>
             ) : history.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 30, color: '#6b7280', fontSize: 14 }}>No edits recorded for this task.</div>
+              <div className="text-center p-[30px] text-zinc-500 text-sm">No edits recorded for this task.</div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 400, overflowY: 'auto' }}>
+              <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto">
                 {history.map((h, i) => (
-                  <div key={h.id} style={{ background: '#111', border: '1px solid #2a2a2a', borderRadius: 10, padding: '14px 16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <span style={{ fontSize: 12, color: '#9ca3af' }}>Edit #{history.length - i} by <strong style={{ color: '#e5e5e5' }}>{h.edited_by_name || 'Unknown'}</strong></span>
-                      <span style={{ fontSize: 11, color: '#6b7280' }}>{fmtTs(h.edited_at)}</span>
+                  <div key={h.id} className="bg-[#111] border border-zinc-800 rounded-[10px] px-4 py-3.5">
+                    <div className="flex justify-between mb-2.5">
+                      <span className="text-xs text-zinc-400">Edit #{history.length - i} by <strong className="text-zinc-200">{h.edited_by_name || 'Unknown'}</strong></span>
+                      <span className="text-[11px] text-zinc-500">{fmtTs(h.edited_at)}</span>
                     </div>
                     {h.old_description !== h.new_description && (
-                      <div style={{ marginBottom: 8 }}>
-                        <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Description</div>
-                        <div style={{ fontSize: 12, color: '#ef4444', background: 'rgba(239,68,68,.06)', padding: '6px 10px', borderRadius: 6, marginBottom: 4 }}>
-                          <span style={{ color: '#6b7280' }}>Before: </span>{h.old_description}
+                      <div className="mb-2">
+                        <div className="text-[11px] text-zinc-400 mb-1 uppercase tracking-[0.5px]">Description</div>
+                        <div className="text-xs text-red-500 bg-red-500/[.06] px-2.5 py-1.5 rounded-md mb-1">
+                          <span className="text-zinc-500">Before: </span>{h.old_description}
                         </div>
-                        <div style={{ fontSize: 12, color: '#22c55e', background: 'rgba(34,197,94,.06)', padding: '6px 10px', borderRadius: 6 }}>
-                          <span style={{ color: '#6b7280' }}>After: </span>{h.new_description}
+                        <div className="text-xs text-green-500 bg-green-500/[.06] px-2.5 py-1.5 rounded-md">
+                          <span className="text-zinc-500">After: </span>{h.new_description}
                         </div>
                       </div>
                     )}
                     {h.old_status !== h.new_status && (
                       <div>
-                        <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                          <span style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid', ...badgeInline(h.old_status) }}>{h.old_status}</span>
-                          <span style={{ color: '#6b7280' }}>→</span>
-                          <span style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid', ...badgeInline(h.new_status) }}>{h.new_status}</span>
+                        <div className="text-[11px] text-zinc-400 mb-1 uppercase tracking-[0.5px]">Status</div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className={`px-2.5 py-0.5 rounded-md border ${badgeClass(h.old_status)}`}>{h.old_status}</span>
+                          <span className="text-zinc-500">→</span>
+                          <span className={`px-2.5 py-0.5 rounded-md border ${badgeClass(h.new_status)}`}>{h.new_status}</span>
                         </div>
                       </div>
                     )}
@@ -456,46 +442,3 @@ export default function TaskManagerPage() {
     </div>
   );
 }
-
-// ── Style helpers ─────────────────────────────────────────────────────────────
-
-function badgeInline(s: string) {
-  if (s === 'Completed')     return { background: 'rgba(34,197,94,.12)',  color: '#22c55e',  borderColor: 'rgba(34,197,94,.25)' };
-  if (s === 'Under Process') return { background: 'rgba(251,191,36,.12)', color: '#fbbf24',  borderColor: 'rgba(251,191,36,.25)' };
-  return                            { background: 'rgba(96,165,250,.12)', color: '#60a5fa',  borderColor: 'rgba(96,165,250,.25)' };
-}
-
-function selectInline(s: string) {
-  if (s === 'Completed')     return { borderColor: 'rgba(34,197,94,.4)',  color: '#22c55e'  };
-  if (s === 'Under Process') return { borderColor: 'rgba(251,191,36,.4)', color: '#fbbf24' };
-  return                            { borderColor: 'rgba(96,165,250,.4)', color: '#60a5fa' };
-}
-
-const overlayStyle: React.CSSProperties = {
-  position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', zIndex: 100,
-  display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-  padding: '16px', overflowY: 'auto',
-};
-const modalStyle: React.CSSProperties = {
-  background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 14,
-  padding: '20px', width: '100%', maxWidth: 520, position: 'relative',
-  marginTop: 'auto', marginBottom: 'auto',
-};
-const closeBtnStyle: React.CSSProperties = {
-  background: 'transparent', border: 'none', color: '#9ca3af',
-  cursor: 'pointer', fontSize: 16, padding: '4px 8px',
-};
-const labelStyle: React.CSSProperties = { fontSize: 12, color: '#9ca3af', display: 'block', marginBottom: 6 };
-const inputStyle: React.CSSProperties = {
-  width: '100%', background: '#111', border: '1px solid #333',
-  borderRadius: 8, padding: '10px 13px', color: '#e5e5e5', fontSize: 13,
-  outline: 'none', boxSizing: 'border-box' as const,
-};
-const cancelBtnStyle: React.CSSProperties = {
-  padding: '9px 20px', background: 'transparent', border: '1px solid #374151',
-  borderRadius: 8, color: '#9ca3af', fontSize: 13, cursor: 'pointer',
-};
-const saveBtnStyle: React.CSSProperties = {
-  padding: '9px 24px', background: '#00d9ff', border: 'none',
-  borderRadius: 8, color: '#0a0a0a', fontWeight: 600, fontSize: 13, cursor: 'pointer',
-};

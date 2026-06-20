@@ -33,37 +33,16 @@ function fmtDate(d: string): string {
   });
 }
 
-const CSS = `
-  *{box-sizing:border-box;margin:0;padding:0;}
-  .lv-root{max-width:960px;margin:0 auto;padding:28px 20px;font-family:'Inter',system-ui,sans-serif;color:#e5e5e5;}
-  .lv-hdr{margin-bottom:20px;}
-  .lv-title{font-size:22px;font-weight:700;color:#fff;}
-  .lv-sub{font-size:13px;color:#9ca3af;margin-top:4px;}
-  .lv-tabs{display:flex;gap:8px;margin-bottom:16px;}
-  .lv-tab{padding:8px 14px;border-radius:8px;border:1px solid #333;background:#141414;color:#9ca3af;font-size:12px;font-weight:600;cursor:pointer;}
-  .lv-tab.active{background:rgba(0,217,255,.12);border-color:rgba(0,217,255,.35);color:#00d9ff;}
-  .lv-card{background:#111;border:1px solid #2a2a2a;border-radius:12px;overflow:hidden;margin-bottom:12px;}
-  .lv-row{display:grid;grid-template-columns:1fr auto;gap:12px;padding:14px 16px;border-bottom:1px solid #1e1e1e;align-items:center;}
-  .lv-row:last-child{border-bottom:none;}
-  .lv-name{font-size:14px;font-weight:600;color:#fff;}
-  .lv-meta{font-size:12px;color:#9ca3af;margin-top:4px;line-height:1.45;}
-  .lv-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-right:6px;}
-  .lv-cl{background:rgba(59,130,246,.15);color:#93c5fd;}
-  .lv-sl{background:rgba(168,85,247,.15);color:#d8b4fe;}
-  .lv-pending{background:rgba(251,191,36,.15);color:#fcd34d;}
-  .lv-approved{background:rgba(34,197,94,.15);color:#86efac;}
-  .lv-rejected{background:rgba(239,68,68,.15);color:#fca5a5;}
-  .lv-actions{display:flex;gap:8px;flex-wrap:wrap;}
-  .lv-btn{padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid;}
-  .lv-btn-ok{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.35);color:#22c55e;}
-  .lv-btn-no{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35);color:#ef4444;}
-  .lv-btn:disabled{opacity:.45;cursor:not-allowed;}
-  .lv-empty{padding:32px;text-align:center;color:#6b7280;font-size:13px;}
-  .lv-note{width:100%;margin-top:8px;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:8px;color:#e5e5e5;font-size:12px;}
-  .lv-proof-warn{color:#fcd34d;font-size:11px;margin-top:6px;}
-  .lv-proof-ok{color:#86efac;font-size:11px;margin-top:6px;}
-  .lv-link{background:transparent;border:none;color:#93c5fd;font-size:11px;cursor:pointer;text-decoration:underline;padding:0;}
-`;
+const leaveTypeBadgeClass: Record<string, string> = {
+  CL: 'bg-blue-500/15 text-blue-300',
+  SL: 'bg-purple-500/15 text-purple-300',
+};
+
+const statusBadgeClass: Record<string, string> = {
+  pending:  'bg-amber-400/15 text-amber-300',
+  approved: 'bg-green-500/15 text-green-300',
+  rejected: 'bg-red-500/15  text-red-300',
+};
 
 export default function AdminLeavePage() {
   const [tab, setTab] = useState<'pending' | 'all'>('pending');
@@ -131,73 +110,114 @@ export default function AdminLeavePage() {
     window.open(url, '_blank');
   }
 
+  const tabBase = 'px-[14px] py-2 rounded-lg border text-xs font-semibold cursor-pointer';
+  const tabInactive = 'bg-zinc-900 border-[#333] text-zinc-400';
+  const tabActive = 'bg-[rgba(0,217,255,0.12)] border-[rgba(0,217,255,0.35)] text-cyan-400';
+  const badgeBase = 'inline-block px-2 py-[2px] rounded-full text-[10px] font-bold uppercase tracking-[0.4px] mr-1.5';
+  const btnBase = 'px-3 py-[7px] rounded-lg text-xs font-semibold cursor-pointer border disabled:opacity-50 disabled:cursor-not-allowed';
+
   return (
-    <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
-      <style>{CSS}</style>
-      <div className="lv-root">
-        <div className="lv-hdr">
-          <div className="lv-title">Leave approvals</div>
-          <div className="lv-sub">CL needs 2-day advance notice. SL over 2 days requires medical proof before approval.</div>
+    <div className="bg-zinc-950 min-h-screen">
+      <div className="max-w-[960px] mx-auto px-5 py-7 font-sans text-zinc-200">
+
+        <div className="mb-5">
+          <div className="text-[22px] font-bold text-white">Leave approvals</div>
+          <div className="text-[13px] text-zinc-400 mt-1">
+            CL needs 2-day advance notice. SL over 2 days requires medical proof before approval.
+          </div>
         </div>
 
-        <div className="lv-tabs">
-          <button type="button" className={`lv-tab${tab === 'pending' ? ' active' : ''}`} onClick={() => setTab('pending')}>
+        <div className="flex gap-2 mb-4">
+          <button
+            type="button"
+            className={`${tabBase} ${tab === 'pending' ? tabActive : tabInactive}`}
+            onClick={() => setTab('pending')}
+          >
             Pending
           </button>
-          <button type="button" className={`lv-tab${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>
+          <button
+            type="button"
+            className={`${tabBase} ${tab === 'all' ? tabActive : tabInactive}`}
+            onClick={() => setTab('all')}
+          >
             All requests
           </button>
-          <button type="button" className="lv-tab" onClick={() => void load()} disabled={loading}>
+          <button
+            type="button"
+            className={`${tabBase} ${tabInactive} disabled:opacity-50 disabled:cursor-not-allowed`}
+            onClick={() => void load()}
+            disabled={loading}
+          >
             {loading ? '…' : 'Refresh'}
           </button>
         </div>
 
-        <div className="lv-card">
+        <div className="bg-[#111] border border-zinc-800 rounded-xl overflow-hidden mb-3">
           {loading ? (
-            <div className="lv-empty">Loading…</div>
+            <div className="p-8 text-center text-zinc-500 text-[13px]">Loading…</div>
           ) : rows.length === 0 ? (
-            <div className="lv-empty">No leave requests{tab === 'pending' ? ' pending approval' : ''}.</div>
+            <div className="p-8 text-center text-zinc-500 text-[13px]">
+              No leave requests{tab === 'pending' ? ' pending approval' : ''}.
+            </div>
           ) : rows.map(r => (
-            <div key={r.id} className="lv-row">
+            <div
+              key={r.id}
+              className="grid grid-cols-[1fr_auto] gap-3 px-4 py-[14px] border-b border-[#1e1e1e] items-center last:border-b-0"
+            >
               <div>
-                <div className="lv-name">
-                  <span className={`lv-badge ${r.leave_type === 'CL' ? 'lv-cl' : 'lv-sl'}`}>{r.leave_type}</span>
-                  <span className={`lv-badge lv-${r.status}`}>{r.status}</span>
+                <div className="text-sm font-semibold text-white">
+                  <span className={`${badgeBase} ${leaveTypeBadgeClass[r.leave_type] ?? ''}`}>
+                    {r.leave_type}
+                  </span>
+                  <span className={`${badgeBase} ${statusBadgeClass[r.status] ?? ''}`}>
+                    {r.status}
+                  </span>
                   {r.employee_name || r.employee_email || `User #${r.user_id}`}
                 </div>
-                <div className="lv-meta">
+
+                <div className="text-xs text-zinc-400 mt-1 leading-[1.45]">
                   {fmtDate(r.start_date)} → {fmtDate(r.end_date)} · <strong>{r.days}</strong> working day(s)
                   {r.reason ? ` · ${r.reason}` : ''}
                 </div>
+
                 {r.admin_note && (
-                  <div className="lv-meta" style={{ marginTop: 6 }}>Admin note: {r.admin_note}</div>
+                  <div className="text-xs text-zinc-400 mt-1.5 leading-[1.45]">
+                    Admin note: {r.admin_note}
+                  </div>
                 )}
+
                 {r.requires_proof && (
-                  <div className={r.proof_path ? 'lv-proof-ok' : 'lv-proof-warn'}>
+                  <div className={`text-[11px] mt-1.5 ${r.proof_path ? 'text-green-300' : 'text-amber-300'}`}>
                     {r.proof_path
                       ? <>Medical proof uploaded{r.proof_filename ? `: ${r.proof_filename}` : ''} · </>
                       : 'Medical proof required — waiting for employee upload · '}
                     {r.proof_path && (
-                      <button type="button" className="lv-link" onClick={() => void viewProof(r.id)}>
+                      <button
+                        type="button"
+                        className="bg-transparent border-none text-blue-300 text-[11px] cursor-pointer underline p-0"
+                        onClick={() => void viewProof(r.id)}
+                      >
                         View document
                       </button>
                     )}
                   </div>
                 )}
+
                 {r.status === 'pending' && (
                   <input
-                    className="lv-note"
+                    className="w-full mt-2 bg-zinc-900 border border-[#333] rounded-lg p-2 text-zinc-200 text-xs"
                     placeholder="Optional note for employee"
                     value={notes[r.id] || ''}
                     onChange={e => setNotes(n => ({ ...n, [r.id]: e.target.value }))}
                   />
                 )}
               </div>
+
               {r.status === 'pending' && (
-                <div className="lv-actions">
+                <div className="flex gap-2 flex-wrap">
                   <button
                     type="button"
-                    className="lv-btn lv-btn-ok"
+                    className={`${btnBase} bg-green-500/10 border-green-500/35 text-green-500`}
                     disabled={busyId === r.id || !!(r.requires_proof && !r.proof_path)}
                     onClick={() => void decide(r.id, true, r)}
                   >
@@ -205,7 +225,7 @@ export default function AdminLeavePage() {
                   </button>
                   <button
                     type="button"
-                    className="lv-btn lv-btn-no"
+                    className={`${btnBase} bg-red-500/10 border-red-500/35 text-red-500`}
                     disabled={busyId === r.id}
                     onClick={() => void decide(r.id, false, r)}
                   >
@@ -216,6 +236,7 @@ export default function AdminLeavePage() {
             </div>
           ))}
         </div>
+
       </div>
     </div>
   );

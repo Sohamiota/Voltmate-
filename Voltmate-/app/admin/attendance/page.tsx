@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import 'react-day-picker/dist/style.css';
+import type { AttendanceRecord, Employee } from '@/types/api';
 
 import {
   Dialog,
@@ -19,35 +20,12 @@ const API = (process.env.NEXT_PUBLIC_API_URL ||
     ? 'https://voltmate.onrender.com'
     : 'http://localhost:8081')).replace(/\/api\/v1\/?$/, '');
 
-type AttRec = {
-  id: number;
-  user_id: number;
-  date: string | null;
-  clock_in_at: string | null;
-  clock_out_at: string | null;
-  duration_seconds: number | null;
-  status: string | null;
-  network_verified: boolean;
-  clock_in_ip: string | null;
-  employee_name: string | null;
-  employee_email: string | null;
-  employee_role: string | null;
-  note?: string | null;
-};
-
-type Employee = {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-};
-
 type EnrichedEmp = Employee & {
-  recs: AttRec[];
+  recs: AttendanceRecord[];
   pending: number;
 };
 
-function recStatus(r: AttRec): string {
+function recStatus(r: AttendanceRecord): string {
   return r.status || 'pending';
 }
 
@@ -92,18 +70,18 @@ function fmtDatePlain(d: string | null): string {
   return d.length > 10 ? d.slice(0, 10) : d;
 }
 
-function employeeDisplayName(r: AttRec): string {
+function employeeDisplayName(r: AttendanceRecord): string {
   const n = r.employee_name?.trim();
   if (n) return n;
   if (r.employee_email?.trim()) return r.employee_email.trim();
   return `User #${r.user_id}`;
 }
 
-function networkTypeLabel(r: AttRec): string {
+function networkTypeLabel(r: AttendanceRecord): string {
   return r.network_verified ? 'Office Network' : 'Outside Network';
 }
 
-function statusDisplay(r: AttRec): string {
+function statusDisplay(r: AttendanceRecord): string {
   const s = recStatus(r);
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Pending';
 }
@@ -127,7 +105,7 @@ function toYyyyMmDdLocal(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function buildAttendanceSheetRows(source: AttRec[]) {
+function buildAttendanceSheetRows(source: AttendanceRecord[]) {
   const sorted = [...source].sort((a, b) => {
     const da = fmtDatePlain(a.date);
     const db = fmtDatePlain(b.date);
@@ -147,111 +125,9 @@ function buildAttendanceSheetRows(source: AttRec[]) {
   }));
 }
 
-const S = `
-  *{margin:0;padding:0;box-sizing:border-box;}
-  .root{min-height:100vh;background:#0a0a0a;color:#e5e5e5;font-family:'Inter',system-ui,sans-serif;padding:clamp(14px,4vw,28px);}
-  /* Header */
-  .pg-hdr{margin-bottom:20px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-  .pg-title{font-size:clamp(18px,4vw,24px);font-weight:700;color:#fff;}
-  .pg-sub{color:#9ca3af;font-size:13px;margin-top:4px;}
-  /* Stats */
-  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px;margin-bottom:20px;}
-  .stat{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:14px 16px;}
-  .stat-v{font-size:clamp(20px,4vw,26px);font-weight:700;color:#00d9ff;margin-bottom:2px;}
-  .stat-l{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;}
-  /* Section header */
-  .section-hdr{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
-  .section-title{font-size:15px;font-weight:600;color:#fff;}
-  .search{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:8px 14px;color:#e5e5e5;font-size:13px;outline:none;min-width:180px;}
-  .search:focus{border-color:#6366f1;}
-  /* Employee grid */
-  .emp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;}
-  .emp-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:18px;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;position:relative;}
-  .emp-card:hover{border-color:#6366f1;transform:translateY(-2px);box-shadow:0 8px 24px rgba(99,102,241,.15);}
-  .emp-card-pending{border-color:rgba(251,191,36,.35);}
-  .emp-card-pending:hover{border-color:rgba(251,191,36,.65) !important;box-shadow:0 8px 24px rgba(251,191,36,.1) !important;}
-  .emp-av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;margin-bottom:12px;}
-  .emp-nm{font-size:15px;font-weight:600;color:#fff;margin-bottom:2px;}
-  .emp-em{font-size:12px;color:#9ca3af;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .emp-rl{display:inline-block;font-size:11px;color:#a5b4fc;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.2);border-radius:20px;padding:2px 8px;}
-  .emp-footer{display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid #252525;}
-  .emp-badge-pending{background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.3);border-radius:20px;font-size:11px;font-weight:600;padding:3px 10px;}
-  .emp-badge-ok{background:rgba(34,197,94,.08);color:#86efac;border:1px solid rgba(34,197,94,.18);border-radius:20px;font-size:11px;padding:3px 10px;}
-  .emp-badge-none{background:rgba(107,114,128,.08);color:#6b7280;border:1px solid rgba(107,114,128,.18);border-radius:20px;font-size:11px;padding:3px 10px;}
-  .emp-arrow{color:#4b5563;font-size:16px;}
-  /* Detail view */
-  .back-btn{display:inline-flex;align-items:center;gap:6px;color:#9ca3af;font-size:13px;cursor:pointer;background:none;border:none;padding:6px 0;margin-bottom:16px;transition:color .15s;}
-  .back-btn:hover{color:#e5e5e5;}
-  .detail-hdr{display:flex;align-items:center;gap:16px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:20px;margin-bottom:16px;flex-wrap:wrap;}
-  .detail-av{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;flex-shrink:0;}
-  .detail-nm{font-size:18px;font-weight:700;color:#fff;}
-  .detail-sub{font-size:13px;color:#9ca3af;margin-top:2px;}
-  .detail-mini-stats{display:flex;gap:20px;margin-left:auto;flex-wrap:wrap;}
-  .dms{text-align:center;}
-  .dms-v{font-size:20px;font-weight:700;}
-  .dms-l{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;}
-  /* Filter tabs */
-  .tabs{display:flex;gap:4px;margin-bottom:16px;background:#141414;border:1px solid #232323;border-radius:10px;padding:4px;}
-  .tab{flex:1;padding:7px 8px;border:none;background:transparent;color:#9ca3af;font-size:12px;border-radius:7px;cursor:pointer;transition:all .15s;text-align:center;font-weight:500;}
-  .tab.active{background:#2a2a3a;color:#e5e5e5;font-weight:600;}
-  .tab:hover:not(.active){color:#ccc;}
-  /* Record cards */
-  .rec-card{background:#141414;border:1px solid #222;border-left:3px solid #333;border-radius:12px;padding:16px;margin-bottom:10px;transition:border-color .15s;}
-  .rec-approved{border-left-color:#22c55e;}
-  .rec-pending{border-left-color:#fbbf24;}
-  .rec-rejected{border-left-color:#ef4444;}
-  .rec-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
-  .rec-date{font-size:14px;font-weight:600;color:#fff;}
-  .rec-badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
-  .badge{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:500;border:1px solid;}
-  .badge-pending-s{background:rgba(251,191,36,.1);color:#fbbf24;border-color:rgba(251,191,36,.25);}
-  .badge-approved-s{background:rgba(34,197,94,.1);color:#22c55e;border-color:rgba(34,197,94,.25);}
-  .badge-rejected-s{background:rgba(239,68,68,.1);color:#ef4444;border-color:rgba(239,68,68,.25);}
-  .badge-net-ok{background:rgba(34,197,94,.08);color:#86efac;border-color:rgba(34,197,94,.2);}
-  .badge-net-out{background:rgba(251,191,36,.08);color:#fcd34d;border-color:rgba(251,191,36,.2);}
-  .rec-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px;}
-  @media(max-width:480px){.rec-grid{grid-template-columns:1fr 1fr;}}
-  .rec-fi label{display:block;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}
-  .rec-fi span{font-size:14px;color:#e5e5e5;}
-  .rec-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-top:12px;border-top:1px solid #1e1e1e;}
-  .rec-ip{font-size:10px;color:#4b5563;margin-left:auto;}
-  /* Buttons */
-  .btn{padding:7px 14px;border:none;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;}
-  .btn-approve{background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);}
-  .btn-approve:hover{background:rgba(34,197,94,.25);}
-  .btn-reject{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);}
-  .btn-reject:hover{background:rgba(239,68,68,.25);}
-  .btn-trail{background:rgba(99,102,241,.1);color:#a5b4fc;border:1px solid rgba(99,102,241,.25);text-decoration:none;display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:500;transition:all .15s;}
-  .btn-trail:hover{background:rgba(99,102,241,.2);}
-  .btn-trail-primary{background:rgba(99,102,241,.2);color:#c7d2fe;border:1px solid rgba(99,102,241,.45);font-weight:600;}
-  .btn-trail-primary:hover{background:rgba(99,102,241,.3);}
-  .btn-refresh{background:transparent;color:#9ca3af;border:1px solid #2a2a2a;}
-  .btn-refresh:hover{border-color:#555;color:#e5e5e5;}
-  .hdr-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;flex-shrink:0;justify-content:flex-end;}
-  /* Excel export — high contrast so it survives prod screenshots */
-  .btn-export{background:#15803d;color:#ecfdf5 !important;border:2px solid #4ade80;font-weight:700;font-size:13px;padding:9px 16px;}
-  .btn-export:hover{background:#16a34a;border-color:#86efac;}
-  .btn-export:disabled{opacity:.45;cursor:not-allowed;}
-  .export-strip{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(135deg,rgba(34,197,94,.14),rgba(22,163,74,.08));border:2px solid rgba(74,222,128,.45);border-radius:14px;padding:14px 18px;margin-bottom:20px;}
-  .export-strip-text{display:flex;flex-direction:column;gap:5px;max-width:520px;}
-  .export-strip-text strong{color:#bbf7d0;font-size:15px;font-weight:700;}
-  .export-strip-text span{color:#a7f3d0;font-size:12px;opacity:.9;line-height:1.35;}
-  .btn-export-xl{background:#22c55e;color:#052e16;font-weight:800;border:none;padding:11px 22px;font-size:14px;border-radius:10px;cursor:pointer;letter-spacing:.02em;}
-  .btn-export-xl:hover{background:#34d399;}
-  .btn-export-xl:disabled{opacity:.45;cursor:not-allowed;background:#166534;color:#a7f3d0;}
-  .export-strip-inner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;width:100%;}
-  .export-strip-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
-  .btn-export-day{background:transparent;color:#ecfdf5;font-weight:700;font-size:13px;padding:11px 18px;border-radius:10px;cursor:pointer;border:2px solid rgba(167,243,208,.6);}
-  .btn-export-day:hover{background:rgba(34,197,94,.15);border-color:#a7f3d0;}
-  .btn-export-day:disabled{opacity:.45;cursor:not-allowed;}
-  /* Misc */
-  .empty{text-align:center;padding:48px 20px;color:#4b5563;font-size:14px;}
-  .loading{text-align:center;padding:48px 20px;color:#6b7280;font-size:14px;}
-`;
-
 export default function AdminAttendancePage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [records,   setRecords]   = useState<AttRec[]>([]);
+  const [records,   setRecords]   = useState<AttendanceRecord[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [exporting, setExporting]  = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -270,6 +146,10 @@ export default function AdminAttendancePage() {
         fetch(`${API}/api/v1/auth/employees`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API}/api/v1/attendance?limit=100000`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
+      if (!empRes.ok || !attRes.ok) {
+        console.error('Failed to fetch attendance data');
+        return;
+      }
       const empData = await empRes.json();
       const attData = await attRes.json();
       setEmployees(empData.employees || []);
@@ -291,7 +171,7 @@ export default function AdminAttendancePage() {
     else alert('Action failed: ' + await res.text());
   }
 
-  async function writeAttendanceXlsx(source: AttRec[], filenameSuffix: string): Promise<boolean> {
+  async function writeAttendanceXlsx(source: AttendanceRecord[], filenameSuffix: string): Promise<boolean> {
     setExporting(true);
     try {
       const XLSX = await import('xlsx');
@@ -331,7 +211,7 @@ export default function AdminAttendancePage() {
   }
 
   // ── Derived data ─────────────────────────────────────────────────────────────
-  const recByUser: Record<number, AttRec[]> = {};
+  const recByUser: Record<number, AttendanceRecord[]> = {};
   records.forEach(r => {
     if (!recByUser[r.user_id]) recByUser[r.user_id] = [];
     recByUser[r.user_id].push(r);
@@ -388,23 +268,22 @@ export default function AdminAttendancePage() {
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
-    <div className="root">
-      <style>{S}</style>
+    <div className="min-h-screen bg-zinc-950 text-zinc-200 font-sans p-4 lg:p-7">
 
       {/* Header */}
-      <div className="pg-hdr">
+      <div className="mb-5 flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <div className="pg-title">Attendance Management</div>
-          <div className="pg-sub">
+          <div className="text-2xl font-bold text-white">Attendance Management</div>
+          <div className="text-zinc-400 text-sm mt-1">
             {selectedEmp
               ? `Viewing ${selectedEmp.name}'s attendance log`
               : 'Click an employee to view and manage their attendance records'}
           </div>
         </div>
-        <div className="hdr-actions">
+        <div className="flex gap-2.5 flex-wrap items-center flex-shrink-0 justify-end">
           <button
             type="button"
-            className="btn btn-export-day"
+            className="bg-transparent text-green-50 font-bold text-sm py-[11px] px-[18px] rounded-xl cursor-pointer border-2 border-green-200/60 hover:bg-green-500/15 hover:border-green-200 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={loading || exporting || records.length === 0}
             onClick={() => {
               setExportDay(d => d ?? startOfToday());
@@ -415,52 +294,58 @@ export default function AdminAttendancePage() {
           </button>
           <button
             type="button"
-            className="btn btn-export"
+            className="bg-green-700 text-green-50 border-2 border-green-400 font-bold text-sm py-2 px-4 rounded-lg cursor-pointer transition-all duration-150 hover:bg-green-600 hover:border-green-300 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={loading || exporting || records.length === 0}
             onClick={() => void exportAttendanceXlsx()}
           >
             {exporting ? 'Working…' : 'Excel (.xlsx)'}
           </button>
-          <button type="button" className="btn btn-refresh" onClick={loadData}>Refresh</button>
+          <button
+            type="button"
+            className="bg-transparent text-zinc-400 border border-zinc-800 rounded-lg py-[7px] px-3.5 text-xs font-medium cursor-pointer transition-all duration-150 hover:border-zinc-500 hover:text-zinc-200"
+            onClick={loadData}
+          >
+            Refresh
+          </button>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="stats">
-        <div className="stat">
-          <div className="stat-v">{records.length}</div>
-          <div className="stat-l">Total Records</div>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] gap-3 mb-5">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+          <div className="text-[26px] font-bold text-cyan-400 mb-0.5">{records.length}</div>
+          <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">Total Records</div>
         </div>
-        <div className="stat">
-          <div className="stat-v" style={{ color: '#fbbf24' }}>{pendingTotal}</div>
-          <div className="stat-l">Pending Review</div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+          <div className="text-[26px] font-bold text-amber-400 mb-0.5">{pendingTotal}</div>
+          <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">Pending Review</div>
         </div>
-        <div className="stat">
-          <div className="stat-v" style={{ color: '#22c55e' }}>{approvedTotal}</div>
-          <div className="stat-l">Approved</div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+          <div className="text-[26px] font-bold text-green-500 mb-0.5">{approvedTotal}</div>
+          <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">Approved</div>
         </div>
-        <div className="stat">
-          <div className="stat-v" style={{ color: '#ef4444' }}>{rejectedTotal}</div>
-          <div className="stat-l">Rejected</div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+          <div className="text-[26px] font-bold text-red-500 mb-0.5">{rejectedTotal}</div>
+          <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">Rejected</div>
         </div>
       </div>
 
       {/* Full-width Excel export — impossible to miss vs header-only */}
       {!loading && (
-        <div className="export-strip">
-          <div className="export-strip-inner">
-            <div className="export-strip-text">
-              <strong>Export attendance to Excel</strong>
-              <span>
+        <div className="flex flex-wrap items-center justify-between gap-3.5 bg-gradient-to-br from-green-500/10 to-green-600/10 border-2 border-green-400/40 rounded-2xl p-4 mb-5">
+          <div className="flex flex-wrap items-center justify-between gap-4 w-full">
+            <div className="flex flex-col gap-[5px] max-w-[520px]">
+              <strong className="text-green-100 text-[15px] font-bold">Export attendance to Excel</strong>
+              <span className="text-green-200 text-xs opacity-90 leading-[1.35]">
                 Full download: every loaded row. Day download: pick one calendar date — only rows whose
                 attendance <strong>date</strong> matches (same columns: Name, Date, times, network, status, IP,
                 notes). Data is what you already loaded ({records.length} rows).
               </span>
             </div>
-            <div className="export-strip-actions">
+            <div className="flex flex-wrap gap-2.5 items-center">
               <button
                 type="button"
-                className="btn-export-day"
+                className="bg-transparent text-green-50 font-bold text-sm py-[11px] px-[18px] rounded-xl cursor-pointer border-2 border-green-200/60 hover:bg-green-500/15 hover:border-green-200 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={exporting || records.length === 0}
                 onClick={() => {
                   setExportDay(d => d ?? startOfToday());
@@ -471,7 +356,7 @@ export default function AdminAttendancePage() {
               </button>
               <button
                 type="button"
-                className="btn-export-xl"
+                className="bg-green-500 text-green-950 font-extrabold border-0 py-[11px] px-[22px] text-sm rounded-xl cursor-pointer tracking-[0.02em] hover:bg-green-400 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-green-800 disabled:text-green-200"
                 disabled={exporting || records.length === 0}
                 onClick={() => void exportAttendanceXlsx()}
               >
@@ -484,15 +369,15 @@ export default function AdminAttendancePage() {
 
       {/* ── Main content ── */}
       {loading ? (
-        <div className="loading">Loading attendance data…</div>
+        <div className="text-center py-12 px-5 text-zinc-500 text-sm">Loading attendance data…</div>
       ) : selectedId === null ? (
 
         // ════════════════════════════ EMPLOYEE LIST ════════════════════════════
         <div>
-          <div className="section-hdr">
-            <div className="section-title">All Employees ({filteredEmployees.length})</div>
+          <div className="flex items-center justify-between gap-2.5 mb-3.5 flex-wrap">
+            <div className="text-[15px] font-semibold text-white">All Employees ({filteredEmployees.length})</div>
             <input
-              className="search"
+              className="bg-zinc-900 border border-zinc-800 rounded-lg px-3.5 py-2 text-zinc-200 text-sm outline-none min-w-[180px] focus:border-indigo-500"
               placeholder="Search by name or email…"
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -500,27 +385,33 @@ export default function AdminAttendancePage() {
           </div>
 
           {filteredEmployees.length === 0 ? (
-            <div className="empty">No employees found.</div>
+            <div className="text-center py-12 px-5 text-zinc-600 text-sm">No employees found.</div>
           ) : (
-            <div className="emp-grid">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3.5">
               {filteredEmployees.map(emp => (
                 <div
                   key={emp.id}
-                  className={`emp-card${emp.pending > 0 ? ' emp-card-pending' : ''}`}
+                  className={`bg-zinc-900 border rounded-2xl p-[18px] cursor-pointer transition-all duration-200 flex flex-col relative hover:-translate-y-0.5 ${
+                    emp.pending > 0
+                      ? 'border-amber-400/35 hover:border-amber-400/65 hover:shadow-[0_8px_24px_rgba(251,191,36,0.1)]'
+                      : 'border-zinc-800 hover:border-indigo-500 hover:shadow-[0_8px_24px_rgba(99,102,241,0.15)]'
+                  }`}
                   onClick={() => { setSelectedId(emp.id); setFilter('all'); }}
                 >
-                  <div className="emp-av">{getInitials(emp.name)}</div>
-                  <div className="emp-nm">{emp.name}</div>
-                  <div className="emp-em">{emp.email}</div>
-                  <span className="emp-rl">{emp.role}</span>
-                  <div className="emp-footer">
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-[15px] font-bold text-white mb-3">
+                    {getInitials(emp.name)}
+                  </div>
+                  <div className="text-[15px] font-semibold text-white mb-0.5">{emp.name}</div>
+                  <div className="text-xs text-zinc-400 mb-1 overflow-hidden text-ellipsis whitespace-nowrap">{emp.email}</div>
+                  <span className="inline-block text-[11px] text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-2 py-0.5">{emp.role}</span>
+                  <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-zinc-800/50">
                     {emp.pending > 0
-                      ? <span className="emp-badge-pending">● {emp.pending} pending</span>
+                      ? <span className="bg-amber-400/10 text-amber-400 border border-amber-400/30 rounded-full text-[11px] font-semibold px-2.5 py-0.5">● {emp.pending} pending</span>
                       : emp.recs.length > 0
-                        ? <span className="emp-badge-ok">{emp.recs.length} record{emp.recs.length !== 1 ? 's' : ''}</span>
-                        : <span className="emp-badge-none">No records yet</span>
+                        ? <span className="bg-green-500/10 text-green-400 border border-green-500/20 rounded-full text-[11px] px-2.5 py-0.5">{emp.recs.length} record{emp.recs.length !== 1 ? 's' : ''}</span>
+                        : <span className="bg-zinc-500/10 text-zinc-500 border border-zinc-500/20 rounded-full text-[11px] px-2.5 py-0.5">No records yet</span>
                     }
-                    <span className="emp-arrow"></span>
+                    <span className="text-zinc-600 text-base">›</span>
                   </div>
                 </div>
               ))}
@@ -528,53 +419,60 @@ export default function AdminAttendancePage() {
           )}
         </div>
 
+      ) : !selectedEmp ? (
+        <div className="text-center py-12 px-5 text-zinc-600 text-sm">Employee not found.</div>
       ) : (
 
         // ═══════════════════════════ EMPLOYEE DETAIL ══════════════════════════
         <div>
-          <button className="back-btn" onClick={() => setSelectedId(null)}>
+          <button
+            className="inline-flex items-center gap-1.5 text-zinc-400 text-sm cursor-pointer bg-transparent border-0 py-1.5 px-0 mb-4 hover:text-zinc-200 transition-colors duration-150"
+            onClick={() => setSelectedId(null)}
+          >
             All Employees
           </button>
 
           {/* Employee header card */}
-          <div className="detail-hdr">
-            <div className="detail-av">{getInitials(selectedEmp!.name)}</div>
+          <div className="flex items-center gap-4 bg-zinc-900 border border-zinc-800 rounded-2xl p-5 mb-4 flex-wrap">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-xl font-bold text-white flex-shrink-0">
+              {getInitials(selectedEmp.name)}
+            </div>
             <div>
-              <div className="detail-nm">{selectedEmp!.name}</div>
-              <div className="detail-sub">
-                {selectedEmp!.email}
+              <div className="text-lg font-bold text-white">{selectedEmp.name}</div>
+              <div className="text-sm text-zinc-400 mt-0.5">
+                {selectedEmp.email}
                 {' · '}
-                <span style={{ color: '#a5b4fc' }}>{selectedEmp!.role}</span>
+                <span className="text-indigo-300">{selectedEmp.role}</span>
               </div>
             </div>
-            <div className="detail-mini-stats">
-              <div className="dms">
-                <div className="dms-v">{selectedRecs.length}</div>
-                <div className="dms-l">Total</div>
+            <div className="flex gap-5 ml-auto flex-wrap">
+              <div className="text-center">
+                <div className="text-xl font-bold text-zinc-200">{selectedRecs.length}</div>
+                <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">Total</div>
               </div>
-              <div className="dms">
-                <div className="dms-v" style={{ color: '#fbbf24' }}>
+              <div className="text-center">
+                <div className="text-xl font-bold text-amber-400">
                   {selectedRecs.filter(r => recStatus(r) === 'pending').length}
                 </div>
-                <div className="dms-l">Pending</div>
+                <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">Pending</div>
               </div>
-              <div className="dms">
-                <div className="dms-v" style={{ color: '#22c55e' }}>
+              <div className="text-center">
+                <div className="text-xl font-bold text-green-500">
                   {selectedRecs.filter(r => recStatus(r) === 'approved').length}
                 </div>
-                <div className="dms-l">Approved</div>
+                <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">Approved</div>
               </div>
-              <div className="dms">
-                <div className="dms-v" style={{ color: '#ef4444' }}>
+              <div className="text-center">
+                <div className="text-xl font-bold text-red-500">
                   {selectedRecs.filter(r => recStatus(r) === 'rejected').length}
                 </div>
-                <div className="dms-l">Rejected</div>
+                <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">Rejected</div>
               </div>
             </div>
           </div>
 
           {/* Filter tabs */}
-          <div className="tabs">
+          <div className="flex gap-1 mb-4 bg-zinc-900 border border-zinc-800 rounded-xl p-1">
             {(['all', 'pending', 'approved', 'rejected'] as const).map(f => {
               const count = f === 'all'
                 ? selectedRecs.length
@@ -582,7 +480,11 @@ export default function AdminAttendancePage() {
               return (
                 <button
                   key={f}
-                  className={`tab${filter === f ? ' active' : ''}`}
+                  className={`flex-1 py-[7px] px-2 border-0 text-xs rounded-lg cursor-pointer transition-all duration-150 text-center font-medium ${
+                    filter === f
+                      ? 'bg-zinc-800 text-zinc-200 font-semibold'
+                      : 'bg-transparent text-zinc-400 hover:text-zinc-300'
+                  }`}
                   onClick={() => setFilter(f)}
                 >
                   {f.charAt(0).toUpperCase() + f.slice(1)} ({count})
@@ -593,7 +495,7 @@ export default function AdminAttendancePage() {
 
           {/* Attendance records */}
           {displayRecs.length === 0 ? (
-            <div className="empty">
+            <div className="text-center py-12 px-5 text-zinc-600 text-sm">
               No {filter === 'all' ? '' : filter + ' '}records for this employee.
             </div>
           ) : (
@@ -602,16 +504,32 @@ export default function AdminAttendancePage() {
               const isOffNetwork  = !r.network_verified;
               const needsTrail    = isOffNetwork && s === 'pending';
               return (
-                <div key={r.id} className={`rec-card rec-${s}`}>
-                  <div className="rec-head">
-                    <div className="rec-date">{fmtDate(r.date)}</div>
-                    <div className="rec-badges">
+                <div
+                  key={r.id}
+                  className={`bg-zinc-900 border border-zinc-800 border-l-[3px] rounded-xl p-4 mb-2.5 transition-colors duration-150 ${
+                    s === 'approved' ? 'border-l-green-500' :
+                    s === 'pending'  ? 'border-l-amber-400' :
+                    s === 'rejected' ? 'border-l-red-500'   :
+                    'border-l-zinc-700'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2.5 mb-3 flex-wrap">
+                    <div className="text-sm font-semibold text-white">{fmtDate(r.date)}</div>
+                    <div className="flex gap-1.5 flex-wrap items-center">
                       {r.network_verified ? (
-                        <span className="badge badge-net-ok">Office Network</span>
+                        <span className="inline-block px-[9px] py-[3px] rounded-md text-[11px] font-medium border bg-green-500/10 text-green-300 border-green-500/20">
+                          Office Network
+                        </span>
                       ) : (
-                        <span className="badge badge-net-out">Outside Network</span>
+                        <span className="inline-block px-[9px] py-[3px] rounded-md text-[11px] font-medium border bg-amber-400/10 text-amber-200 border-amber-400/20">
+                          Outside Network
+                        </span>
                       )}
-                      <span className={`badge badge-${s}-s`}>
+                      <span className={`inline-block px-[9px] py-[3px] rounded-md text-[11px] font-medium border ${
+                        s === 'pending'  ? 'bg-amber-400/10 text-amber-400 border-amber-400/25' :
+                        s === 'approved' ? 'bg-green-500/10 text-green-500 border-green-500/25' :
+                        'bg-red-500/10 text-red-500 border-red-500/25'
+                      }`}>
                         {s.charAt(0).toUpperCase() + s.slice(1)}
                         {r.network_verified && s === 'approved' && (
                           <span style={{ marginLeft: 4, fontSize: 10, opacity: .75 }}>· auto</span>
@@ -620,40 +538,50 @@ export default function AdminAttendancePage() {
                     </div>
                   </div>
 
-                  <div className="rec-grid">
-                    <div className="rec-fi">
-                      <label>Clock In</label>
-                      <span>{fmtTime(r.clock_in_at)}</span>
+                  <div className="grid grid-cols-2 min-[480px]:grid-cols-3 gap-3 mb-3">
+                    <div>
+                      <label className="block text-[10px] text-zinc-500 uppercase tracking-[0.5px] mb-[3px]">Clock In</label>
+                      <span className="text-sm text-zinc-200">{fmtTime(r.clock_in_at)}</span>
                     </div>
-                    <div className="rec-fi">
-                      <label>Clock Out</label>
-                      <span>{fmtTime(r.clock_out_at)}</span>
+                    <div>
+                      <label className="block text-[10px] text-zinc-500 uppercase tracking-[0.5px] mb-[3px]">Clock Out</label>
+                      <span className="text-sm text-zinc-200">{fmtTime(r.clock_out_at)}</span>
                     </div>
-                    <div className="rec-fi">
-                      <label>Duration</label>
-                      <span>{fmtDuration(r.duration_seconds)}</span>
+                    <div>
+                      <label className="block text-[10px] text-zinc-500 uppercase tracking-[0.5px] mb-[3px]">Duration</label>
+                      <span className="text-sm text-zinc-200">{fmtDuration(r.duration_seconds)}</span>
                     </div>
                   </div>
 
-                  <div className="rec-actions">
+                  <div className="flex gap-2 flex-wrap items-center pt-3 border-t border-zinc-800/50">
                     {s !== 'approved' && (
-                      <button className="btn btn-approve" onClick={() => handleApprove(r.id, true)}>
+                      <button
+                        className="py-[7px] px-3.5 rounded-lg text-xs font-medium cursor-pointer transition-all duration-150 bg-green-500/15 text-green-500 border border-green-500/30 hover:bg-green-500/25"
+                        onClick={() => handleApprove(r.id, true)}
+                      >
                         Approve
                       </button>
                     )}
                     {s !== 'rejected' && (
-                      <button className="btn btn-reject" onClick={() => handleApprove(r.id, false)}>
+                      <button
+                        className="py-[7px] px-3.5 rounded-lg text-xs font-medium cursor-pointer transition-all duration-150 bg-red-500/15 text-red-500 border border-red-500/30 hover:bg-red-500/25"
+                        onClick={() => handleApprove(r.id, false)}
+                      >
                         Reject
                       </button>
                     )}
                     <a
-                      className={`btn-trail${needsTrail ? ' btn-trail-primary' : ''}`}
+                      className={`no-underline inline-flex items-center gap-[5px] py-[7px] px-3.5 rounded-lg text-xs transition-all duration-150 ${
+                        needsTrail
+                          ? 'bg-indigo-500/20 text-indigo-200 border border-indigo-500/45 font-semibold hover:bg-indigo-500/30'
+                          : 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/25 font-medium hover:bg-indigo-500/20'
+                      }`}
                       href={`/admin/sales-location?userId=${r.user_id}&date=${(r.date || '').slice(0, 10)}`}
                     >
                       View Location Trail
                     </a>
                     {r.clock_in_ip && (
-                      <span className="rec-ip">IP: {r.clock_in_ip}</span>
+                      <span className="text-[10px] text-zinc-600 ml-auto">IP: {r.clock_in_ip}</span>
                     )}
                   </div>
                 </div>

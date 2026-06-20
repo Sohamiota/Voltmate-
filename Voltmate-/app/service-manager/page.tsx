@@ -42,48 +42,6 @@ interface DashboardData {
   }>;
 }
 
-const PAGE_STYLES = `
-  .sm-root { min-height: 100vh; background: #0a0c12; color: #e8edf5; font-family: 'Outfit', sans-serif; }
-  .sm-content { padding: 32px 28px; max-width: 1680px; margin: 0 auto; }
-  .sm-header { margin-bottom: 28px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-  .sm-title { font-size: 28px; font-weight: 800; letter-spacing: -.5px; margin-bottom: 6px; }
-  .sm-subtitle { font-size: 13.5px; color: #8e97ad; }
-  .sm-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
-  .sm-stat { background: #0f1117; border: 1px solid #1e2236; border-radius: 12px; padding: 18px; }
-  .sm-stat-label { font-size: 10.5px; font-weight: 600; color: #545968; text-transform: uppercase; letter-spacing: .9px; margin-bottom: 8px; }
-  .sm-stat-val { font-size: 28px; font-weight: 800; font-family: 'IBM Plex Mono', monospace; }
-  .sm-stat-val.primary { color: #00d9ff; }
-  .sm-stat-val.red { color: #f43f5e; }
-  .sm-stat-val.amber { color: #fbbf24; }
-  .sm-stat-val.green { color: #10b981; }
-  .sm-alert { background: rgba(244,63,94,.1); border: 1px solid rgba(244,63,94,.25); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; }
-  .sm-alert-title { font-weight: 700; color: #f43f5e; margin-bottom: 8px; }
-  .sm-alert-list { font-size: 13px; color: #e8edf5; }
-  .sm-table-card { background: #0f1117; border: 1px solid #1e2236; border-radius: 12px; overflow: hidden; }
-  .sm-table-header { padding: 16px 20px; border-bottom: 1px solid #1e2236; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-  .sm-table-title { font-size: 14px; font-weight: 700; }
-  .sm-table-outer { overflow-x: auto; }
-  .sm-table { width: 100%; border-collapse: collapse; min-width: 900px; }
-  .sm-table th { padding: 11px 16px; text-align: left; font-size: 10px; font-weight: 700; color: #545968; text-transform: uppercase; letter-spacing: 1px; background: #141720; border-bottom: 1px solid #1e2236; }
-  .sm-table td { padding: 13px 16px; border-bottom: 1px solid rgba(30,34,54,.6); font-size: 13px; }
-  .sm-table tbody tr:last-child td { border-bottom: none; }
-  .sm-table tbody tr.overdue { background: rgba(244,63,94,.08); }
-  .sm-table tbody tr.due_soon { background: rgba(251,191,36,.06); }
-  .sm-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-  .sm-badge.overdue { background: rgba(244,63,94,.15); color: #f43f5e; }
-  .sm-badge.due_soon { background: rgba(251,191,36,.12); color: #fbbf24; }
-  .sm-badge.ok { background: rgba(16,185,129,.1); color: #10b981; }
-  .sm-btn { font-family: inherit; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 8px; border: 1px solid #1e2236; background: transparent; color: #8e97ad; cursor: pointer; transition: all .15s; }
-  .sm-btn:hover { border-color: #272b40; color: #e8edf5; }
-  .sm-btn-primary { background: #00d9ff; color: #0a0c12; border-color: #00d9ff; }
-  .sm-btn-primary:hover { background: #00b8d9; border-color: #00b8d9; color: #0a0c12; }
-  .sm-link { color: #00d9ff; text-decoration: none; font-weight: 600; }
-  .sm-link:hover { text-decoration: underline; }
-  .sm-mono { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8e97ad; }
-  .sm-empty { text-align: center; padding: 48px 20px; color: #545968; font-size: 14px; }
-  .sm-loading { text-align: center; padding: 48px; color: #8e97ad; }
-`;
-
 export default function ServiceManagerPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -148,51 +106,68 @@ export default function ServiceManagerPage() {
   const overdueVehicles = data?.pending_services?.filter(p => p.urgency === 'overdue') ?? [];
   const pending = data?.pending_services ?? [];
 
+  const rowBg = (urgency: string) =>
+    urgency === 'overdue' ? 'bg-[#f43f5e]/[0.08]' : urgency === 'due_soon' ? 'bg-[#fbbf24]/[0.06]' : '';
+
+  const badgeCls = (urgency: string) =>
+    urgency === 'overdue'
+      ? 'bg-[#f43f5e]/[0.15] text-[#f43f5e]'
+      : urgency === 'due_soon'
+      ? 'bg-[#fbbf24]/[0.12] text-amber-400'
+      : 'bg-[#10b981]/[0.10] text-[#10b981]';
+
   return (
-    <div className="sm-root">
-      <style>{PAGE_STYLES}</style>
-      <div className="sm-content">
-        <div className="sm-header">
+    <div className="min-h-screen bg-[#0a0c12] text-[#e8edf5] font-sans">
+      <div className="px-7 py-8 max-w-[1680px] mx-auto">
+        <div className="mb-7 flex items-center justify-between flex-wrap gap-3">
           <div>
-            <div className="sm-title">Service Manager</div>
-            <div className="sm-subtitle">Daily overview of vehicles and pending services</div>
+            <div className="text-[28px] font-extrabold tracking-tight mb-1.5">Service Manager</div>
+            <div className="text-[13.5px] text-[#8e97ad]">Daily overview of vehicles and pending services</div>
           </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <Link href="/service-manager/vehicles" className="sm-btn sm-btn-primary">
+          <div className="flex gap-2.5">
+            <Link
+              href="/service-manager/vehicles"
+              className="font-sans text-xs font-semibold px-3 py-1.5 rounded-lg border border-cyan-400 bg-cyan-400 text-[#0a0c12] cursor-pointer transition-all duration-150 hover:bg-[#00b8d9] hover:border-[#00b8d9]"
+            >
               Manage Vehicles
             </Link>
           </div>
         </div>
 
-        {error && <div className="sm-alert"><div className="sm-alert-title">Error</div><div>{error}</div></div>}
+        {error && (
+          <div className="bg-[#f43f5e]/[0.10] border border-[#f43f5e]/[0.25] rounded-xl px-5 py-4 mb-6">
+            <div className="font-bold text-[#f43f5e] mb-2">Error</div>
+            <div>{error}</div>
+          </div>
+        )}
 
         {loading ? (
-          <div className="sm-loading">Loading dashboard…</div>
+          <div className="text-center py-12 text-[#8e97ad]">Loading dashboard…</div>
         ) : data ? (
           <>
-            <div className="sm-stats">
-              <div className="sm-stat">
-                <div className="sm-stat-label">Total Vehicles</div>
-                <div className="sm-stat-val primary">{data.total_vehicles}</div>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3 mb-6">
+              <div className="bg-[#0f1117] border border-[#1e2236] rounded-xl p-[18px]">
+                <div className="text-[10.5px] font-semibold text-[#545968] uppercase tracking-[0.9px] mb-2">Total Vehicles</div>
+                <div className="text-[28px] font-extrabold font-mono text-cyan-400">{data.total_vehicles}</div>
               </div>
-              <div className="sm-stat">
-                <div className="sm-stat-label">Overdue</div>
-                <div className="sm-stat-val red">{data.overdue_count}</div>
+              <div className="bg-[#0f1117] border border-[#1e2236] rounded-xl p-[18px]">
+                <div className="text-[10.5px] font-semibold text-[#545968] uppercase tracking-[0.9px] mb-2">Overdue</div>
+                <div className="text-[28px] font-extrabold font-mono text-[#f43f5e]">{data.overdue_count}</div>
               </div>
-              <div className="sm-stat">
-                <div className="sm-stat-label">Due Today</div>
-                <div className="sm-stat-val amber">{data.due_today_count}</div>
+              <div className="bg-[#0f1117] border border-[#1e2236] rounded-xl p-[18px]">
+                <div className="text-[10.5px] font-semibold text-[#545968] uppercase tracking-[0.9px] mb-2">Due Today</div>
+                <div className="text-[28px] font-extrabold font-mono text-amber-400">{data.due_today_count}</div>
               </div>
-              <div className="sm-stat">
-                <div className="sm-stat-label">Due This Week</div>
-                <div className="sm-stat-val green">{data.due_this_week_count}</div>
+              <div className="bg-[#0f1117] border border-[#1e2236] rounded-xl p-[18px]">
+                <div className="text-[10.5px] font-semibold text-[#545968] uppercase tracking-[0.9px] mb-2">Due This Week</div>
+                <div className="text-[28px] font-extrabold font-mono text-[#10b981]">{data.due_this_week_count}</div>
               </div>
             </div>
 
             {overdueVehicles.length > 0 && (
-              <div className="sm-alert">
-                <div className="sm-alert-title">Overdue services</div>
-                <div className="sm-alert-list">
+              <div className="bg-[#f43f5e]/[0.10] border border-[#f43f5e]/[0.25] rounded-xl px-5 py-4 mb-6">
+                <div className="font-bold text-[#f43f5e] mb-2">Overdue services</div>
+                <div className="text-[13px] text-[#e8edf5]">
                   {overdueVehicles.map(p => (
                     <span key={p.service_id}>
                       {p.vehicle_number || p.chassis_number || `Vehicle #${p.id}`} – {p.owner_name || '—'} ({fmtDate(p.due_date)})
@@ -203,28 +178,32 @@ export default function ServiceManagerPage() {
               </div>
             )}
 
-            <div className="sm-table-card">
-              <div className="sm-table-header">
-                <div className="sm-table-title">Pending services (by urgency)</div>
+            <div className="bg-[#0f1117] border border-[#1e2236] rounded-xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-[#1e2236] flex justify-between items-center flex-wrap gap-2.5">
+                <div className="text-sm font-bold">Pending services (by urgency)</div>
               </div>
-              <div className="sm-table-outer">
-                <table className="sm-table">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse min-w-[900px]">
                   <thead>
                     <tr>
-                      <th>Vehicle</th>
-                      <th>Owner</th>
-                      <th>Location</th>
-                      <th>Service #</th>
-                      <th>Due KM</th>
-                      <th>Due Date</th>
-                      <th>Current KM</th>
-                      <th>Status</th>
-                      <th>Action</th>
+                      <th className="px-4 py-[11px] text-left text-[10px] font-bold text-[#545968] uppercase tracking-[1px] bg-[#141720] border-b border-[#1e2236]">Vehicle</th>
+                      <th className="px-4 py-[11px] text-left text-[10px] font-bold text-[#545968] uppercase tracking-[1px] bg-[#141720] border-b border-[#1e2236]">Owner</th>
+                      <th className="px-4 py-[11px] text-left text-[10px] font-bold text-[#545968] uppercase tracking-[1px] bg-[#141720] border-b border-[#1e2236]">Location</th>
+                      <th className="px-4 py-[11px] text-left text-[10px] font-bold text-[#545968] uppercase tracking-[1px] bg-[#141720] border-b border-[#1e2236]">Service #</th>
+                      <th className="px-4 py-[11px] text-left text-[10px] font-bold text-[#545968] uppercase tracking-[1px] bg-[#141720] border-b border-[#1e2236]">Due KM</th>
+                      <th className="px-4 py-[11px] text-left text-[10px] font-bold text-[#545968] uppercase tracking-[1px] bg-[#141720] border-b border-[#1e2236]">Due Date</th>
+                      <th className="px-4 py-[11px] text-left text-[10px] font-bold text-[#545968] uppercase tracking-[1px] bg-[#141720] border-b border-[#1e2236]">Current KM</th>
+                      <th className="px-4 py-[11px] text-left text-[10px] font-bold text-[#545968] uppercase tracking-[1px] bg-[#141720] border-b border-[#1e2236]">Status</th>
+                      <th className="px-4 py-[11px] text-left text-[10px] font-bold text-[#545968] uppercase tracking-[1px] bg-[#141720] border-b border-[#1e2236]">Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pending.length === 0 ? (
-                      <tr><td colSpan={9} className="sm-empty">No pending services. Add vehicles from Manage Vehicles.</td></tr>
+                      <tr>
+                        <td colSpan={9} className="text-center px-5 py-12 text-[#545968] text-sm">
+                          No pending services. Add vehicles from Manage Vehicles.
+                        </td>
+                      </tr>
                     ) : (
                       pending.map(p => {
                         const currentKm = p.current_km ?? 0;
@@ -233,32 +212,34 @@ export default function ServiceManagerPage() {
                         const dueDate = p.due_date ? new Date(p.due_date) : null;
                         const daysRem = dueDate ? Math.ceil((dueDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)) : null;
                         return (
-                          <tr key={p.service_id} className={p.urgency}>
-                            <td>
-                              <span style={{ fontWeight: 600 }}>{p.vehicle_number || p.chassis_number || `#${p.id}`}</span>
-                              {p.vehicle_type && <span className="sm-mono" style={{ display: 'block', marginTop: 2 }}>{p.vehicle_type}</span>}
+                          <tr key={p.service_id} className={rowBg(p.urgency)}>
+                            <td className="px-4 py-[13px] border-b border-[#1e2236]/60 text-[13px]">
+                              <span className="font-semibold">{p.vehicle_number || p.chassis_number || `#${p.id}`}</span>
+                              {p.vehicle_type && (
+                                <span className="font-mono text-xs text-[#8e97ad] block mt-0.5">{p.vehicle_type}</span>
+                              )}
                             </td>
-                            <td>{p.owner_name || '—'}</td>
-                            <td style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.location || '—'}</td>
-                            <td className="sm-mono">{p.service_no}</td>
-                            <td className="sm-mono">{p.due_km ?? '—'}</td>
-                            <td className="sm-mono">{fmtDate(p.due_date)}</td>
-                            <td className="sm-mono">{currentKm}</td>
-                            <td>
-                              <span className={`sm-badge ${p.urgency}`}>
+                            <td className="px-4 py-[13px] border-b border-[#1e2236]/60 text-[13px]">{p.owner_name || '—'}</td>
+                            <td className="px-4 py-[13px] border-b border-[#1e2236]/60 text-[13px] max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap">{p.location || '—'}</td>
+                            <td className="px-4 py-[13px] border-b border-[#1e2236]/60 text-[13px] font-mono text-xs text-[#8e97ad]">{p.service_no}</td>
+                            <td className="px-4 py-[13px] border-b border-[#1e2236]/60 text-[13px] font-mono text-xs text-[#8e97ad]">{p.due_km ?? '—'}</td>
+                            <td className="px-4 py-[13px] border-b border-[#1e2236]/60 text-[13px] font-mono text-xs text-[#8e97ad]">{fmtDate(p.due_date)}</td>
+                            <td className="px-4 py-[13px] border-b border-[#1e2236]/60 text-[13px] font-mono text-xs text-[#8e97ad]">{currentKm}</td>
+                            <td className="px-4 py-[13px] border-b border-[#1e2236]/60 text-[13px]">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${badgeCls(p.urgency)}`}>
                                 {p.urgency === 'overdue' ? 'Overdue' : p.urgency === 'due_soon' ? 'Due soon' : 'OK'}
                               </span>
                               {(daysRem != null || (dueKm > 0 && kmRem > 0)) && (
-                                <div style={{ fontSize: 11, color: '#545968', marginTop: 2 }}>
+                                <div className="text-[11px] text-[#545968] mt-0.5">
                                   {daysRem != null && daysRem <= 365 && `${daysRem}d `}
                                   {dueKm > 0 && kmRem > 0 && `${kmRem} km`}
                                 </div>
                               )}
                             </td>
-                            <td>
+                            <td className="px-4 py-[13px] border-b border-[#1e2236]/60 text-[13px]">
                               <button
                                 type="button"
-                                className="sm-btn"
+                                className="font-sans text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#1e2236] bg-transparent text-[#8e97ad] cursor-pointer transition-all duration-150 hover:border-[#272b40] hover:text-[#e8edf5]"
                                 onClick={() => openKmModal(p.id, currentKm)}
                                 disabled={updatingKmId === p.id}
                               >
@@ -278,47 +259,36 @@ export default function ServiceManagerPage() {
 
         {kmModalVehicle && (
           <div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,.7)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000,
-            }}
+            className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000]"
             onClick={() => setKmModalVehicle(null)}
           >
             <div
-              style={{
-                background: '#0f1117',
-                border: '1px solid #1e2236',
-                borderRadius: 12,
-                padding: 24,
-                minWidth: 280,
-              }}
+              className="bg-[#0f1117] border border-[#1e2236] rounded-xl p-6 min-w-[280px]"
               onClick={e => e.stopPropagation()}
             >
-              <div style={{ marginBottom: 12, fontWeight: 700 }}>Update current KM</div>
+              <div className="mb-3 font-bold">Update current KM</div>
               <input
                 type="number"
                 min={0}
                 value={kmModalValue}
                 onChange={e => setKmModalValue(e.target.value)}
-                className="sm-mono"
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  background: '#0a0c12',
-                  border: '1px solid #1e2236',
-                  borderRadius: 8,
-                  color: '#e8edf5',
-                  marginBottom: 16,
-                }}
+                className="font-mono text-xs text-[#8e97ad] w-full px-3 py-2.5 bg-[#0a0c12] border border-[#1e2236] rounded-lg text-[#e8edf5] mb-4"
               />
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button type="button" className="sm-btn" onClick={() => setKmModalVehicle(null)}>Cancel</button>
-                <button type="button" className="sm-btn sm-btn-primary" onClick={submitKmUpdate}>Save</button>
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  className="font-sans text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#1e2236] bg-transparent text-[#8e97ad] cursor-pointer transition-all duration-150 hover:border-[#272b40] hover:text-[#e8edf5]"
+                  onClick={() => setKmModalVehicle(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="font-sans text-xs font-semibold px-3 py-1.5 rounded-lg border border-cyan-400 bg-cyan-400 text-[#0a0c12] cursor-pointer transition-all duration-150 hover:bg-[#00b8d9] hover:border-[#00b8d9]"
+                  onClick={submitKmUpdate}
+                >
+                  Save
+                </button>
               </div>
             </div>
           </div>

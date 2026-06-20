@@ -74,307 +74,20 @@ function fmtDateTime(d?: string) {
   return new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const PAGE_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap');
-
-  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-  :root {
-    --bg: #09090b;
-    --surface: #0d0e13;
-    --surface2: #131419;
-    --surface3: #18191f;
-    --border: #1f2028;
-    --border2: #28293a;
-    --primary: #7c3aed;
-    --primary-dim: rgba(124,58,237,0.08);
-    --primary-glow: rgba(124,58,237,0.18);
-    --emerald: #10b981;
-    --sky: #0ea5e9;
-    --amber: #f59e0b;
-    --rose: #f43f5e;
-    --text: #e4e6eb;
-    --text2: #8b92a8;
-    --text3: #4f5463;
-    --mono: 'Courier Prime', monospace;
-  }
-
-  body {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    font-size: 14px;
-    -webkit-font-smoothing: antialiased;
-  }
-
-  /* ── Layout ── */
-  .lr-root { display: flex; flex-direction: column; min-height: 100vh; }
-  .lr-content { padding: 32px 28px; flex: 1; max-width: 1680px; margin: 0 auto; width: 100%; }
-
-  /* ── Header ── */
-  .lr-header { margin-bottom: 28px; }
-  .lr-title { font-size: 28px; font-weight: 800; letter-spacing: -.5px; margin-bottom: 6px; }
-  .lr-subtitle { font-size: 13.5px; color: var(--text2); }
-
-  /* ── Filters Card ── */
-  .lr-filters {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 20px 22px; margin-bottom: 20px;
-  }
-  .lr-filters-label {
-    font-size: 11px; font-weight: 700; color: var(--text3);
-    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .lr-filters-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;
-    align-items: end;
-  }
-  .lr-fg { display: flex; flex-direction: column; }
-  .lr-label {
-    font-size: 10.5px; font-weight: 600; color: var(--text3);
-    text-transform: uppercase; letter-spacing: .9px; margin-bottom: 6px;
-  }
-  .lr-field {
-    font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px;
-    background: var(--bg); border: 1px solid var(--border);
-    color: var(--text); padding: 8px 12px; border-radius: 7px; width: 100%;
-    transition: border-color .15s, box-shadow .15s;
-    appearance: none; -webkit-appearance: none;
-  }
-  .lr-field:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-dim); }
-  .lr-field::placeholder { color: var(--text3); }
-  select.lr-field {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 12 12'%3E%3Cpath fill='%234f5463' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
-  }
-  button.lr-field { border: 1px solid var(--border); }
-  .lr-btn-clear {
-    font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; font-weight: 600;
-    padding: 8px 16px; border-radius: 7px;
-    border: 1px solid var(--border); background: transparent; color: var(--text2);
-    cursor: pointer; transition: all .15s; white-space: nowrap;
-  }
-  .lr-btn-clear:hover { border-color: var(--border2); color: var(--text); }
-
-  /* ── Stats ── */
-  .lr-stats { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-  .lr-stat {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: 14px 18px; flex: 1; min-width: 140px;
-    transition: border-color .15s;
-  }
-  .lr-stat:hover { border-color: var(--border2); }
-  .lr-stat-label {
-    font-size: 10.5px; font-weight: 600; color: var(--text3);
-    text-transform: uppercase; letter-spacing: .9px; margin-bottom: 7px;
-  }
-  .lr-stat-val { font-size: 24px; font-weight: 800; font-family: var(--mono); }
-  .lr-stat-val.primary { color: var(--primary); }
-  .lr-stat-val.emerald { color: var(--emerald); }
-  .lr-stat-val.sky     { color: var(--sky); }
-  .lr-stat-val.amber   { color: var(--amber); }
-  .lr-stat-val.hot     { color: #f59e0b; }
-
-  /* ── Table Card ── */
-  .lr-table-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; overflow: hidden;
-  }
-  .lr-table-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 20px; border-bottom: 1px solid var(--border);
-    flex-wrap: wrap; gap: 10px;
-  }
-  .lr-table-title { font-size: 14px; font-weight: 700; }
-  .lr-table-sub { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
-  .lr-table-actions { display: flex; gap: 8px; }
-  .lr-btn {
-    font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12.5px; font-weight: 600;
-    padding: 7px 14px; border-radius: 7px; border: none; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 6px;
-    transition: opacity .15s, box-shadow .15s, transform .1s; white-space: nowrap;
-  }
-  .lr-btn:active { transform: scale(0.97); }
-  .lr-btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
-  .lr-btn-ghost:hover { border-color: var(--border2); color: var(--text); }
-  .lr-btn-preview { background: rgba(14,165,233,.08); color: var(--sky); border: 1px solid rgba(14,165,233,.22); font-size: 12px; padding: 5px 12px; }
-  .lr-btn-preview:hover { background: rgba(14,165,233,.14); }
-
-  .lr-table-outer { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; min-width: 900px; }
-  thead tr { background: var(--surface2); }
-  th {
-    padding: 11px 16px; text-align: left;
-    font-size: 10px; font-weight: 700; color: var(--text3);
-    text-transform: uppercase; letter-spacing: 1px; white-space: nowrap;
-    border-bottom: 1px solid var(--border);
-    cursor: pointer; user-select: none; position: relative;
-    transition: color .15s;
-  }
-  th:hover { color: var(--text2); }
-  th.sortable::after {
-    content: ''; position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
-    font-size: 11px; color: var(--text3); opacity: 0; transition: opacity .15s;
-  }
-  th.sortable:hover::after { opacity: 1; }
-  th.sorted::after { opacity: 1; color: var(--primary); }
-  th.sorted.asc::after { content: '↑'; }
-  th.sorted.desc::after { content: '↓'; }
-
-  td {
-    padding: 13px 16px; color: var(--text); font-size: 13px;
-    border-bottom: 1px solid rgba(31,32,40,0.6); vertical-align: middle;
-  }
-  tbody tr:last-child td { border-bottom: none; }
-  tbody tr { transition: background .1s; }
-  tbody tr:hover { background: rgba(255,255,255,0.02); }
-
-  .lr-num { font-family: var(--mono); font-size: 11px; color: var(--text3); }
-  .lr-code { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--primary); }
-  .lr-date { font-family: var(--mono); font-size: 11.5px; color: var(--text2); }
-
-  /* ── Badge ── */
-  .lr-badge {
-    display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px;
-    font-size: 11px; font-weight: 600; white-space: nowrap;
-  }
-  .lr-badge.digital    { background: var(--primary-dim); color: var(--primary); border: 1px solid var(--primary-glow); }
-  .lr-badge.nondigital { background: rgba(14,165,233,.08); color: var(--sky); border: 1px solid rgba(14,165,233,.2); }
-  .lr-badge.default    { background: rgba(139,146,168,.08); color: var(--text2); border: 1px solid rgba(139,146,168,.18); }
-
-  /* ── Empty & Loading ── */
-  .lr-empty { text-align: center; padding: 64px 20px; color: var(--text3); }
-  .lr-empty-icon { font-size: 40px; margin-bottom: 14px; opacity: .4; }
-  .lr-empty-msg { font-size: 14px; }
-  .lr-empty-msg strong { color: var(--text2); }
-
-  .lr-skel-row td { padding: 14px 16px; }
-  .lr-skel {
-    height: 13px; border-radius: 4px;
-    background: linear-gradient(90deg, var(--surface2) 0%, var(--border) 50%, var(--surface2) 100%);
-    background-size: 200% 100%;
-    animation: skel 1.6s infinite;
-  }
-  @keyframes skel { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-
-  .lr-error {
-    background: rgba(244,63,94,.08); border: 1px solid rgba(244,63,94,.22);
-    color: var(--rose); padding: 14px 18px; border-radius: 10px; margin-bottom: 20px;
-    font-size: 13px; font-weight: 500;
-  }
-
-  /* ── Preview Modal ── */
-  .lr-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,.72); backdrop-filter: blur(4px);
-    z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px;
-    animation: fadeIn .15s ease;
-  }
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  .lr-preview-modal {
-    background: var(--surface); border: 1px solid var(--border2);
-    border-radius: 16px; width: 100%; max-width: 740px; max-height: 88vh;
-    display: flex; flex-direction: column; overflow: hidden;
-    box-shadow: 0 32px 80px rgba(0,0,0,.6);
-    animation: slideUp .18s ease;
-  }
-  @keyframes slideUp { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-  .lr-pv-head {
-    padding: 22px 24px 18px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
-    flex-shrink: 0;
-  }
-  .lr-pv-name { font-size: 20px; font-weight: 800; letter-spacing: -.3px; }
-  .lr-pv-code { font-family: var(--mono); font-size: 12px; color: var(--primary); margin-top: 4px; }
-  .lr-pv-close {
-    background: transparent; border: 1px solid var(--border); color: var(--text2);
-    width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px;
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    transition: all .15s;
-  }
-  .lr-pv-close:hover { background: rgba(244,63,94,.1); border-color: var(--rose); color: var(--rose); }
-
-  .lr-pv-body { overflow-y: auto; padding: 22px 24px; flex: 1; display: flex; flex-direction: column; gap: 24px; }
-
-  .lr-pv-section-title {
-    font-size: 10px; font-weight: 700; color: var(--text3);
-    text-transform: uppercase; letter-spacing: 1.2px;
-    margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
-  }
-  .lr-pv-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-
-  .lr-pv-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
-  }
-  .lr-pv-field { display: flex; flex-direction: column; gap: 4px; }
-  .lr-pv-field.full { grid-column: 1 / -1; }
-  .lr-pv-field-label {
-    font-size: 10px; font-weight: 600; color: var(--text3);
-    text-transform: uppercase; letter-spacing: .8px;
-  }
-  .lr-pv-field-val {
-    font-size: 13.5px; color: var(--text); background: var(--surface2);
-    border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px;
-    min-height: 38px; word-break: break-word; line-height: 1.5;
-  }
-  .lr-pv-field-val.mono { font-family: var(--mono); font-size: 12.5px; }
-  .lr-pv-field-val.muted { color: var(--text3); font-style: italic; }
-
-  /* ── Audit row inside preview ── */
-  .lr-pv-audit { display: flex; flex-wrap: wrap; gap: 10px; }
-  .lr-pv-audit-pill {
-    display: flex; align-items: center; gap: 6px;
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 8px; padding: 7px 12px; font-size: 12px;
-  }
-  .lr-pv-audit-pill .icon { font-size: 13px; }
-  .lr-pv-audit-pill .name { color: var(--text); font-weight: 600; }
-  .lr-pv-audit-pill .time { color: var(--text3); font-size: 11px; }
-  .lr-pv-audit-pill.create .icon { color: #4ade80; }
-  .lr-pv-audit-pill.edit   .icon { color: #fbbf24; }
-
-  /* ── History timeline ── */
-  .lr-pv-timeline { display: flex; flex-direction: column; gap: 0; }
-  .lr-pv-tl-item {
-    display: flex; gap: 14px; position: relative; padding-bottom: 18px;
-  }
-  .lr-pv-tl-item:last-child { padding-bottom: 0; }
-  .lr-pv-tl-left { display: flex; flex-direction: column; align-items: center; width: 28px; flex-shrink: 0; }
-  .lr-pv-tl-dot {
-    width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border);
-    display: flex; align-items: center; justify-content: center; font-size: 12px;
-    flex-shrink: 0; background: var(--surface2);
-  }
-  .lr-pv-tl-dot.create { border-color: #4ade80; color: #4ade80; background: rgba(74,222,128,.08); }
-  .lr-pv-tl-dot.update { border-color: #fbbf24; color: #fbbf24; background: rgba(251,191,36,.08); }
-  .lr-pv-tl-dot.delete { border-color: var(--rose); color: var(--rose); background: rgba(244,63,94,.08); }
-  .lr-pv-tl-line {
-    flex: 1; width: 1px; background: var(--border); margin-top: 4px;
-  }
-  .lr-pv-tl-right { flex: 1; padding-top: 4px; }
-  .lr-pv-tl-action { font-size: 13px; font-weight: 600; color: var(--text); }
-  .lr-pv-tl-who { font-size: 12px; color: var(--text2); margin-top: 2px; }
-  .lr-pv-tl-when { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-top: 3px; }
-  .lr-pv-tl-details { font-size: 11.5px; color: var(--text3); margin-top: 4px; font-style: italic; }
-  .lr-pv-no-history { color: var(--text3); font-size: 13px; text-align: center; padding: 24px 0; }
-  .lr-pv-hist-loading { color: var(--text3); font-size: 13px; text-align: center; padding: 18px 0; }
-`;
-
 // ─── Badge helpers ─────────────────────────────────────────────────────────────
 function leadBadgeClass(type = ''): string {
-  if (type === 'Digital Lead') return 'digital';
-  if (type === 'Non Digital Lead') return 'nondigital';
-  return 'default';
+  if (type === 'Digital Lead') return 'bg-[#7c3aed]/10 text-[#7c3aed] border border-[#7c3aed]/20';
+  if (type === 'Non Digital Lead') return 'bg-[#0ea5e9]/10 text-[#0ea5e9] border border-[#0ea5e9]/20';
+  return 'bg-[#8b92a8]/10 text-[#8b92a8] border border-[#8b92a8]/20';
 }
-function tlDotClass(action: string) {
-  if (action === 'create') return 'create';
-  if (action === 'update') return 'update';
-  if (action === 'delete') return 'delete';
-  return '';
+
+function tlDotClass(action: string): string {
+  if (action === 'create') return 'border-[#4ade80] text-[#4ade80] bg-[#4ade80]/10';
+  if (action === 'update') return 'border-[#fbbf24] text-[#fbbf24] bg-[#fbbf24]/10';
+  if (action === 'delete') return 'border-[#f43f5e] text-[#f43f5e] bg-[#f43f5e]/10';
+  return 'border-[#1f2028] text-[#4f5463] bg-[#131419]';
 }
+
 function tlIcon(action: string) {
   if (action === 'create') return '＋';
   if (action === 'update') return 'Edit';
@@ -388,14 +101,27 @@ function tlLabel(action: string) {
   return action;
 }
 
+// ─── Shared class strings ─────────────────────────────────────────────────────
+// lr-field kept as a bare marker class so clearFilters() querySelectorAll('.lr-field') continues to work
+const FIELD_CLS =
+  'lr-field font-sans text-[13px] bg-[#09090b] border border-[#1f2028] text-[#e4e6eb] px-3 py-2 rounded-[7px] w-full transition-[border-color,box-shadow] duration-150 appearance-none placeholder-[#4f5463] focus:outline-none focus:border-[#7c3aed] focus:ring-[3px] focus:ring-[#7c3aed]/10';
+
+const TH_BASE =
+  'py-[11px] px-4 text-left text-[10px] font-bold text-[#4f5463] uppercase tracking-widest whitespace-nowrap border-b border-[#1f2028] select-none transition-colors duration-150 hover:text-[#8b92a8]';
+
+const PV_FIELD_VAL =
+  'text-[13.5px] text-[#e4e6eb] bg-[#131419] border border-[#1f2028] rounded-lg py-[9px] px-3 min-h-[38px] break-words leading-relaxed';
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function SkeletonRows() {
   return (
     <>
       {[1, 2, 3, 4, 5, 6].map(n => (
-        <tr key={n} className="lr-skel-row">
+        <tr key={n}>
           {[26, 88, 130, 150, 100, 110, 100, 44, 88, 96, 90, 60].map((w, i) => (
-            <td key={i}><div className="lr-skel" style={{ width: w }} /></td>
+            <td key={i} className="py-3.5 px-4 border-b border-[#1f2028]/60">
+              <div className="h-[13px] rounded-sm bg-[#131419] animate-pulse" style={{ width: w }} />
+            </td>
           ))}
         </tr>
       ))}
@@ -598,27 +324,27 @@ export default function LeadReportPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="lr-root">
-      <style>{PAGE_STYLES}</style>
+    <div className="flex flex-col min-h-screen">
 
-      <div className="lr-content">
+      <div className="px-7 py-8 flex-1 max-w-[1680px] mx-auto w-full">
+
         {/* Header */}
-        <div className="lr-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div className="mb-7 flex items-center justify-between gap-3">
           <div>
-            <div className="lr-title">Lead Report</div>
-            <div className="lr-subtitle">Complete overview of all leads recorded in the system</div>
+            <div className="text-[28px] font-extrabold tracking-tight mb-1.5">Lead Report</div>
+            <div className="text-[13.5px] text-[#8b92a8]">Complete overview of all leads recorded in the system</div>
           </div>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <div className="flex gap-3 items-center">
             {connected === null ? (
-              <div style={{ color: 'var(--text3)', fontSize: 13 }}>Checking backend...</div>
+              <div className="text-[#4f5463] text-[13px]">Checking backend...</div>
             ) : connected ? (
-              <div style={{ color: 'var(--emerald)', fontSize: 13 }}>Backend: Connected</div>
+              <div className="text-[#10b981] text-[13px]">Backend: Connected</div>
             ) : (
-              <div style={{ color: 'var(--rose)', fontSize: 13 }}>Backend: Disconnected</div>
+              <div className="text-[#f43f5e] text-[13px]">Backend: Disconnected</div>
             )}
             <button
               type="button"
-              className="lr-btn lr-btn-ghost"
+              className="font-sans text-[12.5px] font-semibold py-[7px] px-3.5 rounded-[7px] cursor-pointer inline-flex items-center gap-1.5 transition-[opacity,box-shadow,transform] duration-150 whitespace-nowrap active:scale-[0.97] bg-transparent text-[#8b92a8] border border-[#1f2028] hover:border-[#28293a] hover:text-[#e4e6eb]"
               onClick={() => { fetchLeads(); (async () => { try { const r = await fetch(`${API_BASE}/api/v1/health`); setConnected(r.ok); } catch { setConnected(false); } })(); }}
             >
               Retry
@@ -626,88 +352,139 @@ export default function LeadReportPage() {
           </div>
         </div>
 
-        {error && <div className="lr-error">{error}</div>}
+        {error && (
+          <div className="bg-[#f43f5e]/10 border border-[#f43f5e]/20 text-[#f43f5e] py-3.5 px-[18px] rounded-[10px] mb-5 text-[13px] font-medium">
+            {error}
+          </div>
+        )}
 
         {/* Filters */}
-        <div className="lr-filters">
-          <div className="lr-filters-label">Filters</div>
-          <div className="lr-filters-grid">
-            <div className="lr-fg">
-              <label className="lr-label">Search</label>
-              <input className="lr-field" placeholder="Name, code, business, phone..." onChange={handleSearch} />
+        <div className="bg-[#0d0e13] border border-[#1f2028] rounded-xl p-5 mb-5">
+          <div className="text-[11px] font-bold text-[#4f5463] uppercase tracking-widest mb-3.5 flex items-center gap-2">
+            Filters
+          </div>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 items-end">
+            <div className="flex flex-col">
+              <label className="text-[10.5px] font-semibold text-[#4f5463] uppercase tracking-wide mb-1.5">Search</label>
+              <input className={FIELD_CLS} placeholder="Name, code, business, phone..." onChange={handleSearch} />
             </div>
-            <div className="lr-fg">
-              <label className="lr-label">Lead Type</label>
-              <select className="lr-field" value={filterType} onChange={e => setFilterType(e.target.value)}>
+            <div className="flex flex-col">
+              <label className="text-[10.5px] font-semibold text-[#4f5463] uppercase tracking-wide mb-1.5">Lead Type</label>
+              <select className={FIELD_CLS} value={filterType} onChange={e => setFilterType(e.target.value)}>
                 <option value="">All types</option>
                 {LEAD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
-            <div className="lr-fg">
-              <label className="lr-label">Business Category</label>
+            <div className="flex flex-col">
+              <label className="text-[10.5px] font-semibold text-[#4f5463] uppercase tracking-wide mb-1.5">Business Category</label>
               <SearchableSelect fieldClass="lr-field" options={BUSINESS_CATEGORIES} value={filterBusiness} onChange={v => setFilterBusiness(v)} emptyLabel="All categories" accentColor="var(--primary)" />
             </div>
-            <div className="lr-fg">
-              <label className="lr-label">Date From</label>
-              <input type="date" className="lr-field" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
+            <div className="flex flex-col">
+              <label className="text-[10.5px] font-semibold text-[#4f5463] uppercase tracking-wide mb-1.5">Date From</label>
+              <input type="date" className={FIELD_CLS} value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
             </div>
-            <div className="lr-fg">
-              <label className="lr-label">Date To</label>
-              <input type="date" className="lr-field" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
+            <div className="flex flex-col">
+              <label className="text-[10.5px] font-semibold text-[#4f5463] uppercase tracking-wide mb-1.5">Date To</label>
+              <input type="date" className={FIELD_CLS} value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
             </div>
-            <div className="lr-fg">
-              <label className="lr-label">Hot lead</label>
-              <select className="lr-field" value={filterHot} onChange={e => setFilterHot(e.target.value as 'all' | 'hot' | 'not_hot')}>
+            <div className="flex flex-col">
+              <label className="text-[10.5px] font-semibold text-[#4f5463] uppercase tracking-wide mb-1.5">Hot lead</label>
+              <select className={FIELD_CLS} value={filterHot} onChange={e => setFilterHot(e.target.value as 'all' | 'hot' | 'not_hot')}>
                 <option value="all">All</option>
                 <option value="hot">Hot only</option>
                 <option value="not_hot">Not hot</option>
               </select>
             </div>
-            <button className="lr-btn-clear" onClick={clearFilters}>Clear All</button>
+            <button
+              className="font-sans text-[12.5px] font-semibold px-4 py-2 rounded-[7px] border border-[#1f2028] bg-transparent text-[#8b92a8] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-[#28293a] hover:text-[#e4e6eb]"
+              onClick={clearFilters}
+            >
+              Clear All
+            </button>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="lr-stats">
-          <div className="lr-stat"><div className="lr-stat-label">Total Leads</div><div className="lr-stat-val primary">{stats.total}</div></div>
-          <div className="lr-stat"><div className="lr-stat-label">Digital Leads</div><div className="lr-stat-val emerald">{stats.digital}</div></div>
-          <div className="lr-stat"><div className="lr-stat-label">Non-Digital</div><div className="lr-stat-val sky">{stats.nonDigital}</div></div>
-          <div className="lr-stat"><div className="lr-stat-label">This Month</div><div className="lr-stat-val amber">{stats.thisMonth}</div></div>
-          <div className="lr-stat"><div className="lr-stat-label">Hot Leads</div><div className="lr-stat-val hot">{stats.hot}</div></div>
+        <div className="flex gap-3 mb-5 flex-wrap">
+          <div className="bg-[#0d0e13] border border-[#1f2028] rounded-[10px] px-[18px] py-3.5 flex-1 min-w-[140px] transition-[border-color] duration-150 hover:border-[#28293a]">
+            <div className="text-[10.5px] font-semibold text-[#4f5463] uppercase tracking-wide mb-[7px]">Total Leads</div>
+            <div className="text-[24px] font-extrabold font-mono text-[#7c3aed]">{stats.total}</div>
+          </div>
+          <div className="bg-[#0d0e13] border border-[#1f2028] rounded-[10px] px-[18px] py-3.5 flex-1 min-w-[140px] transition-[border-color] duration-150 hover:border-[#28293a]">
+            <div className="text-[10.5px] font-semibold text-[#4f5463] uppercase tracking-wide mb-[7px]">Digital Leads</div>
+            <div className="text-[24px] font-extrabold font-mono text-[#10b981]">{stats.digital}</div>
+          </div>
+          <div className="bg-[#0d0e13] border border-[#1f2028] rounded-[10px] px-[18px] py-3.5 flex-1 min-w-[140px] transition-[border-color] duration-150 hover:border-[#28293a]">
+            <div className="text-[10.5px] font-semibold text-[#4f5463] uppercase tracking-wide mb-[7px]">Non-Digital</div>
+            <div className="text-[24px] font-extrabold font-mono text-[#0ea5e9]">{stats.nonDigital}</div>
+          </div>
+          <div className="bg-[#0d0e13] border border-[#1f2028] rounded-[10px] px-[18px] py-3.5 flex-1 min-w-[140px] transition-[border-color] duration-150 hover:border-[#28293a]">
+            <div className="text-[10.5px] font-semibold text-[#4f5463] uppercase tracking-wide mb-[7px]">This Month</div>
+            <div className="text-[24px] font-extrabold font-mono text-[#f59e0b]">{stats.thisMonth}</div>
+          </div>
+          <div className="bg-[#0d0e13] border border-[#1f2028] rounded-[10px] px-[18px] py-3.5 flex-1 min-w-[140px] transition-[border-color] duration-150 hover:border-[#28293a]">
+            <div className="text-[10.5px] font-semibold text-[#4f5463] uppercase tracking-wide mb-[7px]">Hot Leads</div>
+            <div className="text-[24px] font-extrabold font-mono text-[#f59e0b]">{stats.hot}</div>
+          </div>
         </div>
 
         {/* Table */}
-        <div className="lr-table-card">
-          <div className="lr-table-header">
+        <div className="bg-[#0d0e13] border border-[#1f2028] rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#1f2028] flex-wrap gap-2.5">
             <div>
-              <div className="lr-table-title">
+              <div className="text-sm font-bold">
                 {leads.length === allLeads.length ? `${allLeads.length} Total Leads` : `${leads.length} of ${allLeads.length} Leads`}
               </div>
-              <div className="lr-table-sub">
+              <div className="text-[11.5px] text-[#4f5463] mt-0.5">
                 {searchQuery || filterType || filterBusiness || filterDateFrom || filterDateTo || filterHot !== 'all' ? 'Filtered results' : 'Complete lead pipeline'}
               </div>
             </div>
-            <div className="lr-table-actions">
-              <button className="lr-btn lr-btn-ghost" onClick={exportCSV}>↓ Export CSV</button>
+            <div className="flex gap-2">
+              <button
+                className="font-sans text-[12.5px] font-semibold py-[7px] px-3.5 rounded-[7px] cursor-pointer inline-flex items-center gap-1.5 transition-[opacity,box-shadow,transform] duration-150 whitespace-nowrap active:scale-[0.97] bg-transparent text-[#8b92a8] border border-[#1f2028] hover:border-[#28293a] hover:text-[#e4e6eb]"
+                onClick={exportCSV}
+              >
+                ↓ Export CSV
+              </button>
             </div>
           </div>
 
-          <div className="lr-table-outer">
-            <table>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[900px]">
               <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Cust Code</th>
-                  <th className={`sortable ${sortField === 'cust_name' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('cust_name')}>Customer Name</th>
-                  <th className={`sortable ${sortField === 'business' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('business')}>Business</th>
-                  <th>Phone</th>
-                  <th>Location</th>
-                  <th className={`sortable ${sortField === 'lead_type' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('lead_type')}>Lead Type</th>
-                  <th>Hot</th>
-                  <th>Buy window</th>
-                  <th>Callback</th>
-                  <th className={`sortable ${sortField === 'connect_date' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('connect_date')}>Connect Date</th>
-                  <th>Preview</th>
+                <tr className="bg-[#131419]">
+                  <th className={TH_BASE}>#</th>
+                  <th className={TH_BASE}>Cust Code</th>
+                  <th
+                    className={`${TH_BASE} cursor-pointer${sortField === 'cust_name' ? ' text-[#8b92a8]' : ''}`}
+                    onClick={() => handleSort('cust_name')}
+                  >
+                    Customer Name{sortField === 'cust_name' && <span className="ml-1 text-[#7c3aed]">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                  </th>
+                  <th
+                    className={`${TH_BASE} cursor-pointer${sortField === 'business' ? ' text-[#8b92a8]' : ''}`}
+                    onClick={() => handleSort('business')}
+                  >
+                    Business{sortField === 'business' && <span className="ml-1 text-[#7c3aed]">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                  </th>
+                  <th className={TH_BASE}>Phone</th>
+                  <th className={TH_BASE}>Location</th>
+                  <th
+                    className={`${TH_BASE} cursor-pointer${sortField === 'lead_type' ? ' text-[#8b92a8]' : ''}`}
+                    onClick={() => handleSort('lead_type')}
+                  >
+                    Lead Type{sortField === 'lead_type' && <span className="ml-1 text-[#7c3aed]">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                  </th>
+                  <th className={TH_BASE}>Hot</th>
+                  <th className={TH_BASE}>Buy window</th>
+                  <th className={TH_BASE}>Callback</th>
+                  <th
+                    className={`${TH_BASE} cursor-pointer${sortField === 'connect_date' ? ' text-[#8b92a8]' : ''}`}
+                    onClick={() => handleSort('connect_date')}
+                  >
+                    Connect Date{sortField === 'connect_date' && <span className="ml-1 text-[#7c3aed]">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                  </th>
+                  <th className={TH_BASE}>Preview</th>
                 </tr>
               </thead>
               <tbody>
@@ -715,9 +492,9 @@ export default function LeadReportPage() {
                   <SkeletonRows />
                 ) : leads.length === 0 ? (
                   <tr><td colSpan={12}>
-                    <div className="lr-empty">
-                      <div className="lr-empty-icon"></div>
-                      <div className="lr-empty-msg">
+                    <div className="text-center py-16 px-5 text-[#4f5463]">
+                      <div className="text-[40px] mb-3.5 opacity-40"></div>
+                      <div className="text-[14px]">
                         {searchQuery || filterType || filterBusiness || filterDateFrom || filterDateTo || filterHot !== 'all'
                           ? <>No leads match your filters</>
                           : <>No leads recorded yet</>}
@@ -726,33 +503,52 @@ export default function LeadReportPage() {
                   </td></tr>
                 ) : (
                   leads.map((l, i) => (
-                    <tr key={l.id ?? i}>
-                      <td className="lr-num">{String(i + 1).padStart(2, '0')}</td>
-                      <td className="lr-code">{l.cust_code || '—'}</td>
-                      <td style={{ fontWeight: 500 }}>{l.cust_name || '—'}</td>
-                      <td style={{ color: 'var(--text2)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.business || '—'}</td>
-                      <td>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: '11.5px', color: 'var(--text2)' }}>{l.phone_no || '—'}</div>
-                        {l.phone_no_2 && <div style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--text3)', marginTop: 2 }}>{l.phone_no_2}</div>}
+                    <tr key={l.id ?? i} className="transition-colors duration-100 hover:bg-white/[0.02] [&:last-child_td]:border-b-0">
+                      <td className="py-[13px] px-4 text-[#e4e6eb] text-[13px] border-b border-[#1f2028]/60 align-middle font-mono text-[11px] text-[#4f5463]">
+                        {String(i + 1).padStart(2, '0')}
                       </td>
-                      <td style={{ color: 'var(--text2)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.location || '—'}</td>
-                      <td><span className={`lr-badge ${leadBadgeClass(l.lead_type)}`}>{l.lead_type || '—'}</span></td>
-                      <td>
+                      <td className="py-[13px] px-4 text-[#e4e6eb] text-[13px] border-b border-[#1f2028]/60 align-middle font-mono text-[12px] font-bold text-[#7c3aed]">
+                        {l.cust_code || '—'}
+                      </td>
+                      <td className="py-[13px] px-4 text-[#e4e6eb] text-[13px] border-b border-[#1f2028]/60 align-middle font-medium">
+                        {l.cust_name || '—'}
+                      </td>
+                      <td className="py-[13px] px-4 text-[#8b92a8] text-[13px] border-b border-[#1f2028]/60 align-middle max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap">
+                        {l.business || '—'}
+                      </td>
+                      <td className="py-[13px] px-4 text-[#e4e6eb] text-[13px] border-b border-[#1f2028]/60 align-middle">
+                        <div className="font-mono text-[11.5px] text-[#8b92a8]">{l.phone_no || '—'}</div>
+                        {l.phone_no_2 && <div className="font-mono text-[11px] text-[#4f5463] mt-0.5">{l.phone_no_2}</div>}
+                      </td>
+                      <td className="py-[13px] px-4 text-[#8b92a8] text-[13px] border-b border-[#1f2028]/60 align-middle max-w-[130px] overflow-hidden text-ellipsis whitespace-nowrap">
+                        {l.location || '—'}
+                      </td>
+                      <td className="py-[13px] px-4 text-[#e4e6eb] text-[13px] border-b border-[#1f2028]/60 align-middle">
+                        <span className={`inline-flex items-center px-2.5 py-[3px] rounded-full text-[11px] font-semibold whitespace-nowrap ${leadBadgeClass(l.lead_type)}`}>
+                          {l.lead_type || '—'}
+                        </span>
+                      </td>
+                      <td className="py-[13px] px-4 text-[#e4e6eb] text-[13px] border-b border-[#1f2028]/60 align-middle">
                         {l.is_hot_lead ? (
-                          <span className="lr-badge" style={{ background: 'rgba(245,158,11,.12)', color: 'var(--amber)', border: '1px solid rgba(245,158,11,.28)', fontSize: 10 }}>Hot</span>
+                          <span className="inline-flex items-center px-2.5 py-[3px] rounded-full text-[10px] font-semibold whitespace-nowrap bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/28">Hot</span>
                         ) : (
-                          <span style={{ color: 'var(--text3)', fontSize: 11 }}>—</span>
+                          <span className="text-[#4f5463] text-[11px]">—</span>
                         )}
                       </td>
-                      <td style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 82 }} title={labelForDeferral(l.deferral_bucket)}>
+                      <td className="py-[13px] px-4 text-[#8b92a8] text-[11px] border-b border-[#1f2028]/60 align-middle max-w-[82px]" title={labelForDeferral(l.deferral_bucket)}>
                         {labelForDeferral(l.deferral_bucket)}
                       </td>
-                      <td style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 96 }} title={labelForContact(l.contact_disposition)}>
+                      <td className="py-[13px] px-4 text-[#8b92a8] text-[11px] border-b border-[#1f2028]/60 align-middle max-w-[96px]" title={labelForContact(l.contact_disposition)}>
                         {labelForContact(l.contact_disposition)}
                       </td>
-                      <td className="lr-date">{fmtDate(l.connect_date)}</td>
-                      <td>
-                        <button className="lr-btn lr-btn-preview" onClick={() => openPreview(l)}>
+                      <td className="py-[13px] px-4 text-[#e4e6eb] text-[13px] border-b border-[#1f2028]/60 align-middle font-mono text-[11.5px] text-[#8b92a8]">
+                        {fmtDate(l.connect_date)}
+                      </td>
+                      <td className="py-[13px] px-4 text-[#e4e6eb] text-[13px] border-b border-[#1f2028]/60 align-middle">
+                        <button
+                          className="font-sans text-[12px] font-semibold py-[5px] px-3 rounded-[7px] cursor-pointer inline-flex items-center gap-1.5 transition-[opacity,box-shadow,transform] duration-150 whitespace-nowrap active:scale-[0.97] bg-[#0ea5e9]/10 text-[#0ea5e9] border border-[#0ea5e9]/20 hover:bg-[#0ea5e9]/15"
+                          onClick={() => openPreview(l)}
+                        >
                           View
                         </button>
                       </td>
@@ -767,89 +563,108 @@ export default function LeadReportPage() {
 
       {/* ── Preview Modal ── */}
       {previewLead && (
-        <div className="lr-overlay" role="presentation" onClick={e => { if (e.target === e.currentTarget) closePreview(); }}>
-          <div className="lr-preview-modal" role="dialog" aria-modal="true">
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1000] flex items-center justify-center p-5 animate-[fadeIn_.15s_ease]"
+          role="presentation"
+          onClick={e => { if (e.target === e.currentTarget) closePreview(); }}
+        >
+          <div
+            className="bg-[#0d0e13] border border-[#28293a] rounded-2xl w-full max-w-[740px] max-h-[88vh] flex flex-col overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,.6)] animate-[slideUp_.18s_ease]"
+            role="dialog"
+            aria-modal="true"
+          >
 
             {/* Head */}
-            <div className="lr-pv-head">
+            <div className="px-6 pt-[22px] pb-[18px] border-b border-[#1f2028] flex items-start justify-between gap-3 flex-shrink-0">
               <div>
-                <div className="lr-pv-name">{previewLead.cust_name || 'Unnamed Customer'}</div>
-                <div className="lr-pv-code">{previewLead.cust_code || '—'}</div>
+                <div className="text-[20px] font-extrabold tracking-tight">{previewLead.cust_name || 'Unnamed Customer'}</div>
+                <div className="font-mono text-[12px] text-[#7c3aed] mt-1">{previewLead.cust_code || '—'}</div>
               </div>
-              <button className="lr-pv-close" onClick={closePreview} aria-label="Close">Close</button>
+              <button
+                className="bg-transparent border border-[#1f2028] text-[#8b92a8] w-8 h-8 rounded-lg cursor-pointer text-[16px] flex items-center justify-center flex-shrink-0 transition-all duration-150 hover:bg-[#f43f5e]/10 hover:border-[#f43f5e] hover:text-[#f43f5e]"
+                onClick={closePreview}
+                aria-label="Close"
+              >
+                Close
+              </button>
             </div>
 
             {/* Body */}
-            <div className="lr-pv-body">
+            <div className="overflow-y-auto px-6 py-[22px] flex-1 flex flex-col gap-6">
 
               {/* ── Details ── */}
               <div>
-                <div className="lr-pv-section-title">Lead Details</div>
-                <div className="lr-pv-grid">
-                  <div className="lr-pv-field">
-                    <div className="lr-pv-field-label">Connect Date</div>
-                    <div className="lr-pv-field-val mono">{fmtDate(previewLead.connect_date)}</div>
+                <div className="text-[10px] font-bold text-[#4f5463] uppercase tracking-[1.2px] mb-3.5 flex items-center gap-2">
+                  Lead Details
+                  <span className="flex-1 h-px bg-[#1f2028]" />
+                </div>
+                <div className="grid grid-cols-2 gap-[14px]">
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-[#4f5463] uppercase tracking-[0.8px]">Connect Date</div>
+                    <div className={`${PV_FIELD_VAL} font-mono text-[12.5px]`}>{fmtDate(previewLead.connect_date)}</div>
                   </div>
-                  <div className="lr-pv-field">
-                    <div className="lr-pv-field-label">Lead Type</div>
-                    <div className="lr-pv-field-val">
-                      <span className={`lr-badge ${leadBadgeClass(previewLead.lead_type)}`}>{previewLead.lead_type || '—'}</span>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-[#4f5463] uppercase tracking-[0.8px]">Lead Type</div>
+                    <div className={PV_FIELD_VAL}>
+                      <span className={`inline-flex items-center px-2.5 py-[3px] rounded-full text-[11px] font-semibold whitespace-nowrap ${leadBadgeClass(previewLead.lead_type)}`}>
+                        {previewLead.lead_type || '—'}
+                      </span>
                     </div>
                   </div>
-                  <div className="lr-pv-field">
-                    <div className="lr-pv-field-label">Hot lead</div>
-                    <div className="lr-pv-field-val">{previewLead.is_hot_lead ? 'Yes' : 'No'}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-[#4f5463] uppercase tracking-[0.8px]">Hot lead</div>
+                    <div className={PV_FIELD_VAL}>{previewLead.is_hot_lead ? 'Yes' : 'No'}</div>
                   </div>
-                  <div className="lr-pv-field">
-                    <div className="lr-pv-field-label">Buying timeframe</div>
-                    <div className="lr-pv-field-val">{labelForDeferral(previewLead.deferral_bucket)}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-[#4f5463] uppercase tracking-[0.8px]">Buying timeframe</div>
+                    <div className={PV_FIELD_VAL}>{labelForDeferral(previewLead.deferral_bucket)}</div>
                   </div>
-                  <div className="lr-pv-field">
-                    <div className="lr-pv-field-label">Call outcome</div>
-                    <div className="lr-pv-field-val">{labelForContact(previewLead.contact_disposition)}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-[#4f5463] uppercase tracking-[0.8px]">Call outcome</div>
+                    <div className={PV_FIELD_VAL}>{labelForContact(previewLead.contact_disposition)}</div>
                   </div>
-                  <div className="lr-pv-field">
-                    <div className="lr-pv-field-label">Follow-up from</div>
-                    <div className="lr-pv-field-val mono">{fmtDate(previewLead.follow_up_after_date)}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-[#4f5463] uppercase tracking-[0.8px]">Follow-up from</div>
+                    <div className={`${PV_FIELD_VAL} font-mono text-[12.5px]`}>{fmtDate(previewLead.follow_up_after_date)}</div>
                   </div>
-                  <div className="lr-pv-field">
-                    <div className="lr-pv-field-label">Earliest purchase intent</div>
-                    <div className="lr-pv-field-val mono">{fmtDate(previewLead.earliest_purchase_intent_date)}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-[#4f5463] uppercase tracking-[0.8px]">Earliest purchase intent</div>
+                    <div className={`${PV_FIELD_VAL} font-mono text-[12.5px]`}>{fmtDate(previewLead.earliest_purchase_intent_date)}</div>
                   </div>
-                  <div className="lr-pv-field">
-                    <div className="lr-pv-field-label">Callback after</div>
-                    <div className="lr-pv-field-val mono">{previewLead.callback_requested_at ? fmtDateTime(previewLead.callback_requested_at) : '—'}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-[#4f5463] uppercase tracking-[0.8px]">Callback after</div>
+                    <div className={`${PV_FIELD_VAL} font-mono text-[12.5px]`}>{previewLead.callback_requested_at ? fmtDateTime(previewLead.callback_requested_at) : '—'}</div>
                   </div>
-                  <div className="lr-pv-field">
-                    <div className="lr-pv-field-label">Customer promised callback</div>
-                    <div className="lr-pv-field-val">{previewLead.customer_promised_callback ? 'Yes' : 'No'}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-[#4f5463] uppercase tracking-[0.8px]">Customer promised callback</div>
+                    <div className={PV_FIELD_VAL}>{previewLead.customer_promised_callback ? 'Yes' : 'No'}</div>
                   </div>
                   {previewLead.deferral_notes?.trim() ? (
-                    <div className="lr-pv-field full">
-                      <div className="lr-pv-field-label">Timing / callback notes</div>
-                      <div className="lr-pv-field-val">{previewLead.deferral_notes}</div>
+                    <div className="col-span-full flex flex-col gap-1">
+                      <div className="text-[10px] font-semibold text-[#4f5463] uppercase tracking-[0.8px]">Timing / callback notes</div>
+                      <div className={PV_FIELD_VAL}>{previewLead.deferral_notes}</div>
                     </div>
                   ) : null}
-                  <div className="lr-pv-field full">
-                    <div className="lr-pv-field-label">Business</div>
-                    <div className="lr-pv-field-val">{previewLead.business || <span className="muted">—</span>}</div>
+                  <div className="col-span-full flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-[#4f5463] uppercase tracking-[0.8px]">Business</div>
+                    <div className={PV_FIELD_VAL}>{previewLead.business || <span className="text-[#4f5463] italic">—</span>}</div>
                   </div>
-                  <div className="lr-pv-field">
-                    <div className="lr-pv-field-label">Phone No. 1</div>
-                    <div className="lr-pv-field-val mono">{previewLead.phone_no || '—'}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-[#4f5463] uppercase tracking-[0.8px]">Phone No. 1</div>
+                    <div className={`${PV_FIELD_VAL} font-mono text-[12.5px]`}>{previewLead.phone_no || '—'}</div>
                   </div>
-                  <div className="lr-pv-field">
-                    <div className="lr-pv-field-label">Phone No. 2</div>
-                    <div className="lr-pv-field-val mono">{previewLead.phone_no_2 || <span style={{ color: 'var(--text3)', fontStyle: 'italic' }}>—</span>}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-[#4f5463] uppercase tracking-[0.8px]">Phone No. 2</div>
+                    <div className={`${PV_FIELD_VAL} font-mono text-[12.5px]`}>{previewLead.phone_no_2 || <span className="text-[#4f5463] italic">—</span>}</div>
                   </div>
-                  <div className="lr-pv-field full">
-                    <div className="lr-pv-field-label">Location</div>
-                    <div className="lr-pv-field-val">{previewLead.location || <span style={{ color: 'var(--text3)', fontStyle: 'italic' }}>—</span>}</div>
+                  <div className="col-span-full flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-[#4f5463] uppercase tracking-[0.8px]">Location</div>
+                    <div className={PV_FIELD_VAL}>{previewLead.location || <span className="text-[#4f5463] italic">—</span>}</div>
                   </div>
                   {previewLead.note && (
-                    <div className="lr-pv-field full">
-                      <div className="lr-pv-field-label">Note</div>
-                      <div className="lr-pv-field-val">{previewLead.note}</div>
+                    <div className="col-span-full flex flex-col gap-1">
+                      <div className="text-[10px] font-semibold text-[#4f5463] uppercase tracking-[0.8px]">Note</div>
+                      <div className={PV_FIELD_VAL}>{previewLead.note}</div>
                     </div>
                   )}
                 </div>
@@ -857,26 +672,29 @@ export default function LeadReportPage() {
 
               {/* ── Audit ── */}
               <div>
-                <div className="lr-pv-section-title">Record Audit</div>
-                <div className="lr-pv-audit">
+                <div className="text-[10px] font-bold text-[#4f5463] uppercase tracking-[1.2px] mb-3.5 flex items-center gap-2">
+                  Record Audit
+                  <span className="flex-1 h-px bg-[#1f2028]" />
+                </div>
+                <div className="flex flex-wrap gap-2.5">
                   {previewLead.created_by_name ? (
-                    <div className="lr-pv-audit-pill create">
-                      <span className="icon">＋</span>
-                      <span className="name">Added by {previewLead.created_by_name}</span>
-                      <span className="time">{fmtDateTime(previewLead.created_at)}</span>
+                    <div className="flex items-center gap-1.5 bg-[#131419] border border-[#1f2028] rounded-lg py-[7px] px-3 text-[12px]">
+                      <span className="text-[13px] text-[#4ade80]">＋</span>
+                      <span className="text-[#e4e6eb] font-semibold">Added by {previewLead.created_by_name}</span>
+                      <span className="text-[#4f5463] text-[11px]">{fmtDateTime(previewLead.created_at)}</span>
                     </div>
                   ) : (
-                    <div className="lr-pv-audit-pill create">
-                      <span className="icon">＋</span>
-                      <span className="name" style={{ color: 'var(--text3)' }}>Added by unknown</span>
-                      <span className="time">{fmtDateTime(previewLead.created_at)}</span>
+                    <div className="flex items-center gap-1.5 bg-[#131419] border border-[#1f2028] rounded-lg py-[7px] px-3 text-[12px]">
+                      <span className="text-[13px] text-[#4ade80]">＋</span>
+                      <span className="text-[#4f5463] font-semibold">Added by unknown</span>
+                      <span className="text-[#4f5463] text-[11px]">{fmtDateTime(previewLead.created_at)}</span>
                     </div>
                   )}
                   {previewLead.updated_by_name && (
-                    <div className="lr-pv-audit-pill edit">
-                      <span className="icon">Edit</span>
-                      <span className="name">Last edited by {previewLead.updated_by_name}</span>
-                      <span className="time">{fmtDateTime(previewLead.updated_at)}</span>
+                    <div className="flex items-center gap-1.5 bg-[#131419] border border-[#1f2028] rounded-lg py-[7px] px-3 text-[12px]">
+                      <span className="text-[13px] text-[#fbbf24]">Edit</span>
+                      <span className="text-[#e4e6eb] font-semibold">Last edited by {previewLead.updated_by_name}</span>
+                      <span className="text-[#4f5463] text-[11px]">{fmtDateTime(previewLead.updated_at)}</span>
                     </div>
                   )}
                 </div>
@@ -884,24 +702,29 @@ export default function LeadReportPage() {
 
               {/* ── History ── */}
               <div>
-                <div className="lr-pv-section-title">Activity History</div>
+                <div className="text-[10px] font-bold text-[#4f5463] uppercase tracking-[1.2px] mb-3.5 flex items-center gap-2">
+                  Activity History
+                  <span className="flex-1 h-px bg-[#1f2028]" />
+                </div>
                 {historyLoading ? (
-                  <div className="lr-pv-hist-loading">Loading history…</div>
+                  <div className="text-[#4f5463] text-[13px] text-center py-[18px]">Loading history…</div>
                 ) : history.length === 0 ? (
-                  <div className="lr-pv-no-history">No activity history recorded for this lead.</div>
+                  <div className="text-[#4f5463] text-[13px] text-center py-6">No activity history recorded for this lead.</div>
                 ) : (
-                  <div className="lr-pv-timeline">
+                  <div className="flex flex-col">
                     {history.map((log, idx) => (
-                      <div key={log.id} className="lr-pv-tl-item">
-                        <div className="lr-pv-tl-left">
-                          <div className={`lr-pv-tl-dot ${tlDotClass(log.action)}`}>{tlIcon(log.action)}</div>
-                          {idx < history.length - 1 && <div className="lr-pv-tl-line" />}
+                      <div key={log.id} className={`flex gap-3.5 relative${idx < history.length - 1 ? ' pb-[18px]' : ''}`}>
+                        <div className="flex flex-col items-center w-7 flex-shrink-0">
+                          <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-[12px] flex-shrink-0 ${tlDotClass(log.action)}`}>
+                            {tlIcon(log.action)}
+                          </div>
+                          {idx < history.length - 1 && <div className="flex-1 w-px bg-[#1f2028] mt-1" />}
                         </div>
-                        <div className="lr-pv-tl-right">
-                          <div className="lr-pv-tl-action">{tlLabel(log.action)}</div>
-                          {log.performed_by_name && <div className="lr-pv-tl-who">by {log.performed_by_name}</div>}
-                          <div className="lr-pv-tl-when">{fmtDateTime(log.performed_at)}</div>
-                          {log.details && <div className="lr-pv-tl-details">{log.details}</div>}
+                        <div className="flex-1 pt-1">
+                          <div className="text-[13px] font-semibold text-[#e4e6eb]">{tlLabel(log.action)}</div>
+                          {log.performed_by_name && <div className="text-[12px] text-[#8b92a8] mt-0.5">by {log.performed_by_name}</div>}
+                          <div className="text-[11px] text-[#4f5463] font-mono mt-[3px]">{fmtDateTime(log.performed_at)}</div>
+                          {log.details && <div className="text-[11.5px] text-[#4f5463] mt-1 italic">{log.details}</div>}
                         </div>
                       </div>
                     ))}

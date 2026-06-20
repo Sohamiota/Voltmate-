@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { YouTubeVideo, YouTubePlaylistResponse } from '@/types/api';
 
-const YT_API_KEY = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY || 'AIzaSyCz1qKjRg2i0dVi0I-e3rCKlq1jc5qk7sE';
+const YT_API_KEY = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
 const EULER_CHANNEL = '@EulerMotors';
 
 interface Video {
@@ -13,55 +14,6 @@ interface Video {
   publishedAt: string;
   viewCount?: string;
 }
-
-const STYLES = `
-  * { margin:0; padding:0; box-sizing:border-box; }
-  .vv-root { min-height:100vh; background:#0a0a0a; color:#e5e5e5; font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif; padding:32px; }
-  .vv-header { margin-bottom:28px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; }
-  .vv-title { font-size:28px; font-weight:700; color:#fff; margin-bottom:6px; }
-  .vv-subtitle { color:#9ca3af; font-size:14px; }
-  .vv-channel-link { color:#00d9ff; font-size:13px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; margin-top:6px; }
-  .vv-channel-link:hover { text-decoration:underline; }
-  .vv-btn { padding:10px 22px; border:none; border-radius:8px; font-size:14px; font-weight:500; cursor:pointer; transition:all .2s; white-space:nowrap; }
-  .vv-btn-primary { background:#00d9ff; color:#0a0a0a; }
-  .vv-btn-primary:hover { background:#00c4e6; box-shadow:0 0 16px rgba(0,217,255,.35); }
-  .vv-btn-primary:disabled { opacity:.5; cursor:not-allowed; }
-  .vv-btn-ghost { background:transparent; color:#9ca3af; border:1px solid #333; }
-  .vv-btn-ghost:hover { border-color:#555; color:#e5e5e5; }
-  .vv-search-row { display:flex; gap:12px; align-items:center; margin-bottom:24px; flex-wrap:wrap; }
-  .vv-search { flex:1; min-width:200px; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:8px; padding:10px 16px; color:#e5e5e5; font-size:14px; outline:none; transition:border-color .2s; }
-  .vv-search:focus { border-color:#00d9ff; }
-  .vv-count { color:#9ca3af; font-size:13px; white-space:nowrap; }
-  .vv-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:20px; }
-  .vv-card { background:#1a1a1a; border:1px solid #2a2a2a; border-radius:12px; overflow:hidden; cursor:pointer; transition:all .2s; }
-  .vv-card:hover { border-color:#00d9ff; transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,217,255,.1); }
-  .vv-thumb-wrap { position:relative; aspect-ratio:16/9; overflow:hidden; background:#111; }
-  .vv-thumb { width:100%; height:100%; object-fit:cover; display:block; }
-  .vv-play-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.35); opacity:0; transition:opacity .2s; }
-  .vv-card:hover .vv-play-overlay { opacity:1; }
-  .vv-play-circle { width:52px; height:52px; background:rgba(0,217,255,.9); border-radius:50%; display:flex; align-items:center; justify-content:center; }
-  .vv-play-circle svg { margin-left:4px; }
-  .vv-card-body { padding:16px; }
-  .vv-card-title { font-size:14px; font-weight:600; color:#fff; margin-bottom:8px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-  .vv-card-desc { font-size:12px; color:#6b7280; line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin-bottom:12px; }
-  .vv-card-meta { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#6b7280; }
-  .vv-views { color:#00d9ff; font-weight:500; }
-  .vv-empty { text-align:center; padding:80px 20px; color:#6b7280; font-size:14px; }
-  .vv-error { background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.25); border-radius:8px; padding:14px 18px; color:#ef4444; font-size:13px; margin-bottom:20px; }
-  .vv-loading { display:flex; justify-content:center; align-items:center; padding:80px 20px; gap:12px; color:#9ca3af; }
-  .vv-spinner { width:24px; height:24px; border:3px solid #2a2a2a; border-top-color:#00d9ff; border-radius:50%; animation:spin .8s linear infinite; }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  .vv-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; }
-  .vv-modal { background:#1a1a1a; border:1px solid #2a2a2a; border-radius:16px; width:100%; max-width:900px; overflow:hidden; }
-  .vv-modal-header { display:flex; justify-content:space-between; align-items:flex-start; padding:20px 24px; gap:16px; }
-  .vv-modal-title { font-size:16px; font-weight:600; color:#fff; line-height:1.4; flex:1; }
-  .vv-modal-close { background:transparent; border:1px solid #333; color:#9ca3af; border-radius:8px; width:36px; height:36px; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-  .vv-modal-close:hover { border-color:#555; color:#fff; }
-  .vv-iframe-wrap { aspect-ratio:16/9; background:#000; }
-  .vv-iframe { width:100%; height:100%; border:none; display:block; }
-  .vv-modal-meta { padding:16px 24px 20px; color:#9ca3af; font-size:13px; display:flex; gap:20px; flex-wrap:wrap; align-items:center; }
-  .vv-load-more { display:flex; justify-content:center; margin-top:32px; }
-`;
 
 function formatCount(n: string | undefined): string {
   if (!n) return '';
@@ -115,15 +67,16 @@ export default function VehicleVideosPage() {
 
       const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsId}&maxResults=24&key=${YT_API_KEY}${pageToken ? `&pageToken=${pageToken}` : ''}`;
       const plRes = await fetch(url);
-      const plData = await plRes.json();
-      if (plData.error) throw new Error(plData.error.message);
+      const plData: YouTubePlaylistResponse = await plRes.json();
+      if ((plData as any).error) throw new Error((plData as any).error.message);
+      if (!plData.items) return;
       setNextPageToken(plData.nextPageToken || null);
 
       const videoIds: string = plData.items.map((i: any) => i.snippet.resourceId.videoId).join(',');
       const statsRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${videoIds}&key=${YT_API_KEY}`);
       const statsData = await statsRes.json();
-      const statsMap: Record<string, any> = {};
-      statsData.items?.forEach((v: any) => { statsMap[v.id] = v; });
+      const statsMap: Record<string, YouTubeVideo> = {};
+      statsData.items?.forEach((v: YouTubeVideo) => { statsMap[(v as any).id] = v; });
 
       const newVideos: Video[] = plData.items.map((item: any) => {
         const vid = item.snippet.resourceId.videoId;
@@ -133,7 +86,7 @@ export default function VehicleVideosPage() {
           description: item.snippet.description,
           thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.medium?.url || '',
           publishedAt: item.snippet.publishedAt,
-          viewCount: statsMap[vid]?.statistics?.viewCount,
+          viewCount: (statsMap[vid] as any)?.statistics?.viewCount,
         };
       });
 
@@ -146,78 +99,100 @@ export default function VehicleVideosPage() {
   }, []);
 
   return (
-    <div className="vv-root">
-      <style>{STYLES}</style>
+    <div className="min-h-screen bg-zinc-950 text-zinc-200 font-sans p-8">
 
-      <div className="vv-header">
+      <div className="mb-7 flex justify-between items-start flex-wrap gap-4">
         <div>
-          <div className="vv-title">Vehicle Videos</div>
-          <div className="vv-subtitle">{channelTitle} — Electric Commercial Vehicles</div>
+          <div className="text-[28px] font-bold text-white mb-1.5">Vehicle Videos</div>
+          <div className="text-zinc-400 text-sm">{channelTitle} — Electric Commercial Vehicles</div>
           <a
             href="https://www.youtube.com/@EulerMotors"
             target="_blank"
             rel="noopener noreferrer"
-            className="vv-channel-link"
+            className="text-cyan-400 text-[13px] no-underline inline-flex items-center gap-1 mt-1.5 hover:underline"
           >
             youtube.com/@EulerMotors
           </a>
         </div>
-        <button className="vv-btn vv-btn-ghost" onClick={() => fetchVideos()} disabled={loading}>
+        <button
+          className="px-[22px] py-2.5 bg-transparent border border-zinc-800 text-zinc-400 rounded-lg text-sm font-medium cursor-pointer transition-all duration-200 whitespace-nowrap hover:border-zinc-600 hover:text-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => fetchVideos()}
+          disabled={loading}
+        >
           {loading ? 'Loading...' : 'Refresh'}
         </button>
       </div>
 
-      {error && <div className="vv-error">{error}</div>}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/25 rounded-lg px-[18px] py-3.5 text-red-500 text-[13px] mb-5">
+          {error}
+        </div>
+      )}
 
       {loading && videos.length === 0 && (
-        <div className="vv-loading">
-          <div className="vv-spinner" />
+        <div className="flex justify-center items-center py-20 px-5 gap-3 text-zinc-400">
+          <div className="w-6 h-6 border-[3px] border-zinc-800 border-t-cyan-400 rounded-full animate-spin" />
           Loading videos...
         </div>
       )}
 
       {!loading && videos.length === 0 && !error && (
-        <div className="vv-empty">No videos found.</div>
+        <div className="text-center py-20 px-5 text-zinc-500 text-sm">No videos found.</div>
       )}
 
       {videos.length > 0 && (
-        <div className="vv-search-row">
+        <div className="flex gap-3 items-center mb-6 flex-wrap">
           <input
             ref={searchRef}
-            className="vv-search"
+            className="flex-1 min-w-[200px] bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-zinc-200 text-sm outline-none transition-colors duration-200 focus:border-cyan-400"
             placeholder="Search videos..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
-          <span className="vv-count">{filtered.length} video{filtered.length !== 1 ? 's' : ''}</span>
+          <span className="text-zinc-400 text-[13px] whitespace-nowrap">
+            {filtered.length} video{filtered.length !== 1 ? 's' : ''}
+          </span>
         </div>
       )}
 
       {!loading && videos.length > 0 && filtered.length === 0 && (
-        <div className="vv-empty">No videos match your search.</div>
+        <div className="text-center py-20 px-5 text-zinc-500 text-sm">No videos match your search.</div>
       )}
 
       {filtered.length > 0 && (
         <>
-          <div className="vv-grid">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5">
             {filtered.map(video => (
-              <div key={video.id} className="vv-card" onClick={() => setActiveVideo(video)}>
-                <div className="vv-thumb-wrap">
-                  <img className="vv-thumb" src={video.thumbnail} alt={video.title} loading="lazy" />
-                  <div className="vv-play-overlay">
-                    <div className="vv-play-circle">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="#0a0a0a">
+              <div
+                key={video.id}
+                className="group bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:border-cyan-400 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(0,217,255,0.1)]"
+                onClick={() => setActiveVideo(video)}
+              >
+                <div className="relative aspect-video overflow-hidden bg-[#111]">
+                  <img
+                    className="w-full h-full object-cover block"
+                    src={video.thumbnail}
+                    alt={video.title}
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    <div className="w-[52px] h-[52px] bg-cyan-400/90 rounded-full flex items-center justify-center">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="#0a0a0a" className="ml-1">
                         <polygon points="5,3 19,12 5,21" />
                       </svg>
                     </div>
                   </div>
                 </div>
-                <div className="vv-card-body">
-                  <div className="vv-card-title">{video.title}</div>
-                  <div className="vv-card-desc">{video.description || 'No description available.'}</div>
-                  <div className="vv-card-meta">
+                <div className="p-4">
+                  <div className="text-sm font-semibold text-white mb-2 leading-[1.4] line-clamp-2">{video.title}</div>
+                  <div className="text-xs text-zinc-500 leading-[1.5] line-clamp-2 mb-3">
+                    {video.description || 'No description available.'}
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-zinc-500">
                     <span>{formatDate(video.publishedAt)}</span>
-                    {video.viewCount && <span className="vv-views">{formatCount(video.viewCount)}</span>}
+                    {video.viewCount && (
+                      <span className="text-cyan-400 font-medium">{formatCount(video.viewCount)}</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -225,8 +200,12 @@ export default function VehicleVideosPage() {
           </div>
 
           {nextPageToken && (
-            <div className="vv-load-more">
-              <button className="vv-btn vv-btn-ghost" onClick={() => fetchVideos(nextPageToken)} disabled={loading}>
+            <div className="flex justify-center mt-8">
+              <button
+                className="px-[22px] py-2.5 bg-transparent border border-zinc-800 text-zinc-400 rounded-lg text-sm font-medium cursor-pointer transition-all duration-200 whitespace-nowrap hover:border-zinc-600 hover:text-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => fetchVideos(nextPageToken)}
+                disabled={loading}
+              >
                 {loading ? 'Loading...' : 'Load More'}
               </button>
             </div>
@@ -235,28 +214,41 @@ export default function VehicleVideosPage() {
       )}
 
       {activeVideo && (
-        <div className="vv-modal-overlay" onClick={() => setActiveVideo(null)}>
-          <div className="vv-modal" onClick={e => e.stopPropagation()}>
-            <div className="vv-modal-header">
-              <div className="vv-modal-title">{activeVideo.title}</div>
-              <button className="vv-modal-close" onClick={() => setActiveVideo(null)}>x</button>
+        <div
+          className="fixed inset-0 bg-black/85 z-[1000] flex items-center justify-center p-5"
+          onClick={() => setActiveVideo(null)}
+        >
+          <div
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-[900px] overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start p-5 px-6 gap-4">
+              <div className="text-base font-semibold text-white leading-[1.4] flex-1">{activeVideo.title}</div>
+              <button
+                className="bg-transparent border border-zinc-800 text-zinc-400 rounded-lg w-9 h-9 cursor-pointer text-lg flex items-center justify-center flex-shrink-0 hover:border-zinc-600 hover:text-white"
+                onClick={() => setActiveVideo(null)}
+              >
+                x
+              </button>
             </div>
-            <div className="vv-iframe-wrap">
+            <div className="aspect-video bg-black">
               <iframe
-                className="vv-iframe"
+                className="w-full h-full border-0 block"
                 src={`https://www.youtube.com/embed/${activeVideo.id}?autoplay=1&rel=0`}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
             </div>
-            <div className="vv-modal-meta">
+            <div className="p-4 px-6 pb-5 text-zinc-400 text-[13px] flex gap-5 flex-wrap items-center">
               <span>Published: {formatDate(activeVideo.publishedAt)}</span>
-              {activeVideo.viewCount && <span className="vv-views">{formatCount(activeVideo.viewCount)}</span>}
+              {activeVideo.viewCount && (
+                <span className="text-cyan-400 font-medium">{formatCount(activeVideo.viewCount)}</span>
+              )}
               <a
                 href={`https://www.youtube.com/watch?v=${activeVideo.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: '#00d9ff', textDecoration: 'none', marginLeft: 'auto' }}
+                className="text-cyan-400 no-underline ml-auto"
               >
                 Open on YouTube
               </a>

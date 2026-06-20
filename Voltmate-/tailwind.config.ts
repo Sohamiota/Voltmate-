@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss'
+import defaultTheme from 'tailwindcss/defaultTheme'
 
 const config: Config = {
   darkMode: ['class'],
@@ -10,6 +11,9 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['var(--font-sans)', ...defaultTheme.fontFamily.sans],
+      },
       colors: {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
@@ -69,25 +73,37 @@ const config: Config = {
       },
       keyframes: {
         'accordion-down': {
-          from: {
-            height: '0',
-          },
-          to: {
-            height: 'var(--radix-accordion-content-height)',
-          },
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
         },
         'accordion-up': {
-          from: {
-            height: 'var(--radix-accordion-content-height)',
-          },
-          to: {
-            height: '0',
-          },
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
+        },
+        'skel-shine': {
+          '0%': { backgroundPosition: '200% 0' },
+          '100%': { backgroundPosition: '-200% 0' },
+        },
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        'slide-up': {
+          from: { opacity: '0', transform: 'translateY(14px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        'toast-in': {
+          from: { opacity: '0', transform: 'translateY(8px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
         },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'skel-shine': 'skel-shine 1.4s infinite',
+        'fade-in': 'fade-in 0.18s ease',
+        'slide-up': 'slide-up 0.2s ease',
+        'toast-in': 'toast-in 0.2s ease',
       },
     },
   },

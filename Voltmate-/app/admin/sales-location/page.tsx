@@ -3,74 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LatLngExpression, Map as LeafletMap } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import type { LocationPing } from '@/types/api';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
     ? 'https://voltmate.onrender.com'
     : 'http://localhost:8081')).replace(/\/api\/v1\/?$/, '');
-
-const S = `
-  *{margin:0;padding:0;box-sizing:border-box;}
-  .root{min-height:100vh;background:#0a0a0a;color:#e5e5e5;font-family:'Inter',system-ui,sans-serif;padding:clamp(14px,4vw,28px);}
-  .header{margin-bottom:24px;}
-  .title{font-size:clamp(20px,5vw,26px);font-weight:700;color:#fff;margin-bottom:6px;}
-  .subtitle{color:#9ca3af;font-size:13px;}
-  .tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
-  .tab-btn{background:#111;border:1px solid #333;border-radius:8px;padding:8px 16px;color:#9ca3af;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;}
-  .tab-btn:hover{border-color:#555;color:#e5e5e5;}
-  .tab-btn.on{background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.45);color:#a5b4fc;}
-  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:24px;}
-  .field{display:flex;flex-direction:column;gap:4px;}
-  .field label{font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;}
-  .sel{background:#111;border:1px solid #333;border-radius:8px;padding:8px 12px;color:#e5e5e5;font-size:13px;outline:none;cursor:pointer;min-width:220px;}
-  .sel:focus{border-color:#6366f1;}
-  .inp{background:#111;border:1px solid #333;border-radius:8px;padding:8px 12px;color:#e5e5e5;font-size:13px;outline:none;}
-  .inp:focus{border-color:#6366f1;}
-  .btn{padding:8px 18px;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;}
-  .btn-load{background:#6366f1;color:#fff;}
-  .btn-load:hover{background:#4f46e5;}
-  .btn-load:disabled{opacity:.5;cursor:not-allowed;}
-  .btn-approve{background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);}
-  .btn-approve:hover{background:rgba(34,197,94,.25);}
-  .btn-reject{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);}
-  .btn-reject:hover{background:rgba(239,68,68,.25);}
-  .att-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:18px 20px;margin-bottom:20px;display:flex;gap:20px;flex-wrap:wrap;align-items:center;}
-  .att-field{display:flex;flex-direction:column;gap:4px;min-width:110px;}
-  .att-field label{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;}
-  .att-field span{font-size:14px;font-weight:500;color:#e5e5e5;}
-  .att-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;}
-  .badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:500;text-transform:capitalize;}
-  .badge-pending{background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.25);}
-  .badge-approved{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.25);}
-  .badge-rejected{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25);}
-  .trail-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;overflow:hidden;margin-bottom:20px;}
-  .trail-header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #2a2a2a;}
-  .trail-title{font-size:14px;font-weight:600;color:#fff;}
-  .trail-count{font-size:12px;color:#6b7280;}
-  .map-shell{height:340px;width:100%;position:relative;background:#111;border-bottom:1px solid #2a2a2a;}
-  .leaflet-container{font-family:inherit;background:#111;}
-  .ping-row{display:flex;align-items:flex-start;gap:14px;padding:14px 18px;border-bottom:1px solid #1f1f1f;transition:background .12s;}
-  .ping-row:last-child{border-bottom:none;}
-  .ping-row:hover{background:#1f1f1f;}
-  .ping-time{font-size:13px;font-weight:600;color:#fff;min-width:52px;padding-top:2px;}
-  .ping-body{flex:1;}
-  .ping-coords{font-size:13px;color:#e5e5e5;margin-bottom:4px;}
-  .ping-note{font-size:12px;color:#9ca3af;margin-top:2px;}
-  .ping-acc{font-size:11px;color:#6b7280;margin-top:2px;}
-  .badge-auto{background:rgba(107,114,128,.12);color:#9ca3af;border:1px solid rgba(107,114,128,.25);font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500;}
-  .badge-manual{background:rgba(59,130,246,.12);color:#60a5fa;border:1px solid rgba(59,130,246,.25);font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500;}
-  .badge-ctx{background:rgba(129,140,248,.12);color:#a5b4fc;border:1px solid rgba(129,140,248,.25);font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500;margin-left:6px;}
-  .maps-link{font-size:12px;color:#6366f1;text-decoration:none;margin-left:8px;}
-  .maps-link:hover{color:#a5b4fc;}
-  .empty{text-align:center;padding:60px 20px;color:#6b7280;font-size:14px;}
-  .empty-hint{font-size:12px;color:#4b5563;margin-top:8px;}
-  .ping-number{font-size:11px;color:#374151;min-width:24px;padding-top:3px;text-align:right;}
-  .trail-list{position:relative;}
-  .snap-row{display:flex;gap:14px;padding:12px 18px;border-bottom:1px solid #1f1f1f;font-size:13px;align-items:flex-start;}
-  .snap-row:last-child{border-bottom:none;}
-  .snap-name{font-weight:600;color:#fff;min-width:140px;}
-  .snap-meta{color:#9ca3af;flex:1;}
-`;
 
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -125,13 +63,41 @@ type SnapshotRow = {
   note?: string | null;
 };
 
+const BADGE_BASE = 'inline-block px-2.5 py-[3px] rounded-md text-[11px] font-medium capitalize';
+
+function getAttBadge(status: string | null): string {
+  if (status === 'approved') return `${BADGE_BASE} bg-green-500/[0.12] text-green-500 border border-green-500/[0.25]`;
+  if (status === 'rejected') return `${BADGE_BASE} bg-red-500/[0.12] text-red-500 border border-red-500/[0.25]`;
+  return `${BADGE_BASE} bg-amber-400/[0.12] text-amber-400 border border-amber-400/[0.25]`;
+}
+
+const TAB_ON =
+  'bg-indigo-500/[0.12] border border-indigo-500/[0.45] text-indigo-300 rounded-lg px-4 py-2 text-[13px] font-medium cursor-pointer transition-all duration-150';
+const TAB_OFF =
+  'bg-[#111] border border-[#333] text-zinc-400 rounded-lg px-4 py-2 text-[13px] font-medium cursor-pointer transition-all duration-150 hover:border-[#555] hover:text-zinc-200';
+
+const BTN_LOAD =
+  'px-[18px] py-2 border-none rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150 bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed';
+
+const FIELD_LABEL = 'text-[11px] text-zinc-500 uppercase tracking-[0.5px]';
+const ATT_FIELD_LABEL = 'text-[10px] text-zinc-500 uppercase tracking-[0.5px]';
+const ATT_FIELD_VALUE = 'text-sm font-medium text-zinc-200';
+
+const BADGE_AUTO =
+  'bg-zinc-500/[0.12] text-zinc-400 border border-zinc-500/[0.25] text-[10px] px-[7px] py-0.5 rounded font-medium';
+const BADGE_MANUAL =
+  'bg-blue-500/[0.12] text-blue-400 border border-blue-500/[0.25] text-[10px] px-[7px] py-0.5 rounded font-medium';
+const BADGE_CTX =
+  'bg-indigo-400/[0.12] text-indigo-300 border border-indigo-400/[0.25] text-[10px] px-[7px] py-0.5 rounded font-medium ml-1.5';
+const MAPS_LINK = 'text-xs text-indigo-500 no-underline ml-2 hover:text-indigo-300';
+
 export default function SalesLocationPage() {
   const init = initialTrailParams();
   const [employees, setEmployees] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState(init.userId);
   const [date, setDate] = useState(init.dateStr);
   const [loading, setLoading] = useState(false);
-  const [pings, setPings] = useState<any[]>([]);
+  const [pings, setPings] = useState<LocationPing[]>([]);
   const [attendance, setAttendance] = useState<any>(null);
   const [fetched, setFetched] = useState(false);
   const [acting, setActing] = useState(false);
@@ -272,7 +238,10 @@ export default function SalesLocationPage() {
       destroyLeafletMap(trailMapRef.current);
       trailMapRef.current = null;
 
-      const latlngs: LatLngExpression[] = pings.map((p: any) => [p.lat, p.lng]);
+      const validPings = pings.filter(p => isFinite(p.lat) && isFinite(p.lng));
+      if (validPings.length === 0) return;
+
+      const latlngs: LatLngExpression[] = validPings.map(p => [p.lat, p.lng]);
       const map = L.map(trailMapElRef.current).setView(latlngs[0] as [number, number], 14);
       trailMapRef.current = map;
 
@@ -284,8 +253,8 @@ export default function SalesLocationPage() {
         L.polyline(latlngs, { color: '#6366f1', weight: 4, opacity: 0.88 }).addTo(map);
       }
 
-      pings.forEach((p: any, i: number) => {
-        const last = i === pings.length - 1;
+      validPings.forEach((p, i) => {
+        const last = i === validPings.length - 1;
         const first = i === 0;
         L.circleMarker([p.lat, p.lng], {
           radius: last ? 11 : first ? 9 : 6,
@@ -336,7 +305,10 @@ export default function SalesLocationPage() {
       destroyLeafletMap(teamMapRef.current);
       teamMapRef.current = null;
 
-      const latlngs: LatLngExpression[] = snapshots.map(s => [s.lat, s.lng]);
+      const validSnapshots = snapshots.filter(s => isFinite(s.lat) && isFinite(s.lng));
+      if (validSnapshots.length === 0) return;
+
+      const latlngs: LatLngExpression[] = validSnapshots.map(s => [s.lat, s.lng]);
       const map = L.map(teamMapElRef.current).setView(latlngs[0] as [number, number], 8);
       teamMapRef.current = map;
 
@@ -344,7 +316,7 @@ export default function SalesLocationPage() {
         attribution: '&copy; OpenStreetMap contributors',
       }).addTo(map);
 
-      snapshots.forEach(s => {
+      validSnapshots.forEach(s => {
         const nm = escapeHtml(s.user_name || `User ${s.user_id}`);
         L.circleMarker([s.lat, s.lng], {
           radius: 9,
@@ -379,29 +351,28 @@ export default function SalesLocationPage() {
 
   const subtitle =
     viewerRole === 'sales_admin'
-      ? 'Review location trails and today’s team snapshot (approve/reject attendance stays with attendance admins).'
-      : 'Review trails, embedded maps, and attendance — or see each rep’s latest ping for today.';
+      ? 'Review location trails and today\u2019s team snapshot (approve/reject attendance stays with attendance admins).'
+      : 'Review trails, embedded maps, and attendance \u2014 or see each rep\u2019s latest ping for today.';
 
   return (
-    <div className="root">
-      <style>{S}</style>
+    <div className="min-h-screen bg-zinc-950 text-zinc-200 font-sans p-[clamp(14px,4vw,28px)]">
 
-      <div className="header">
-        <div className="title">Sales Rep Location</div>
-        <div className="subtitle">{subtitle}</div>
+      <div className="mb-6">
+        <div className="text-[clamp(20px,5vw,26px)] font-bold text-white mb-1.5">Sales Rep Location</div>
+        <div className="text-zinc-400 text-[13px]">{subtitle}</div>
       </div>
 
-      <div className="tabs">
+      <div className="flex gap-2 mb-5 flex-wrap">
         <button
           type="button"
-          className={`tab-btn ${viewMode === 'trail' ? 'on' : ''}`}
+          className={viewMode === 'trail' ? TAB_ON : TAB_OFF}
           onClick={() => setViewMode('trail')}
         >
           Day trail (one rep)
         </button>
         <button
           type="button"
-          className={`tab-btn ${viewMode === 'team' ? 'on' : ''}`}
+          className={viewMode === 'team' ? TAB_ON : TAB_OFF}
           onClick={() => setViewMode('team')}
         >
           Team today (last ping)
@@ -409,10 +380,14 @@ export default function SalesLocationPage() {
       </div>
 
       {viewMode === 'trail' && (
-        <div className="controls">
-          <div className="field">
-            <label>Employee</label>
-            <select className="sel" value={selectedUser} onChange={e => setSelectedUser(e.target.value)}>
+        <div className="flex gap-2.5 flex-wrap items-end mb-6">
+          <div className="flex flex-col gap-1">
+            <label className={FIELD_LABEL}>Employee</label>
+            <select
+              className="bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-zinc-200 text-[13px] outline-none cursor-pointer min-w-[220px] focus:border-indigo-500"
+              value={selectedUser}
+              onChange={e => setSelectedUser(e.target.value)}
+            >
               <option value="">— Select employee —</option>
               {employees.map((e: any) => (
                 <option key={e.id} value={e.id}>
@@ -421,67 +396,81 @@ export default function SalesLocationPage() {
               ))}
             </select>
           </div>
-          <div className="field">
-            <label>Date</label>
-            <input className="inp" type="date" value={date} max={todayStr()} onChange={e => setDate(e.target.value)} />
+          <div className="flex flex-col gap-1">
+            <label className={FIELD_LABEL}>Date</label>
+            <input
+              className="bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-zinc-200 text-[13px] outline-none focus:border-indigo-500"
+              type="date"
+              value={date}
+              max={todayStr()}
+              onChange={e => setDate(e.target.value)}
+            />
           </div>
-          <button className="btn btn-load" onClick={loadTrail} disabled={!selectedUser || !date || loading}>
+          <button className={BTN_LOAD} onClick={loadTrail} disabled={!selectedUser || !date || loading}>
             {loading ? 'Loading…' : 'Load Trail'}
           </button>
         </div>
       )}
 
       {viewMode === 'team' && (
-        <div className="controls">
-          <div className="field">
-            <label>Snapshot</label>
-            <span style={{ fontSize: 13, color: '#e5e5e5', paddingTop: 6 }}>
+        <div className="flex gap-2.5 flex-wrap items-end mb-6">
+          <div className="flex flex-col gap-1">
+            <label className={FIELD_LABEL}>Snapshot</label>
+            <span className="text-[13px] text-zinc-200 pt-1.5">
               Latest ping today per sales / employee · calendar date {snapshotDate || todayStr()}
             </span>
           </div>
-          <button type="button" className="btn btn-load" onClick={loadTeamSnapshot} disabled={snapshotLoading}>
+          <button type="button" className={BTN_LOAD} onClick={loadTeamSnapshot} disabled={snapshotLoading}>
             {snapshotLoading ? 'Refreshing…' : 'Refresh'}
           </button>
         </div>
       )}
 
       {viewMode === 'trail' && fetched && attendance && (
-        <div className="att-card">
-          <div className="att-field">
-            <label>Employee</label>
-            <span>{attendance.employee_name || selectedEmp?.name || `User #${attendance.user_id}`}</span>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-[18px] mb-5 flex gap-5 flex-wrap items-center">
+          <div className="flex flex-col gap-1 min-w-[110px]">
+            <label className={ATT_FIELD_LABEL}>Employee</label>
+            <span className={ATT_FIELD_VALUE}>{attendance.employee_name || selectedEmp?.name || `User #${attendance.user_id}`}</span>
           </div>
-          <div className="att-field">
-            <label>Date</label>
-            <span>{date}</span>
+          <div className="flex flex-col gap-1 min-w-[110px]">
+            <label className={ATT_FIELD_LABEL}>Date</label>
+            <span className={ATT_FIELD_VALUE}>{date}</span>
           </div>
-          <div className="att-field">
-            <label>Clock In</label>
-            <span>{attendance.clock_in_at ? fmtDateTime(attendance.clock_in_at) : '—'}</span>
+          <div className="flex flex-col gap-1 min-w-[110px]">
+            <label className={ATT_FIELD_LABEL}>Clock In</label>
+            <span className={ATT_FIELD_VALUE}>{attendance.clock_in_at ? fmtDateTime(attendance.clock_in_at) : '—'}</span>
           </div>
-          <div className="att-field">
-            <label>Clock Out</label>
-            <span>{attendance.clock_out_at ? fmtDateTime(attendance.clock_out_at) : 'Still clocked in'}</span>
+          <div className="flex flex-col gap-1 min-w-[110px]">
+            <label className={ATT_FIELD_LABEL}>Clock Out</label>
+            <span className={ATT_FIELD_VALUE}>{attendance.clock_out_at ? fmtDateTime(attendance.clock_out_at) : 'Still clocked in'}</span>
           </div>
-          <div className="att-field">
-            <label>Duration</label>
-            <span>{fmtDuration(attendance.duration_seconds)}</span>
+          <div className="flex flex-col gap-1 min-w-[110px]">
+            <label className={ATT_FIELD_LABEL}>Duration</label>
+            <span className={ATT_FIELD_VALUE}>{fmtDuration(attendance.duration_seconds)}</span>
           </div>
-          <div className="att-field">
-            <label>Status</label>
+          <div className="flex flex-col gap-1 min-w-[110px]">
+            <label className={ATT_FIELD_LABEL}>Status</label>
             <span>
-              <span className={`badge badge-${attendance.status || 'pending'}`}>{attendance.status || 'pending'}</span>
+              <span className={getAttBadge(attendance.status || 'pending')}>{attendance.status || 'pending'}</span>
             </span>
           </div>
           {canApproveAttendance && (
-            <div className="att-actions">
+            <div className="ml-auto flex gap-2 flex-wrap">
               {attendance.status !== 'approved' && (
-                <button className="btn btn-approve" onClick={() => handleApprove(true)} disabled={acting}>
+                <button
+                  className="px-[18px] py-2 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150 bg-green-500/[0.15] text-green-500 border border-green-500/[0.3] hover:bg-green-500/[0.25]"
+                  onClick={() => handleApprove(true)}
+                  disabled={acting}
+                >
                   {acting ? '…' : 'Approve'}
                 </button>
               )}
               {attendance.status !== 'rejected' && (
-                <button className="btn btn-reject" onClick={() => handleApprove(false)} disabled={acting}>
+                <button
+                  className="px-[18px] py-2 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150 bg-red-500/[0.15] text-red-500 border border-red-500/[0.3] hover:bg-red-500/[0.25]"
+                  onClick={() => handleApprove(false)}
+                  disabled={acting}
+                >
                   {acting ? '…' : 'Reject'}
                 </button>
               )}
@@ -491,54 +480,51 @@ export default function SalesLocationPage() {
       )}
 
       {viewMode === 'trail' && fetched && !attendance && (
-        <div
-          style={{
-            background: '#1a1a1a',
-            border: '1px solid #2a2a2a',
-            borderRadius: 12,
-            padding: '14px 18px',
-            marginBottom: 20,
-            color: '#6b7280',
-            fontSize: 13,
-          }}
-        >
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-[18px] py-3.5 mb-5 text-zinc-500 text-[13px]">
           No attendance record found for this employee on {date}.
         </div>
       )}
 
       {viewMode === 'trail' && fetched && (
-        <div className="trail-card">
-          <div className="trail-header">
-            <div className="trail-title">Location Trail</div>
-            <div className="trail-count">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden mb-5">
+          <div className="flex justify-between items-center px-[18px] py-3.5 border-b border-zinc-800">
+            <div className="text-sm font-semibold text-white">Location Trail</div>
+            <div className="text-xs text-zinc-500">
               {pings.length === 0
                 ? 'No pings recorded'
                 : `${pings.length} ping${pings.length !== 1 ? 's' : ''}`}
             </div>
           </div>
 
-          {pings.length > 0 && <div ref={trailMapElRef} className="map-shell" />}
+          {pings.length > 0 && (
+            <div ref={trailMapElRef} className="h-[340px] w-full relative bg-[#111] border-b border-zinc-800" />
+          )}
 
           {pings.length === 0 ? (
-            <div className="empty">
+            <div className="text-center py-[60px] px-5 text-zinc-500 text-sm">
               No location data for this employee on {date}.
-              <div className="empty-hint">The employee must grant browser location permission on the Attendance page (or save a visit with GPS).</div>
+              <div className="text-xs text-[#4b5563] mt-2">
+                The employee must grant browser location permission on the Attendance page (or save a visit with GPS).
+              </div>
             </div>
           ) : (
-            <div className="trail-list">
-              {pings.map((p: any, i: number) => (
-                <div key={p.id} className="ping-row">
-                  <div className="ping-number">{i + 1}</div>
-                  <div className="ping-time">{fmtTime(p.pinged_at)}</div>
-                  <div className="ping-body">
-                    <div className="ping-coords">
-                      <span className={p.type === 'manual' ? 'badge-manual' : 'badge-auto'}>{p.type}</span>
-                      {p.context ? <span className="badge-ctx">{p.context}</span> : null}
-                      {p.visit_id != null ? <span className="badge-ctx">visit #{p.visit_id}</span> : null}
+            <div className="relative">
+              {pings.map((p, i) => (
+                <div
+                  key={p.id}
+                  className="flex items-start gap-3.5 px-[18px] py-3.5 border-b border-[#1f1f1f] transition-colors duration-[120ms] last:border-b-0 hover:bg-[#1f1f1f]"
+                >
+                  <div className="text-[11px] text-[#374151] min-w-[24px] pt-[3px] text-right">{i + 1}</div>
+                  <div className="text-[13px] font-semibold text-white min-w-[52px] pt-0.5">{fmtTime(p.pinged_at)}</div>
+                  <div className="flex-1">
+                    <div className="text-[13px] text-zinc-200 mb-1">
+                      <span className={p.type === 'manual' ? BADGE_MANUAL : BADGE_AUTO}>{p.type}</span>
+                      {p.context ? <span className={BADGE_CTX}>{p.context}</span> : null}
+                      {p.visit_id != null ? <span className={BADGE_CTX}>visit #{p.visit_id}</span> : null}
                       &nbsp;&nbsp;
                       {fmtCoords(p.lat, p.lng)}
                       <a
-                        className="maps-link"
+                        className={MAPS_LINK}
                         href={`https://maps.google.com/?q=${p.lat},${p.lng}`}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -546,8 +532,10 @@ export default function SalesLocationPage() {
                         View on Maps ↗
                       </a>
                     </div>
-                    {p.note && <div className="ping-note">{p.note}</div>}
-                    {p.accuracy_m != null && <div className="ping-acc">Accuracy: ±{Math.round(p.accuracy_m)} m</div>}
+                    {p.note && <div className="text-xs text-zinc-400 mt-0.5">{p.note}</div>}
+                    {p.accuracy_m != null && (
+                      <div className="text-[11px] text-zinc-500 mt-0.5">Accuracy: ±{Math.round(p.accuracy_m)} m</div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -557,10 +545,10 @@ export default function SalesLocationPage() {
       )}
 
       {viewMode === 'team' && (
-        <div className="trail-card">
-          <div className="trail-header">
-            <div className="trail-title">Team map (today)</div>
-            <div className="trail-count">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden mb-5">
+          <div className="flex justify-between items-center px-[18px] py-3.5 border-b border-zinc-800">
+            <div className="text-sm font-semibold text-white">Team map (today)</div>
+            <div className="text-xs text-zinc-500">
               {snapshotLoading
                 ? 'Loading…'
                 : snapshots.length === 0
@@ -569,31 +557,43 @@ export default function SalesLocationPage() {
             </div>
           </div>
 
-          {!snapshotLoading && snapshots.length > 0 && <div ref={teamMapElRef} className="map-shell" />}
+          {!snapshotLoading && snapshots.length > 0 && (
+            <div ref={teamMapElRef} className="h-[340px] w-full relative bg-[#111] border-b border-zinc-800" />
+          )}
 
           {snapshotLoading ? (
-            <div className="empty">Loading snapshot…</div>
+            <div className="text-center py-[60px] px-5 text-zinc-500 text-sm">Loading snapshot…</div>
           ) : snapshots.length === 0 ? (
-            <div className="empty">
+            <div className="text-center py-[60px] px-5 text-zinc-500 text-sm">
               No location pings yet for sales / employee roles today.
-              <div className="empty-hint">Reps need to clock in on Attendance or save a visit with GPS.</div>
+              <div className="text-xs text-[#4b5563] mt-2">
+                Reps need to clock in on Attendance or save a visit with GPS.
+              </div>
             </div>
           ) : (
-            <div className="trail-list">
+            <div className="relative">
               {snapshots.map(s => (
-                <div key={s.user_id} className="snap-row">
-                  <div className="snap-name">{s.user_name || `User #${s.user_id}`}</div>
-                  <div className="snap-meta">
+                <div
+                  key={s.user_id}
+                  className="flex gap-3.5 px-[18px] py-3 border-b border-[#1f1f1f] text-[13px] items-start last:border-b-0"
+                >
+                  <div className="font-semibold text-white min-w-[140px]">{s.user_name || `User #${s.user_id}`}</div>
+                  <div className="text-zinc-400 flex-1">
                     {fmtDateTime(s.pinged_at)}
                     {s.user_role ? ` · ${s.user_role}` : ''}
                     {s.context ? ` · ${s.context}` : ''}
                     {s.visit_id != null ? ` · visit #${s.visit_id}` : ''}
-                    <div style={{ marginTop: 4 }}>
-                      <a className="maps-link" href={`https://maps.google.com/?q=${s.lat},${s.lng}`} target="_blank" rel="noopener noreferrer">
+                    <div className="mt-1">
+                      <a
+                        className={MAPS_LINK}
+                        href={`https://maps.google.com/?q=${s.lat},${s.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
                         Open in Maps ↗
                       </a>
                       {s.accuracy_m != null && (
-                        <span style={{ marginLeft: 10, fontSize: 11, color: '#6b7280' }}>±{Math.round(s.accuracy_m)} m</span>
+                        <span className="ml-2.5 text-[11px] text-zinc-500">±{Math.round(s.accuracy_m)} m</span>
                       )}
                     </div>
                   </div>

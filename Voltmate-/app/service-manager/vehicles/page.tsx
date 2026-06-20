@@ -72,69 +72,74 @@ const EMPTY_VEHICLE: Record<string, string | number> = {
   remarks: '',
 };
 
-const PAGE_STYLES = `
-  .sm-root { min-height: 100vh; background: #0a0c12; color: #e8edf5; font-family: 'Outfit', sans-serif; }
-  .sm-content { padding: 32px 28px; max-width: 100%; margin: 0 auto; }
-  .sm-header { margin-bottom: 28px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-  .sm-title { font-size: 28px; font-weight: 800; letter-spacing: -.5px; margin-bottom: 6px; }
-  .sm-subtitle { font-size: 13.5px; color: #8e97ad; }
-  .sm-table-card { background: #0f1117; border: 1px solid #1e2236; border-radius: 12px; overflow: hidden; }
-  .sm-table-header { padding: 16px 20px; border-bottom: 1px solid #1e2236; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-  .sm-table-title { font-size: 14px; font-weight: 700; }
-  .sm-table-outer { overflow-x: auto; }
-  .sm-table { width: 100%; border-collapse: collapse; min-width: 2200px; }
-  .sm-table th { padding: 10px 12px; text-align: left; font-size: 10px; font-weight: 700; color: #545968; text-transform: uppercase; letter-spacing: 1px; background: #141720; border-bottom: 1px solid #1e2236; white-space: nowrap; }
-  .sm-table th.svc-group { background: #101420; text-align: center; border-left: 2px solid #1e2236; }
-  .sm-table th.svc-sub { background: #0f1117; font-size: 9px; border-left: 1px solid #1a1e30; text-align: center; }
-  .sm-table th.sm-th-remarks { min-width: 100px; white-space: normal; word-break: break-word; }
-  .sm-table th.sm-th-speak { min-width: 140px; white-space: normal; word-break: break-word; }
-  .sm-table th.sm-th-actions { min-width: 100px; white-space: normal; }
-  .sm-table th.svc-sub-status { min-width: 100px; }
-  .sm-table td { padding: 11px 12px; border-bottom: 1px solid rgba(30,34,54,.6); font-size: 12.5px; vertical-align: middle; }
-  .sm-table td.svc-cell { border-left: 1px solid rgba(30,34,54,.8); text-align: center; min-width: 90px; }
-  .sm-table td.svc-cell-status { min-width: 100px; }
-  .sm-table td.svc-cell-cost { min-width: 72px; max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
-  .sm-table td.svc-group-start { border-left: 2px solid #1e2236; }
-  .sm-table td.sm-td-remarks { max-width: 160px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; word-break: break-word; vertical-align: middle; }
-  .sm-table td.sm-td-speak { min-width: 140px; max-width: 180px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; word-break: break-word; vertical-align: middle; }
-  .sm-table td.sm-td-actions { min-width: 100px; }
-  .sm-table tbody tr:last-child td { border-bottom: none; }
-  .sm-badge { display: inline-flex; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; }
-  .sm-badge.overdue { background: rgba(244,63,94,.15); color: #f43f5e; }
-  .sm-badge.due_soon { background: rgba(251,191,36,.12); color: #fbbf24; }
-  .sm-badge.ok { background: rgba(16,185,129,.1); color: #10b981; }
-  .sm-badge.done { background: rgba(16,185,129,.15); color: #10b981; }
-  .sm-badge.pending { background: rgba(251,191,36,.12); color: #fbbf24; }
-  .sm-btn { font-family: inherit; font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 7px; border: 1px solid #1e2236; background: transparent; color: #8e97ad; cursor: pointer; transition: all .15s; white-space: nowrap; }
-  .sm-btn:hover { border-color: #272b40; color: #e8edf5; }
-  .sm-btn-primary { background: #00d9ff; color: #0a0c12; border-color: #00d9ff; font-size: 10px; padding: 4px 8px; }
-  .sm-btn-primary:hover { background: #00b8d9; border-color: #00b8d9; color: #0a0c12; }
-  .sm-btn-amber { background: rgba(251,191,36,.1); color: #fbbf24; border-color: rgba(251,191,36,.3); }
-  .sm-btn-red { background: rgba(244,63,94,.1); color: #f43f5e; border-color: rgba(244,63,94,.25); }
-  .sm-mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8e97ad; }
-  .sm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
-  .sm-modal { background: #0f1117; border: 1px solid #1e2236; border-radius: 16px; width: 100%; max-width: 620px; max-height: 92vh; overflow-y: auto; }
-  .sm-modal-head { padding: 20px 24px; border-bottom: 1px solid #1e2236; display: flex; justify-content: space-between; align-items: flex-start; }
-  .sm-modal-title { font-size: 18px; font-weight: 700; }
-  .sm-modal-close { background: transparent; border: 1px solid #1e2236; color: #8e97ad; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; }
-  .sm-modal-close:hover { color: #f43f5e; border-color: #f43f5e; }
-  .sm-modal-body { padding: 24px; }
-  .sm-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
-  .sm-field label { font-size: 11px; font-weight: 600; color: #545968; text-transform: uppercase; letter-spacing: .8px; }
-  .sm-field input, .sm-field textarea, .sm-field select { font-family: inherit; font-size: 13px; padding: 10px 12px; background: #0a0c12; border: 1px solid #1e2236; border-radius: 8px; color: #e8edf5; }
-  .sm-field textarea { min-height: 72px; resize: vertical; }
-  .sm-modal-foot { padding: 16px 24px; border-top: 1px solid #1e2236; display: flex; gap: 10px; justify-content: flex-end; }
-  .sm-empty { text-align: center; padding: 48px 20px; color: #545968; font-size: 14px; }
-  .sm-loading { text-align: center; padding: 48px; color: #8e97ad; }
-  .sm-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .sm-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-  .sm-section-title { font-size: 11px; font-weight: 700; color: #545968; text-transform: uppercase; letter-spacing: 1px; margin: 20px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #1e2236; }
-  .sm-svc-cell-inner { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 80px; }
-  .sm-svc-status-inner { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 100%; }
-  .sm-svc-status-inner .sm-btn { align-self: center; }
-  .sm-cell-km { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 600; color: #e8edf5; }
-  .sm-cell-date { font-size: 10.5px; color: #8e97ad; }
-`;
+// ─── Tailwind class constants ──────────────────────────────────────────────────
+
+const baseTh =
+  'px-3 py-2.5 text-left text-[10px] font-bold text-[#545968] uppercase tracking-[1px] bg-[#141720] border-b border-[#1e2236] whitespace-nowrap';
+
+const svcGroupTh =
+  'px-3 py-2.5 text-[10px] font-bold text-[#545968] uppercase tracking-[1px] bg-[#101420] border-b border-[#1e2236] text-center border-l-2 [border-left-color:#1e2236]';
+
+const svcSubTh =
+  'px-3 py-2.5 text-[9px] font-bold text-[#545968] uppercase tracking-[1px] bg-[#0f1117] border-b border-[#1e2236] text-center border-l [border-left-color:#1a1e30]';
+
+const baseTd =
+  'px-3 py-[11px] border-b border-[rgba(30,34,54,0.6)] text-[12.5px] align-middle';
+
+const svcCell =
+  'px-3 py-[11px] border-b border-[rgba(30,34,54,0.6)] text-[12.5px] align-middle border-l [border-left-color:rgba(30,34,54,0.8)] text-center min-w-[90px]';
+
+const svcCellGroupStart =
+  'px-3 py-[11px] border-b border-[rgba(30,34,54,0.6)] text-[12.5px] align-middle border-l-2 [border-left-color:#1e2236] text-center min-w-[90px]';
+
+const baseBtn =
+  'font-sans text-[11px] font-semibold py-[5px] px-2.5 rounded-[7px] border border-[#1e2236] bg-transparent text-[#8e97ad] cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-[#272b40] hover:text-[#e8edf5]';
+
+const primaryBtn =
+  'font-sans text-[10px] font-semibold py-1 px-2 rounded-[7px] border bg-cyan-400 text-[#0a0c12] border-cyan-400 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-[#00b8d9] hover:border-[#00b8d9] hover:text-[#0a0c12]';
+
+const primaryBtnLg =
+  'font-sans text-[13px] font-semibold py-2 px-4 rounded-[7px] border bg-cyan-400 text-[#0a0c12] border-cyan-400 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-[#00b8d9] hover:border-[#00b8d9] hover:text-[#0a0c12]';
+
+const amberBtn =
+  'font-sans text-[11px] font-semibold py-[5px] px-2.5 rounded-[7px] border bg-[rgba(251,191,36,0.1)] text-amber-400 border-[rgba(251,191,36,0.3)] cursor-pointer transition-all duration-150 whitespace-nowrap';
+
+const redBtn =
+  'font-sans text-[11px] font-semibold py-[5px] px-2.5 rounded-[7px] border bg-[rgba(244,63,94,0.1)] text-[#f43f5e] border-[rgba(244,63,94,0.25)] cursor-pointer transition-all duration-150 whitespace-nowrap';
+
+const monoClass = 'font-mono text-[11px] text-[#8e97ad]';
+
+const badgeDone =
+  'inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-[rgba(16,185,129,0.15)] text-[#10b981]';
+
+const badgePending =
+  'inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-[rgba(251,191,36,0.12)] text-amber-400';
+
+const fieldLabel =
+  'text-[11px] font-semibold text-[#545968] uppercase tracking-[0.8px]';
+
+const fieldInput =
+  'font-sans text-[13px] py-2.5 px-3 bg-[#0a0c12] border border-[#1e2236] rounded-lg text-[#e8edf5]';
+
+const modalOverlay =
+  'fixed inset-0 bg-black/[0.72] z-[1000] flex items-center justify-center p-5 overflow-y-auto';
+
+const modalBox =
+  'bg-[#0f1117] border border-[#1e2236] rounded-2xl w-full max-w-[620px] max-h-[92vh] overflow-y-auto';
+
+const modalHead =
+  'px-6 py-5 border-b border-[#1e2236] flex justify-between items-start';
+
+const modalClose =
+  'bg-transparent border border-[#1e2236] text-[#8e97ad] w-8 h-8 rounded-lg cursor-pointer text-base hover:text-[#f43f5e] hover:border-[#f43f5e]';
+
+const modalFoot =
+  'px-6 py-4 border-t border-[#1e2236] flex gap-2.5 justify-end';
+
+const svcStatusInner =
+  'flex flex-col items-center justify-center gap-1.5 w-full';
+
+// ──────────────────────────────────────────────────────────────────────────────
 
 function svcObj(v: Vehicle, n: 1 | 2 | 3): VehicleService | null {
   const id = v[`s${n}_id` as keyof Vehicle] as number | undefined;
@@ -384,22 +389,22 @@ export default function ServiceManagerVehiclesPage() {
 
   function ServiceCell({ v, n }: { v: Vehicle; n: 1 | 2 | 3 }) {
     const svc = svcObj(v, n);
-    if (!svc) return <span style={{ color: '#3a3f52', fontSize: 12 }}>—</span>;
+    if (!svc) return <span className="text-[#3a3f52] text-xs">—</span>;
     const done = svc.status === 'done';
     return (
-      <div className="sm-svc-cell-inner">
+      <div className="flex flex-col items-center gap-1 min-w-[80px]">
         {done ? (
           <>
-            <span className="sm-badge done">Done</span>
-            {svc.actual_km != null && <span className="sm-cell-km">{svc.actual_km} km</span>}
-            <span className="sm-cell-date">{fmtDate(svc.completion_date)}</span>
+            <span className={badgeDone}>Done</span>
+            {svc.actual_km != null && <span className="font-mono text-[11.5px] font-semibold text-[#e8edf5]">{svc.actual_km} km</span>}
+            <span className="text-[10.5px] text-[#8e97ad]">{fmtDate(svc.completion_date)}</span>
           </>
         ) : (
           <>
-            <span className="sm-badge pending">Pending</span>
-            {svc.due_km != null && <span className="sm-cell-km">{svc.due_km} km</span>}
-            <span className="sm-cell-date">{fmtDate(svc.due_date)}</span>
-            <button type="button" className="sm-btn sm-btn-primary" style={{ marginTop: 4 }} onClick={() => openMarkDone(v.id, svc)}>
+            <span className={badgePending}>Pending</span>
+            {svc.due_km != null && <span className="font-mono text-[11.5px] font-semibold text-[#e8edf5]">{svc.due_km} km</span>}
+            <span className="text-[10.5px] text-[#8e97ad]">{fmtDate(svc.due_date)}</span>
+            <button type="button" className={`${primaryBtn} mt-1`} onClick={() => openMarkDone(v.id, svc)}>
               Mark Done
             </button>
           </>
@@ -409,64 +414,65 @@ export default function ServiceManagerVehiclesPage() {
   }
 
   return (
-    <div className="sm-root">
-      <style>{PAGE_STYLES}</style>
-      <div className="sm-content">
-        <div className="sm-header">
+    <div className="min-h-screen bg-[#0a0c12] text-[#e8edf5] font-sans">
+      <div className="px-7 py-8 max-w-full mx-auto">
+        <div className="mb-7 flex items-center justify-between flex-wrap gap-3">
           <div>
-            <Link href="/service-manager" className="sm-btn" style={{ marginBottom: 8, display: 'inline-block' }}>← Dashboard</Link>
-            <div className="sm-title">Vehicle Management</div>
-            <div className="sm-subtitle">Full service tracking: 1st, 2nd, and 3rd service status per vehicle</div>
+            <Link href="/service-manager" className={`${baseBtn} mb-2 inline-block`}>← Dashboard</Link>
+            <div className="text-[28px] font-extrabold tracking-tight mb-1.5">Vehicle Management</div>
+            <div className="text-[13.5px] text-[#8e97ad]">Full service tracking: 1st, 2nd, and 3rd service status per vehicle</div>
           </div>
-          <button type="button" className="sm-btn sm-btn-primary" style={{ fontSize: 13, padding: '8px 16px' }} onClick={openAdd}>+ Add Vehicle</button>
+          <button type="button" className={primaryBtnLg} onClick={openAdd}>+ Add Vehicle</button>
         </div>
 
-        {error && <div style={{ background: 'rgba(244,63,94,.1)', border: '1px solid rgba(244,63,94,.25)', borderRadius: 12, padding: 16, marginBottom: 24 }}>{error}</div>}
+        {error && (
+          <div className="bg-[rgba(244,63,94,0.1)] border border-[rgba(244,63,94,0.25)] rounded-xl p-4 mb-6">{error}</div>
+        )}
 
         {loading ? (
-          <div className="sm-loading">Loading vehicles…</div>
+          <div className="text-center py-12 text-[#8e97ad]">Loading vehicles…</div>
         ) : (
-          <div className="sm-table-card">
-            <div className="sm-table-header">
-              <div className="sm-table-title">{vehicles.length} Vehicles</div>
-              <button type="button" className="sm-btn" onClick={handleExportCSV}>↓ Export CSV</button>
+          <div className="bg-[#0f1117] border border-[#1e2236] rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#1e2236] flex justify-between items-center flex-wrap gap-2.5">
+              <div className="text-sm font-bold">{vehicles.length} Vehicles</div>
+              <button type="button" className={baseBtn} onClick={handleExportCSV}>↓ Export CSV</button>
             </div>
-            <div className="sm-table-outer">
-              <table className="sm-table">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse min-w-[2200px]">
                 <thead>
                   <tr>
-                    <th rowSpan={2}>Vehicle No / Chassis</th>
-                    <th rowSpan={2}>Vehicle Type</th>
-                    <th rowSpan={2}>Owner Name & No.</th>
-                    <th rowSpan={2}>Location</th>
-                    <th rowSpan={2}>Driver Name & No.</th>
-                    <th rowSpan={2}>Purchase Date</th>
-                    <th rowSpan={2}>PDI</th>
-                    <th className="svc-group" colSpan={4}>1st Service</th>
-                    <th className="svc-group" colSpan={4}>2nd Service</th>
-                    <th className="svc-group" colSpan={4}>3rd Service</th>
-                    <th rowSpan={2} className="sm-th-remarks">Remarks</th>
-                    <th rowSpan={2} className="sm-th-speak">Speak With / Notes</th>
-                    <th rowSpan={2} className="sm-th-actions">Actions</th>
+                    <th rowSpan={2} className={baseTh}>Vehicle No / Chassis</th>
+                    <th rowSpan={2} className={baseTh}>Vehicle Type</th>
+                    <th rowSpan={2} className={baseTh}>Owner Name & No.</th>
+                    <th rowSpan={2} className={baseTh}>Location</th>
+                    <th rowSpan={2} className={baseTh}>Driver Name & No.</th>
+                    <th rowSpan={2} className={baseTh}>Purchase Date</th>
+                    <th rowSpan={2} className={baseTh}>PDI</th>
+                    <th className={svcGroupTh} colSpan={4}>1st Service</th>
+                    <th className={svcGroupTh} colSpan={4}>2nd Service</th>
+                    <th className={svcGroupTh} colSpan={4}>3rd Service</th>
+                    <th rowSpan={2} className={`${baseTh} min-w-[100px] whitespace-normal break-words`}>Remarks</th>
+                    <th rowSpan={2} className={`${baseTh} min-w-[140px] whitespace-normal break-words`}>Speak With / Notes</th>
+                    <th rowSpan={2} className={`${baseTh} min-w-[100px] whitespace-normal`}>Actions</th>
                   </tr>
                   <tr>
-                    <th className="svc-sub">KM</th>
-                    <th className="svc-sub">Date</th>
-                    <th className="svc-sub svc-sub-status">Status</th>
-                    <th className="svc-sub">Cost</th>
-                    <th className="svc-sub">KM</th>
-                    <th className="svc-sub">Date</th>
-                    <th className="svc-sub svc-sub-status">Status</th>
-                    <th className="svc-sub">Cost</th>
-                    <th className="svc-sub">KM</th>
-                    <th className="svc-sub">Date</th>
-                    <th className="svc-sub svc-sub-status">Status</th>
-                    <th className="svc-sub">Cost</th>
+                    <th className={svcSubTh}>KM</th>
+                    <th className={svcSubTh}>Date</th>
+                    <th className={`${svcSubTh} min-w-[100px]`}>Status</th>
+                    <th className={svcSubTh}>Cost</th>
+                    <th className={svcSubTh}>KM</th>
+                    <th className={svcSubTh}>Date</th>
+                    <th className={`${svcSubTh} min-w-[100px]`}>Status</th>
+                    <th className={svcSubTh}>Cost</th>
+                    <th className={svcSubTh}>KM</th>
+                    <th className={svcSubTh}>Date</th>
+                    <th className={`${svcSubTh} min-w-[100px]`}>Status</th>
+                    <th className={svcSubTh}>Cost</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="[&>tr:last-child>td]:border-b-0">
                   {vehicles.length === 0 ? (
-                    <tr><td colSpan={22} className="sm-empty">No vehicles. Click + Add Vehicle to add one.</td></tr>
+                    <tr><td colSpan={22} className="text-center py-12 px-5 text-[#545968] text-sm">No vehicles. Click + Add Vehicle to add one.</td></tr>
                   ) : (
                     vehicles.map(v => {
                       const s1 = svcObj(v, 1);
@@ -475,43 +481,43 @@ export default function ServiceManagerVehiclesPage() {
                       return (
                         <tr key={v.id}>
                           {/* Vehicle */}
-                          <td>
-                            <span style={{ fontWeight: 700, display: 'block' }}>{v.vehicle_number || '—'}</span>
-                            {v.chassis_number && <span className="sm-mono" style={{ display: 'block', marginTop: 2 }}>{v.chassis_number}</span>}
+                          <td className={baseTd}>
+                            <span className="font-bold block">{v.vehicle_number || '—'}</span>
+                            {v.chassis_number && <span className={`${monoClass} block mt-0.5`}>{v.chassis_number}</span>}
                           </td>
                           {/* Vehicle Type */}
-                          <td>{v.vehicle_type || '—'}</td>
+                          <td className={baseTd}>{v.vehicle_type || '—'}</td>
                           {/* Owner */}
-                          <td>
-                            <span style={{ fontWeight: 600 }}>{v.owner_name || '—'}</span>
-                            {v.owner_phone && <span className="sm-mono" style={{ display: 'block', marginTop: 2 }}>{v.owner_phone}</span>}
+                          <td className={baseTd}>
+                            <span className="font-semibold">{v.owner_name || '—'}</span>
+                            {v.owner_phone && <span className={`${monoClass} block mt-0.5`}>{v.owner_phone}</span>}
                           </td>
                           {/* Location */}
-                          <td style={{ maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.location || '—'}</td>
+                          <td className={`${baseTd} max-w-[130px] overflow-hidden text-ellipsis whitespace-nowrap`}>{v.location || '—'}</td>
                           {/* Driver */}
-                          <td>
-                            <span style={{ fontWeight: 600 }}>{v.driver_name || '—'}</span>
-                            {v.driver_phone && <span className="sm-mono" style={{ display: 'block', marginTop: 2 }}>{v.driver_phone}</span>}
+                          <td className={baseTd}>
+                            <span className="font-semibold">{v.driver_name || '—'}</span>
+                            {v.driver_phone && <span className={`${monoClass} block mt-0.5`}>{v.driver_phone}</span>}
                           </td>
                           {/* Purchase Date */}
-                          <td className="sm-mono">{fmtDate(v.purchase_date)}</td>
+                          <td className={`${baseTd} ${monoClass}`}>{fmtDate(v.purchase_date)}</td>
                           {/* PDI */}
-                          <td style={{ maxWidth: 100 }}>{v.pdi || '—'}</td>
+                          <td className={`${baseTd} max-w-[100px]`}>{v.pdi || '—'}</td>
 
                           {/* 1st Service: KM | Date | Status | Cost */}
-                          <td className="svc-cell svc-group-start">
-                            {s1 ? <span className="sm-cell-km">{s1.status === 'done' ? (s1.actual_km ?? '—') : (s1.due_km ?? '—')}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
+                          <td className={svcCellGroupStart}>
+                            {s1 ? <span className="font-mono text-[11.5px] font-semibold text-[#e8edf5]">{s1.status === 'done' ? (s1.actual_km ?? '—') : (s1.due_km ?? '—')}</span> : <span className="text-[#3a3f52]">—</span>}
                           </td>
-                          <td className="svc-cell">
-                            {s1 ? <span className="sm-cell-date">{fmtDate(s1.status === 'done' ? s1.completion_date : s1.due_date)}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
+                          <td className={svcCell}>
+                            {s1 ? <span className="text-[10.5px] text-[#8e97ad]">{fmtDate(s1.status === 'done' ? s1.completion_date : s1.due_date)}</span> : <span className="text-[#3a3f52]">—</span>}
                           </td>
-                          <td className="svc-cell svc-cell-status">
+                          <td className={`${svcCell} min-w-[100px]`}>
                             {s1 ? (
-                              <div className="sm-svc-status-inner">
-                                <span className={`sm-badge ${s1.status === 'done' ? 'done' : 'pending'}`}>{s1.status === 'done' ? 'Done' : 'Pending'}</span>
+                              <div className={svcStatusInner}>
+                                <span className={s1.status === 'done' ? badgeDone : badgePending}>{s1.status === 'done' ? 'Done' : 'Pending'}</span>
                                 <button
                                   type="button"
-                                  className="sm-btn"
+                                  className={`${baseBtn} self-center`}
                                   onClick={() => openEditService(v, 1)}
                                 >
                                   Edit
@@ -519,7 +525,7 @@ export default function ServiceManagerVehiclesPage() {
                                 {s1.status !== 'done' && (
                                   <button
                                     type="button"
-                                    className="sm-btn sm-btn-primary"
+                                    className={`${primaryBtn} self-center`}
                                     onClick={() => openMarkDone(v.id, s1)}
                                   >
                                     Mark Done
@@ -527,11 +533,11 @@ export default function ServiceManagerVehiclesPage() {
                                 )}
                               </div>
                             ) : (
-                              <div className="sm-svc-status-inner">
-                                <span style={{ color: '#3a3f52' }}>—</span>
+                              <div className={svcStatusInner}>
+                                <span className="text-[#3a3f52]">—</span>
                                 <button
                                   type="button"
-                                  className="sm-btn"
+                                  className={`${baseBtn} self-center`}
                                   onClick={() => openEditService(v, 1)}
                                 >
                                   Add
@@ -539,24 +545,24 @@ export default function ServiceManagerVehiclesPage() {
                               </div>
                             )}
                           </td>
-                          <td className="svc-cell svc-cell-cost">
-                            {s1?.cost != null && s1.cost !== '' ? <span className="sm-mono">₹{Number(s1.cost).toLocaleString('en-IN')}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
+                          <td className={`${svcCell} min-w-[72px] max-w-[100px] whitespace-nowrap overflow-hidden text-ellipsis`}>
+                            {s1?.cost != null && s1.cost !== '' ? <span className={monoClass}>₹{Number(s1.cost).toLocaleString('en-IN')}</span> : <span className="text-[#3a3f52]">—</span>}
                           </td>
 
                           {/* 2nd Service */}
-                          <td className="svc-cell svc-group-start">
-                            {s2 ? <span className="sm-cell-km">{s2.status === 'done' ? (s2.actual_km ?? '—') : (s2.due_km ?? '—')}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
+                          <td className={svcCellGroupStart}>
+                            {s2 ? <span className="font-mono text-[11.5px] font-semibold text-[#e8edf5]">{s2.status === 'done' ? (s2.actual_km ?? '—') : (s2.due_km ?? '—')}</span> : <span className="text-[#3a3f52]">—</span>}
                           </td>
-                          <td className="svc-cell">
-                            {s2 ? <span className="sm-cell-date">{fmtDate(s2.status === 'done' ? s2.completion_date : s2.due_date)}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
+                          <td className={svcCell}>
+                            {s2 ? <span className="text-[10.5px] text-[#8e97ad]">{fmtDate(s2.status === 'done' ? s2.completion_date : s2.due_date)}</span> : <span className="text-[#3a3f52]">—</span>}
                           </td>
-                          <td className="svc-cell svc-cell-status">
+                          <td className={`${svcCell} min-w-[100px]`}>
                             {s2 ? (
-                              <div className="sm-svc-status-inner">
-                                <span className={`sm-badge ${s2.status === 'done' ? 'done' : 'pending'}`}>{s2.status === 'done' ? 'Done' : 'Pending'}</span>
+                              <div className={svcStatusInner}>
+                                <span className={s2.status === 'done' ? badgeDone : badgePending}>{s2.status === 'done' ? 'Done' : 'Pending'}</span>
                                 <button
                                   type="button"
-                                  className="sm-btn"
+                                  className={`${baseBtn} self-center`}
                                   onClick={() => openEditService(v, 2)}
                                 >
                                   Edit
@@ -564,7 +570,7 @@ export default function ServiceManagerVehiclesPage() {
                                 {s2.status !== 'done' && (
                                   <button
                                     type="button"
-                                    className="sm-btn sm-btn-primary"
+                                    className={`${primaryBtn} self-center`}
                                     onClick={() => openMarkDone(v.id, s2)}
                                   >
                                     Mark Done
@@ -572,11 +578,11 @@ export default function ServiceManagerVehiclesPage() {
                                 )}
                               </div>
                             ) : (
-                              <div className="sm-svc-status-inner">
-                                <span style={{ color: '#3a3f52' }}>—</span>
+                              <div className={svcStatusInner}>
+                                <span className="text-[#3a3f52]">—</span>
                                 <button
                                   type="button"
-                                  className="sm-btn"
+                                  className={`${baseBtn} self-center`}
                                   onClick={() => openEditService(v, 2)}
                                 >
                                   Add
@@ -584,24 +590,24 @@ export default function ServiceManagerVehiclesPage() {
                               </div>
                             )}
                           </td>
-                          <td className="svc-cell svc-cell-cost">
-                            {s2?.cost != null && s2.cost !== '' ? <span className="sm-mono">₹{Number(s2.cost).toLocaleString('en-IN')}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
+                          <td className={`${svcCell} min-w-[72px] max-w-[100px] whitespace-nowrap overflow-hidden text-ellipsis`}>
+                            {s2?.cost != null && s2.cost !== '' ? <span className={monoClass}>₹{Number(s2.cost).toLocaleString('en-IN')}</span> : <span className="text-[#3a3f52]">—</span>}
                           </td>
 
                           {/* 3rd Service */}
-                          <td className="svc-cell svc-group-start">
-                            {s3 ? <span className="sm-cell-km">{s3.status === 'done' ? (s3.actual_km ?? '—') : (s3.due_km ?? '—')}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
+                          <td className={svcCellGroupStart}>
+                            {s3 ? <span className="font-mono text-[11.5px] font-semibold text-[#e8edf5]">{s3.status === 'done' ? (s3.actual_km ?? '—') : (s3.due_km ?? '—')}</span> : <span className="text-[#3a3f52]">—</span>}
                           </td>
-                          <td className="svc-cell">
-                            {s3 ? <span className="sm-cell-date">{fmtDate(s3.status === 'done' ? s3.completion_date : s3.due_date)}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
+                          <td className={svcCell}>
+                            {s3 ? <span className="text-[10.5px] text-[#8e97ad]">{fmtDate(s3.status === 'done' ? s3.completion_date : s3.due_date)}</span> : <span className="text-[#3a3f52]">—</span>}
                           </td>
-                          <td className="svc-cell svc-cell-status">
+                          <td className={`${svcCell} min-w-[100px]`}>
                             {s3 ? (
-                              <div className="sm-svc-status-inner">
-                                <span className={`sm-badge ${s3.status === 'done' ? 'done' : 'pending'}`}>{s3.status === 'done' ? 'Done' : 'Pending'}</span>
+                              <div className={svcStatusInner}>
+                                <span className={s3.status === 'done' ? badgeDone : badgePending}>{s3.status === 'done' ? 'Done' : 'Pending'}</span>
                                 <button
                                   type="button"
-                                  className="sm-btn"
+                                  className={`${baseBtn} self-center`}
                                   onClick={() => openEditService(v, 3)}
                                 >
                                   Edit
@@ -609,7 +615,7 @@ export default function ServiceManagerVehiclesPage() {
                                 {s3.status !== 'done' && (
                                   <button
                                     type="button"
-                                    className="sm-btn sm-btn-primary"
+                                    className={`${primaryBtn} self-center`}
                                     onClick={() => openMarkDone(v.id, s3)}
                                   >
                                     Mark Done
@@ -617,11 +623,11 @@ export default function ServiceManagerVehiclesPage() {
                                 )}
                               </div>
                             ) : (
-                              <div className="sm-svc-status-inner">
-                                <span style={{ color: '#3a3f52' }}>—</span>
+                              <div className={svcStatusInner}>
+                                <span className="text-[#3a3f52]">—</span>
                                 <button
                                   type="button"
-                                  className="sm-btn"
+                                  className={`${baseBtn} self-center`}
                                   onClick={() => openEditService(v, 3)}
                                 >
                                   Add
@@ -629,19 +635,19 @@ export default function ServiceManagerVehiclesPage() {
                               </div>
                             )}
                           </td>
-                          <td className="svc-cell svc-cell-cost">
-                            {s3?.cost != null && s3.cost !== '' ? <span className="sm-mono">₹{Number(s3.cost).toLocaleString('en-IN')}</span> : <span style={{ color: '#3a3f52' }}>—</span>}
+                          <td className={`${svcCell} min-w-[72px] max-w-[100px] whitespace-nowrap overflow-hidden text-ellipsis`}>
+                            {s3?.cost != null && s3.cost !== '' ? <span className={monoClass}>₹{Number(s3.cost).toLocaleString('en-IN')}</span> : <span className="text-[#3a3f52]">—</span>}
                           </td>
 
                           {/* Remarks */}
-                          <td className="sm-td-remarks" style={{ fontSize: 12, color: '#8e97ad' }}>{v.remarks || '—'}</td>
+                          <td className={`${baseTd} max-w-[160px] line-clamp-3 break-words text-xs text-[#8e97ad]`}>{v.remarks || '—'}</td>
                           {/* Speak With */}
-                          <td className="sm-td-speak" style={{ fontSize: 12, color: '#8e97ad' }}>{v.speak_with || '—'}</td>
+                          <td className={`${baseTd} min-w-[140px] max-w-[180px] line-clamp-3 break-words text-xs text-[#8e97ad]`}>{v.speak_with || '—'}</td>
                           {/* Actions */}
-                          <td className="sm-td-actions">
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'flex-end' }}>
-                              <button type="button" className="sm-btn sm-btn-amber" onClick={() => openEdit(v)}>Edit</button>
-                              <button type="button" className="sm-btn sm-btn-red" onClick={() => deleteVehicle(v.id)}>Delete</button>
+                          <td className={`${baseTd} min-w-[100px]`}>
+                            <div className="flex flex-wrap gap-1.5 justify-end">
+                              <button type="button" className={amberBtn} onClick={() => openEdit(v)}>Edit</button>
+                              <button type="button" className={redBtn} onClick={() => deleteVehicle(v.id)}>Delete</button>
                             </div>
                           </td>
                         </tr>
@@ -656,39 +662,39 @@ export default function ServiceManagerVehiclesPage() {
 
         {/* Add / Edit Vehicle Modal */}
         {(modalOpen === 'add' || modalOpen === 'edit') && (
-          <div className="sm-overlay" onClick={() => setModalOpen(null)}>
-            <div className="sm-modal" onClick={e => e.stopPropagation()}>
-              <div className="sm-modal-head">
-                <div className="sm-modal-title">{editId ? 'Edit Vehicle' : 'Add Vehicle'}</div>
-                <button type="button" className="sm-modal-close" onClick={() => setModalOpen(null)}>Close</button>
+          <div className={modalOverlay} onClick={() => setModalOpen(null)}>
+            <div className={modalBox} onClick={e => e.stopPropagation()}>
+              <div className={modalHead}>
+                <div className="text-lg font-bold">{editId ? 'Edit Vehicle' : 'Add Vehicle'}</div>
+                <button type="button" className={modalClose} onClick={() => setModalOpen(null)}>Close</button>
               </div>
               <form onSubmit={submitVehicle}>
-                <div className="sm-modal-body">
-                  <div className="sm-grid2">
-                    <div className="sm-field"><label>Vehicle Number</label><input value={form.vehicle_number} onChange={e => setForm(f => ({ ...f, vehicle_number: e.target.value }))} /></div>
-                    <div className="sm-field"><label>Chassis Number</label><input value={form.chassis_number} onChange={e => setForm(f => ({ ...f, chassis_number: e.target.value }))} /></div>
+                <div className="p-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5 mb-4"><label className={fieldLabel}>Vehicle Number</label><input className={fieldInput} value={form.vehicle_number} onChange={e => setForm(f => ({ ...f, vehicle_number: e.target.value }))} /></div>
+                    <div className="flex flex-col gap-1.5 mb-4"><label className={fieldLabel}>Chassis Number</label><input className={fieldInput} value={form.chassis_number} onChange={e => setForm(f => ({ ...f, chassis_number: e.target.value }))} /></div>
                   </div>
-                  <div className="sm-field"><label>Vehicle Type</label><input value={form.vehicle_type} onChange={e => setForm(f => ({ ...f, vehicle_type: e.target.value }))} placeholder="e.g. Turbo V+, Hi Load, Storm" /></div>
-                  <div className="sm-grid2">
-                    <div className="sm-field"><label>Owner Name</label><input value={form.owner_name} onChange={e => setForm(f => ({ ...f, owner_name: e.target.value }))} /></div>
-                    <div className="sm-field"><label>Owner Phone</label><input type="tel" value={form.owner_phone} onChange={e => setForm(f => ({ ...f, owner_phone: e.target.value }))} /></div>
+                  <div className="flex flex-col gap-1.5 mb-4"><label className={fieldLabel}>Vehicle Type</label><input className={fieldInput} value={form.vehicle_type} onChange={e => setForm(f => ({ ...f, vehicle_type: e.target.value }))} placeholder="e.g. Turbo V+, Hi Load, Storm" /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5 mb-4"><label className={fieldLabel}>Owner Name</label><input className={fieldInput} value={form.owner_name} onChange={e => setForm(f => ({ ...f, owner_name: e.target.value }))} /></div>
+                    <div className="flex flex-col gap-1.5 mb-4"><label className={fieldLabel}>Owner Phone</label><input className={fieldInput} type="tel" value={form.owner_phone} onChange={e => setForm(f => ({ ...f, owner_phone: e.target.value }))} /></div>
                   </div>
-                  <div className="sm-grid2">
-                    <div className="sm-field"><label>Driver Name</label><input value={form.driver_name} onChange={e => setForm(f => ({ ...f, driver_name: e.target.value }))} /></div>
-                    <div className="sm-field"><label>Driver Phone</label><input type="tel" value={form.driver_phone} onChange={e => setForm(f => ({ ...f, driver_phone: e.target.value }))} /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5 mb-4"><label className={fieldLabel}>Driver Name</label><input className={fieldInput} value={form.driver_name} onChange={e => setForm(f => ({ ...f, driver_name: e.target.value }))} /></div>
+                    <div className="flex flex-col gap-1.5 mb-4"><label className={fieldLabel}>Driver Phone</label><input className={fieldInput} type="tel" value={form.driver_phone} onChange={e => setForm(f => ({ ...f, driver_phone: e.target.value }))} /></div>
                   </div>
-                  <div className="sm-field"><label>Location</label><input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} /></div>
-                  <div className="sm-grid2">
-                    <div className="sm-field"><label>Purchase Date</label><input type="date" value={form.purchase_date} onChange={e => setForm(f => ({ ...f, purchase_date: e.target.value }))} /></div>
-                    <div className="sm-field"><label>Current KM</label><input type="number" min={0} value={form.current_km} onChange={e => setForm(f => ({ ...f, current_km: parseInt(e.target.value, 10) || 0 }))} /></div>
+                  <div className="flex flex-col gap-1.5 mb-4"><label className={fieldLabel}>Location</label><input className={fieldInput} value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5 mb-4"><label className={fieldLabel}>Purchase Date</label><input className={fieldInput} type="date" value={form.purchase_date} onChange={e => setForm(f => ({ ...f, purchase_date: e.target.value }))} /></div>
+                    <div className="flex flex-col gap-1.5 mb-4"><label className={fieldLabel}>Current KM</label><input className={fieldInput} type="number" min={0} value={form.current_km} onChange={e => setForm(f => ({ ...f, current_km: parseInt(e.target.value, 10) || 0 }))} /></div>
                   </div>
-                  <div className="sm-field"><label>PDI</label><input value={form.pdi} onChange={e => setForm(f => ({ ...f, pdi: e.target.value }))} /></div>
-                  <div className="sm-field"><label>Speak With / Follow-up Notes</label><textarea value={form.speak_with} onChange={e => setForm(f => ({ ...f, speak_with: e.target.value }))} placeholder="e.g. Speak with Amtusa for 1st service follow-up" /></div>
-                  <div className="sm-field"><label>Remarks</label><textarea value={form.remarks} onChange={e => setForm(f => ({ ...f, remarks: e.target.value }))} /></div>
+                  <div className="flex flex-col gap-1.5 mb-4"><label className={fieldLabel}>PDI</label><input className={fieldInput} value={form.pdi} onChange={e => setForm(f => ({ ...f, pdi: e.target.value }))} /></div>
+                  <div className="flex flex-col gap-1.5 mb-4"><label className={fieldLabel}>Speak With / Follow-up Notes</label><textarea className={`${fieldInput} min-h-[72px] resize-y`} value={form.speak_with} onChange={e => setForm(f => ({ ...f, speak_with: e.target.value }))} placeholder="e.g. Speak with Amtusa for 1st service follow-up" /></div>
+                  <div className="flex flex-col gap-1.5 mb-4"><label className={fieldLabel}>Remarks</label><textarea className={`${fieldInput} min-h-[72px] resize-y`} value={form.remarks} onChange={e => setForm(f => ({ ...f, remarks: e.target.value }))} /></div>
                 </div>
-                <div className="sm-modal-foot">
-                  <button type="button" className="sm-btn" onClick={() => setModalOpen(null)}>Cancel</button>
-                  <button type="submit" className="sm-btn sm-btn-primary" style={{ fontSize: 13, padding: '8px 16px' }} disabled={submitting}>{submitting ? 'Saving…' : 'Save'}</button>
+                <div className={modalFoot}>
+                  <button type="button" className={baseBtn} onClick={() => setModalOpen(null)}>Cancel</button>
+                  <button type="submit" className={primaryBtnLg} disabled={submitting}>{submitting ? 'Saving…' : 'Save'}</button>
                 </div>
               </form>
             </div>
@@ -697,21 +703,21 @@ export default function ServiceManagerVehiclesPage() {
 
         {/* Mark Service Done Modal */}
         {markDoneService && (
-          <div className="sm-overlay" onClick={() => setMarkDoneService(null)}>
-            <div className="sm-modal" onClick={e => e.stopPropagation()}>
-              <div className="sm-modal-head">
-                <div className="sm-modal-title">Mark Service #{markDoneService.service.service_no} Done</div>
-                <button type="button" className="sm-modal-close" onClick={() => setMarkDoneService(null)}>Close</button>
+          <div className={modalOverlay} onClick={() => setMarkDoneService(null)}>
+            <div className={modalBox} onClick={e => e.stopPropagation()}>
+              <div className={modalHead}>
+                <div className="text-lg font-bold">Mark Service #{markDoneService.service.service_no} Done</div>
+                <button type="button" className={modalClose} onClick={() => setMarkDoneService(null)}>Close</button>
               </div>
               <form onSubmit={submitMarkDone}>
-                <div className="sm-modal-body">
-                  <div className="sm-field"><label>Actual KM at Service</label><input type="number" min={0} value={markDoneForm.actual_km} onChange={e => setMarkDoneForm(f => ({ ...f, actual_km: e.target.value }))} required /></div>
-                  <div className="sm-field"><label>Completion Date</label><input type="date" value={markDoneForm.completion_date} onChange={e => setMarkDoneForm(f => ({ ...f, completion_date: e.target.value }))} /></div>
-                  <div className="sm-field"><label>Remarks</label><textarea value={markDoneForm.remarks} onChange={e => setMarkDoneForm(f => ({ ...f, remarks: e.target.value }))} /></div>
+                <div className="p-6">
+                  <div className="flex flex-col gap-1.5 mb-4"><label className={fieldLabel}>Actual KM at Service</label><input className={fieldInput} type="number" min={0} value={markDoneForm.actual_km} onChange={e => setMarkDoneForm(f => ({ ...f, actual_km: e.target.value }))} required /></div>
+                  <div className="flex flex-col gap-1.5 mb-4"><label className={fieldLabel}>Completion Date</label><input className={fieldInput} type="date" value={markDoneForm.completion_date} onChange={e => setMarkDoneForm(f => ({ ...f, completion_date: e.target.value }))} /></div>
+                  <div className="flex flex-col gap-1.5 mb-4"><label className={fieldLabel}>Remarks</label><textarea className={`${fieldInput} min-h-[72px] resize-y`} value={markDoneForm.remarks} onChange={e => setMarkDoneForm(f => ({ ...f, remarks: e.target.value }))} /></div>
                 </div>
-                <div className="sm-modal-foot">
-                  <button type="button" className="sm-btn" onClick={() => setMarkDoneService(null)}>Cancel</button>
-                  <button type="submit" className="sm-btn sm-btn-primary" style={{ fontSize: 13, padding: '8px 16px' }} disabled={submitting}>{submitting ? 'Saving…' : 'Mark Done'}</button>
+                <div className={modalFoot}>
+                  <button type="button" className={baseBtn} onClick={() => setMarkDoneService(null)}>Cancel</button>
+                  <button type="submit" className={primaryBtnLg} disabled={submitting}>{submitting ? 'Saving…' : 'Mark Done'}</button>
                 </div>
               </form>
             </div>
@@ -720,58 +726,63 @@ export default function ServiceManagerVehiclesPage() {
 
         {/* Add / Edit Individual Service Modal */}
         {editServiceState && (
-          <div className="sm-overlay" onClick={() => setEditServiceState(null)}>
-            <div className="sm-modal" onClick={e => e.stopPropagation()}>
-              <div className="sm-modal-head">
-                <div className="sm-modal-title">
+          <div className={modalOverlay} onClick={() => setEditServiceState(null)}>
+            <div className={modalBox} onClick={e => e.stopPropagation()}>
+              <div className={modalHead}>
+                <div className="text-lg font-bold">
                   {editServiceState.service ? `Edit Service #${editServiceState.service.service_no}` : `Add Service #${editServiceState.serviceNo}`}
                 </div>
-                <button type="button" className="sm-modal-close" onClick={() => setEditServiceState(null)}>Close</button>
+                <button type="button" className={modalClose} onClick={() => setEditServiceState(null)}>Close</button>
               </div>
               <form onSubmit={submitEditService}>
-                <div className="sm-modal-body">
-                  <div className="sm-grid2">
-                    <div className="sm-field">
-                      <label>Due KM</label>
+                <div className="p-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5 mb-4">
+                      <label className={fieldLabel}>Due KM</label>
                       <input
+                        className={fieldInput}
                         type="number"
                         min={0}
                         value={editServiceForm.due_km}
                         onChange={e => setEditServiceForm(f => ({ ...f, due_km: e.target.value }))}
                       />
                     </div>
-                    <div className="sm-field">
-                      <label>Due Date</label>
+                    <div className="flex flex-col gap-1.5 mb-4">
+                      <label className={fieldLabel}>Due Date</label>
                       <input
+                        className={fieldInput}
                         type="date"
                         value={editServiceForm.due_date}
                         onChange={e => setEditServiceForm(f => ({ ...f, due_date: e.target.value }))}
                       />
                     </div>
                   </div>
-                  <div className="sm-grid2">
-                    <div className="sm-field">
-                      <label>Actual KM</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5 mb-4">
+                      <label className={fieldLabel}>Actual KM</label>
                       <input
+                        className={fieldInput}
                         type="number"
                         min={0}
                         value={editServiceForm.actual_km}
                         onChange={e => setEditServiceForm(f => ({ ...f, actual_km: e.target.value }))}
                       />
                     </div>
-                    <div className="sm-field">
-                      <label>Completion Date</label>
+                    <div className="flex flex-col gap-1.5 mb-4">
+                      <label className={fieldLabel}>Completion Date</label>
                       <input
+                        className={fieldInput}
                         type="date"
                         value={editServiceForm.completion_date}
                         onChange={e => setEditServiceForm(f => ({ ...f, completion_date: e.target.value }))}
                       />
                     </div>
                   </div>
-                  <div className="sm-grid2">
-                    <div className="sm-field">
-                      <label>Status</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5 mb-4">
+                      <label className={fieldLabel}>Status</label>
                       <select
+                        className={fieldInput}
                         value={editServiceForm.status}
                         onChange={e => setEditServiceForm(f => ({ ...f, status: e.target.value }))}
                       >
@@ -779,9 +790,10 @@ export default function ServiceManagerVehiclesPage() {
                         <option value="done">Done</option>
                       </select>
                     </div>
-                    <div className="sm-field">
-                      <label>Cost (₹)</label>
+                    <div className="flex flex-col gap-1.5 mb-4">
+                      <label className={fieldLabel}>Cost (₹)</label>
                       <input
+                        className={fieldInput}
                         type="number"
                         min={0}
                         step={0.01}
@@ -791,20 +803,20 @@ export default function ServiceManagerVehiclesPage() {
                       />
                     </div>
                   </div>
-                  <div className="sm-field">
-                    <label>Remarks</label>
+                  <div className="flex flex-col gap-1.5 mb-4">
+                    <label className={fieldLabel}>Remarks</label>
                     <textarea
+                      className={`${fieldInput} min-h-[72px] resize-y`}
                       value={editServiceForm.remarks}
                       onChange={e => setEditServiceForm(f => ({ ...f, remarks: e.target.value }))}
                     />
                   </div>
                 </div>
-                <div className="sm-modal-foot">
-                  <button type="button" className="sm-btn" onClick={() => setEditServiceState(null)}>Cancel</button>
+                <div className={modalFoot}>
+                  <button type="button" className={baseBtn} onClick={() => setEditServiceState(null)}>Cancel</button>
                   <button
                     type="submit"
-                    className="sm-btn sm-btn-primary"
-                    style={{ fontSize: 13, padding: '8px 16px' }}
+                    className={primaryBtnLg}
                     disabled={submitting}
                   >
                     {submitting ? 'Saving…' : 'Save Service'}

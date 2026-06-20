@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import type { Lead } from '@/types/api';
 import SearchableSelect from '@/components/SearchableSelect';
 import {
   CRM_CONTACT_OPTIONS,
@@ -13,31 +14,6 @@ import {
 } from '@/lib/crmDeferral';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface Lead {
-  id: number;
-  cust_code?: string;
-  connect_date?: string;
-  cust_name?: string;
-  business?: string;
-  phone_no?: string;
-  phone_no_2?: string;
-  lead_type?: string;
-  note?: string;
-  location?: string | null;
-  deferral_bucket?: string | null;
-  deferral_notes?: string | null;
-  follow_up_after_date?: string | null;
-  earliest_purchase_intent_date?: string | null;
-  contact_disposition?: string | null;
-  callback_requested_at?: string | null;
-  customer_promised_callback?: boolean;
-  // audit fields
-  created_by_name?: string;
-  updated_by_name?: string;
-  created_at?: string;
-  updated_at?: string;
-}
-
 interface FormState {
   connect_date: string;
   cust_name: string;
@@ -144,321 +120,47 @@ function buildHeaders(withJson = false): Record<string, string> {
   const t = getToken(); // called once
   const h: Record<string, string> = {};
   if (withJson) h['Content-Type'] = 'application/json';
-  if (t) h['Authorization'] = `Bearer ${t}`; // FIX: only added when token exists
+  if (t) h['Authorization'] = `Bearer ${t}`; // only added when token exists
   return h;
 }
 
-// ─── Styles (outside component — never re-injected on render) ─────────────────
-const PAGE_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+// ─── Tailwind class constants (outside component — never recreated) ────────────
+const FIELD = [
+  'font-sans text-[13px] bg-[#080a10] border border-[#1e2236] text-[#dde3f0]',
+  'px-3 py-[9px] rounded-[7px] w-full transition-[border-color,box-shadow]',
+  'focus:outline-none focus:border-[#00c9b1] focus:shadow-[0_0_0_3px_rgba(0,201,177,0.09)]',
+  'placeholder:text-[#4b5268] appearance-none',
+].join(' ');
 
-  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+const BTN_BASE = [
+  'font-sans font-semibold text-[12.5px] px-4 py-2 rounded-[7px] cursor-pointer',
+  'inline-flex items-center gap-1.5 transition-[opacity,box-shadow,transform]',
+  'active:scale-[0.97] disabled:opacity-[0.45] disabled:cursor-not-allowed',
+  'disabled:pointer-events-none whitespace-nowrap',
+].join(' ');
 
-  :root {
-    --bg:        #080a10;
-    --surface:   #0e1118;
-    --surface2:  #141720;
-    --border:    #1e2236;
-    --border2:   #272b40;
-    --teal:      #00c9b1;
-    --teal-dim:  rgba(0,201,177,0.09);
-    --teal-glow: rgba(0,201,177,0.20);
-    --red:       #f43f5e;
-    --red-dim:   rgba(244,63,94,0.09);
-    --amber:     #f59e0b;
-    --blue:      #60a5fa;
-    --text:      #dde3f0;
-    --text2:     #8b93a8;
-    --text3:     #4b5268;
-    --mono:      'DM Mono', monospace;
-  }
-
-  html, body { height: 100%; }
-  body {
-    font-family: 'Syne', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    -webkit-font-smoothing: antialiased;
-    min-height: 100vh;
-    font-size: 13.5px;
-  }
-
-  /* ── Root layout ── */
-  .lm-root { display: flex; flex-direction: column; min-height: 100vh; }
-
-  /* ── Topbar ── */
-  .lm-topbar {
-    position: sticky; top: 0; z-index: 40;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 28px; height: 54px;
-    background: rgba(8,10,16,0.9);
-    backdrop-filter: blur(14px);
-    border-bottom: 1px solid var(--border);
-  }
-  .lm-logo { display: flex; align-items: center; gap: 10px; }
-  .lm-logo-mark {
-    width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
-    background: linear-gradient(135deg, #00c9b1, #0891b2);
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 12px; color: #080a10;
-  }
-  .lm-logo-label { font-size: 13px; font-weight: 700; letter-spacing: .3px; }
-  .lm-logo-sub { font-size: 9px; color: var(--text3); letter-spacing: 1.6px; text-transform: uppercase; margin-top: 1px; }
-
-  .lm-search {
-    display: flex; align-items: center; gap: 8px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 8px; padding: 7px 13px; width: 256px;
-    transition: border-color .15s;
-  }
-  .lm-search:focus-within { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-dim); }
-  .lm-search svg { flex-shrink: 0; color: var(--text3); }
-  .lm-search input {
-    background: transparent; border: none; outline: none;
-    color: var(--text); font-size: 12.5px; font-family: inherit; width: 100%;
-  }
-  .lm-search input::placeholder { color: var(--text3); }
-  .lm-topbar-right { display: flex; align-items: center; gap: 10px; }
-  .lm-avatar {
-    width: 28px; height: 28px; border-radius: 50%;
-    background: linear-gradient(135deg, var(--teal), #0891b2);
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 11px; color: #080a10; cursor: pointer;
-    flex-shrink: 0;
-  }
-
-  /* ── Content ── */
-  .lm-content { padding: 28px; flex: 1; }
-  .lm-page-header { margin-bottom: 22px; }
-  .lm-page-title { font-size: 21px; font-weight: 800; letter-spacing: -.3px; }
-  .lm-page-sub { color: var(--text2); font-size: 12.5px; margin-top: 4px; }
-
-  /* ── Stat grid ── */
-  .lm-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 22px; }
-  @media(max-width:860px){ .lm-stats { grid-template-columns: repeat(2,1fr); } }
-
-  .lm-stat {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: 18px 20px;
-    transition: border-color .15s, transform .15s;
-  }
-  .lm-stat:hover { border-color: var(--border2); transform: translateY(-1px); }
-  .lm-stat-label { font-size: 10.5px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .9px; margin-bottom: 8px; }
-  .lm-stat-val { font-size: 28px; font-weight: 800; font-family: var(--mono); }
-  .lm-stat-val.teal  { color: var(--teal); }
-  .lm-stat-val.blue  { color: var(--blue); }
-  .lm-stat-val.amber { color: var(--amber); }
-  .lm-stat-val.text  { color: var(--text); }
-
-  /* ── Table card ── */
-  .lm-table-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; overflow: hidden;
-  }
-  .lm-table-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 15px 20px; border-bottom: 1px solid var(--border);
-    flex-wrap: wrap; gap: 10px;
-  }
-  .lm-table-title { font-size: 14px; font-weight: 700; }
-  .lm-table-sub { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
-  .lm-table-actions { display: flex; gap: 8px; }
-  .lm-table-outer { overflow-x: auto; }
-
-  table { width: 100%; border-collapse: collapse; min-width: 820px; }
-  thead tr { background: var(--surface2); border-bottom: 1px solid var(--border); }
-  th {
-    padding: 10px 16px; text-align: left;
-    font-size: 10px; font-weight: 600; color: var(--text3);
-    text-transform: uppercase; letter-spacing: 1px; white-space: nowrap;
-  }
-  td {
-    padding: 13px 16px; color: var(--text);
-    border-bottom: 1px solid var(--border); vertical-align: middle;
-  }
-  tbody tr:last-child td { border-bottom: none; }
-  tbody tr { transition: background .1s; }
-  tbody tr:hover { background: rgba(255,255,255,0.02); }
-
-  .lm-num { font-family: var(--mono); font-size: 11px; color: var(--text3); }
-  .lm-code { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--teal); }
-  .lm-date { font-family: var(--mono); font-size: 11.5px; color: var(--text2); }
-
-  /* ── Badge ── */
-  .lm-badge {
-    display: inline-flex; align-items: center;
-    padding: 3px 9px; border-radius: 20px; white-space: nowrap;
-    font-size: 11px; font-weight: 600;
-  }
-  .lm-badge.digital    { background: var(--teal-dim); color: var(--teal); border: 1px solid var(--teal-glow); }
-  .lm-badge.nondigital { background: rgba(96,165,250,.09); color: var(--blue); border: 1px solid rgba(96,165,250,.22); }
-  .lm-badge.default    { background: rgba(139,147,168,.08); color: var(--text2); border: 1px solid rgba(139,147,168,.18); }
-
-  /* ── Buttons ── */
-  .lm-btn {
-    font-family: 'Syne', sans-serif; font-weight: 600; font-size: 12.5px;
-    padding: 8px 16px; border-radius: 7px; border: none; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 6px;
-    transition: opacity .15s, box-shadow .15s, transform .1s;
-    white-space: nowrap;
-  }
-  .lm-btn:active { transform: scale(0.97); }
-  .lm-btn:disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
-  .lm-btn-teal  { background: var(--teal); color: #080a10; }
-  .lm-btn-teal:hover { box-shadow: 0 0 18px var(--teal-glow); }
-  .lm-btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
-  .lm-btn-ghost:hover { border-color: var(--border2); color: var(--text); }
-  .lm-btn-red   { background: var(--red-dim); color: var(--red); border: 1px solid rgba(244,63,94,.22); }
-  .lm-btn-red:hover { background: rgba(244,63,94,.16); }
-  .lm-btn-amber { background: rgba(251,191,36,.08); color: #fbbf24; border: 1px solid rgba(251,191,36,.22); }
-  .lm-btn-amber:hover { background: rgba(251,191,36,.16); }
-  /* ── Audit / Logged-By cell ── */
-  .lm-audit-cell { display: flex; flex-direction: column; gap: 3px; min-width: 130px; }
-  .lm-audit-row  { display: flex; align-items: center; gap: 4px; font-size: 11px; line-height: 1.3; white-space: nowrap; }
-  .lm-audit-icon { font-size: 10px; opacity: .7; }
-  .lm-audit-create { color: #4ade80; }
-  .lm-audit-edit   { color: #fbbf24; }
-  .lm-audit-time   { opacity: .55; font-size: 10px; }
-
-  /* ── Empty & skeleton ── */
-  .lm-empty { text-align: center; padding: 56px 20px; color: var(--text3); }
-  .lm-empty-icon { font-size: 34px; margin-bottom: 12px; opacity: .45; }
-  .lm-empty-msg { font-size: 13.5px; }
-  .lm-empty-msg strong { color: var(--text2); }
-
-  .lm-skel-row td { padding: 14px 16px; }
-  .lm-skel {
-    height: 13px; border-radius: 4px;
-    background: linear-gradient(90deg, var(--surface2) 0%, var(--border) 50%, var(--surface2) 100%);
-    background-size: 200% 100%;
-    animation: skel 1.5s infinite linear;
-  }
-  @keyframes skel { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-
-  /* ── Delete confirm modal ── */
-  .lm-confirm-overlay {
-    position: fixed; inset: 0; z-index: 300;
-    background: rgba(0,0,0,.72); backdrop-filter: blur(4px);
-    display: flex; align-items: center; justify-content: center;
-    animation: fade-in .15s ease;
-  }
-  .lm-confirm-box {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 24px 26px; max-width: 380px; width: 100%;
-    box-shadow: 0 24px 60px rgba(0,0,0,.75);
-    animation: slide-up .18s ease;
-  }
-  .lm-confirm-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
-  .lm-confirm-msg { font-size: 13px; color: var(--text2); margin-bottom: 20px; line-height: 1.6; }
-  .lm-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
-
-  /* ── Modal ── */
-  .lm-overlay {
-    position: fixed; inset: 0; z-index: 200;
-    background: rgba(0,0,0,.70); backdrop-filter: blur(6px);
-    display: flex; align-items: center; justify-content: center; padding: 20px;
-    animation: fade-in .18s ease;
-  }
-  @keyframes fade-in { from{opacity:0} to{opacity:1} }
-
-  .lm-modal {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 14px; width: 100%; max-width: 580px;
-    box-shadow: 0 30px 80px rgba(0,0,0,.8);
-    animation: slide-up .2s ease;
-    max-height: 92vh; overflow-y: auto;
-  }
-  @keyframes slide-up { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
-
-  .lm-modal-head {
-    display: flex; align-items: flex-start; justify-content: space-between;
-    padding: 22px 24px 16px;
-    border-bottom: 1px solid var(--border);
-    position: sticky; top: 0; background: var(--surface); z-index: 1;
-  }
-  .lm-modal-title { font-size: 16px; font-weight: 800; }
-  .lm-modal-sub { font-size: 12px; color: var(--text3); margin-top: 3px; }
-  .lm-close {
-    background: none; border: none; cursor: pointer; color: var(--text3);
-    font-size: 17px; padding: 4px 6px; border-radius: 5px; line-height: 1;
-    transition: color .15s;
-  }
-  .lm-close:hover { color: var(--text); }
-
-  .lm-form-body { padding: 20px 24px; }
-  .lm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  @media(max-width:500px){ .lm-form-grid { grid-template-columns: 1fr; } }
-  .lm-fg { display: flex; flex-direction: column; }
-  .lm-fg.full { grid-column: 1 / -1; }
-
-  label.lm-label {
-    display: block; font-size: 10.5px; font-weight: 700;
-    color: var(--text3); text-transform: uppercase; letter-spacing: .9px;
-    margin-bottom: 6px;
-  }
-  .lm-field {
-    font-family: 'Syne', sans-serif; font-size: 13px;
-    background: var(--bg); border: 1px solid var(--border);
-    color: var(--text); padding: 9px 12px; border-radius: 7px; width: 100%;
-    transition: border-color .15s, box-shadow .15s;
-    appearance: none; -webkit-appearance: none;
-  }
-  .lm-field:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-dim); }
-  .lm-field::placeholder { color: var(--text3); }
-  textarea.lm-field { resize: vertical; min-height: 82px; line-height: 1.55; }
-  button.lm-field { border: 1px solid var(--border); }
-  select.lm-field {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 12 12'%3E%3Cpath fill='%234b5268' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
-  }
-
-  .lm-modal-foot {
-    display: flex; justify-content: flex-end; gap: 8px;
-    padding: 14px 24px; border-top: 1px solid var(--border);
-    position: sticky; bottom: 0; background: var(--surface);
-  }
-
-  /* ── Location autocomplete ── */
-  .lm-loc-wrap { position: relative; }
-  .lm-loc-drop {
-    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 50;
-    background: var(--surface2); border: 1px solid var(--border2);
-    border-radius: 8px; max-height: 220px; overflow-y: auto;
-    box-shadow: 0 8px 24px rgba(0,0,0,.55);
-  }
-  .lm-loc-item {
-    padding: 9px 12px; cursor: pointer; font-size: 12.5px;
-    border-bottom: 1px solid var(--border); transition: background .1s;
-    display: flex; flex-direction: column; gap: 2px;
-  }
-  .lm-loc-item:last-child { border-bottom: none; }
-  .lm-loc-item:hover, .lm-loc-item.active { background: var(--teal-dim); }
-  .lm-loc-name { color: var(--text); font-weight: 600; }
-  .lm-loc-sub  { color: var(--text3); font-size: 11px; }
-  .lm-loc-loading { padding: 12px; text-align: center; color: var(--text3); font-size: 12px; }
-
-  /* ── Toasts ── */
-  .lm-toasts {
-    position: fixed; bottom: 22px; right: 22px;
-    display: flex; flex-direction: column; gap: 8px;
-    z-index: 500; pointer-events: none;
-  }
-  .lm-toast {
-    padding: 11px 18px; border-radius: 9px;
-    font-size: 13px; font-weight: 600; pointer-events: auto;
-    animation: toast-in .2s ease; max-width: 320px; border: 1px solid;
-  }
-  @keyframes toast-in { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-  .lm-toast.success { background: rgba(0,201,177,.1);  border-color: rgba(0,201,177,.28); color: var(--teal); }
-  .lm-toast.error   { background: rgba(244,63,94,.1);  border-color: rgba(244,63,94,.28); color: var(--red); }
-  .lm-toast.info    { background: rgba(96,165,250,.1); border-color: rgba(96,165,250,.28); color: var(--blue); }
-`;
+const BTN_GHOST = `${BTN_BASE} bg-transparent text-[#8b93a8] border border-[#1e2236] hover:border-[#272b40] hover:text-[#dde3f0]`;
+const BTN_TEAL  = `${BTN_BASE} bg-[#00c9b1] text-[#080a10] border-0 hover:shadow-[0_0_18px_rgba(0,201,177,0.20)]`;
+const BTN_RED   = `${BTN_BASE} bg-[rgba(244,63,94,0.09)] text-[#f43f5e] border border-[rgba(244,63,94,0.22)] hover:bg-[rgba(244,63,94,0.16)]`;
+const BTN_AMBER = `${BTN_BASE} bg-[rgba(251,191,36,0.08)] text-[#fbbf24] border border-[rgba(251,191,36,0.22)] hover:bg-[rgba(251,191,36,0.16)]`;
+const LABEL_CLS = 'block text-[10.5px] font-bold text-[#4b5268] uppercase tracking-[0.9px] mb-1.5';
+const TH_CLS    = 'px-4 py-2.5 text-left text-[10px] font-semibold text-[#4b5268] uppercase tracking-[1px] whitespace-nowrap';
+const TD_BASE   = 'py-[13px] px-4 text-[#dde3f0] align-middle';
 
 // ─── Badge class helper ───────────────────────────────────────────────────────
-function leadBadgeClass(type = '') {
-  if (type === 'Digital Lead') return 'digital';
-  if (type === 'Non Digital Lead') return 'nondigital';
-  return 'default';
+function leadBadgeClasses(type = '') {
+  const base = 'inline-flex items-center px-[9px] py-[3px] rounded-full whitespace-nowrap text-[11px] font-semibold';
+  if (type === 'Digital Lead')     return `${base} bg-[rgba(0,201,177,0.09)] text-[#00c9b1] border border-[rgba(0,201,177,0.20)]`;
+  if (type === 'Non Digital Lead') return `${base} bg-[rgba(96,165,250,0.09)] text-[#60a5fa] border border-[rgba(96,165,250,0.22)]`;
+  return `${base} bg-[rgba(139,147,168,0.08)] text-[#8b93a8] border border-[rgba(139,147,168,0.18)]`;
+}
+
+// ─── Toast class helper ───────────────────────────────────────────────────────
+function toastClasses(type: ToastType) {
+  const base = 'px-[18px] py-[11px] rounded-[9px] text-[13px] font-semibold pointer-events-auto max-w-[320px] border';
+  if (type === 'success') return `${base} bg-[rgba(0,201,177,0.1)] border-[rgba(0,201,177,0.28)] text-[#00c9b1]`;
+  if (type === 'error')   return `${base} bg-[rgba(244,63,94,0.1)] border-[rgba(244,63,94,0.28)] text-[#f43f5e]`;
+  return `${base} bg-[rgba(96,165,250,0.1)] border-[rgba(96,165,250,0.28)] text-[#60a5fa]`;
 }
 
 // ─── Skeleton rows ────────────────────────────────────────────────────────────
@@ -466,9 +168,11 @@ function SkeletonRows() {
   return (
     <>
       {[1, 2, 3, 4, 5].map(n => (
-        <tr key={n} className="lm-skel-row">
+        <tr key={n}>
           {[28, 72, 80, 130, 140, 90, 110, 100, 88, 96, 110, 60].map((w, i) => (
-            <td key={i}><div className="lm-skel" style={{ width: w }} /></td>
+            <td key={i} className="py-3.5 px-4">
+              <div className="h-[13px] rounded animate-pulse bg-zinc-800" style={{ width: w }} />
+            </td>
           ))}
         </tr>
       ))}
@@ -500,8 +204,8 @@ export default function CreateLeadReportPage() {
   }, []);
 
   // FIX: all hooks at top, proper types
-  const [allLeads, setAllLeads] = useState<Lead[]>([]);       // FIX: source-of-truth, never mutated by search
-  const [searchQuery, setSearchQuery] = useState('');          // FIX: search as string, not state mutation
+  const [allLeads, setAllLeads] = useState<Lead[]>([]);       // source-of-truth, never mutated by search
+  const [searchQuery, setSearchQuery] = useState('');          // search as string, not state mutation
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -565,7 +269,6 @@ export default function CreateLeadReportPage() {
   }, []);
 
   // ── Derived: filtered leads via useMemo — never mutates allLeads ──────────
-  // FIX #1: search is derived, not a state mutation
   const leads = useMemo(() => {
     if (!searchQuery.trim()) return allLeads;
     const q = searchQuery.toLowerCase();
@@ -574,7 +277,7 @@ export default function CreateLeadReportPage() {
       (l.cust_code || '').toLowerCase().includes(q) ||
       (l.business || '').toLowerCase().includes(q) ||
       (l.phone_no || '').toLowerCase().includes(q) ||
-      ((l as any).location || '').toLowerCase().includes(q)
+      (l.location || '').toLowerCase().includes(q)
     );
   }, [allLeads, searchQuery]);
 
@@ -594,8 +297,6 @@ export default function CreateLeadReportPage() {
   }, [allLeads]);
 
   // ── fetchList (stable reference with useCallback) ─────────────────────────
-  // FIX #3: uses API_BASE consistently
-  // FIX #5: useCallback so useEffect dep array is accurate
   const fetchList = useCallback(async () => {
     try {
       setLoading(true);
@@ -611,7 +312,6 @@ export default function CreateLeadReportPage() {
     }
   }, []);
 
-  // FIX #5: fetchList is now a stable dep
   useEffect(() => { fetchList(); }, [fetchList]);
 
   // ── Search with debounce (no instant-filter lag) ──────────────────────────
@@ -622,8 +322,6 @@ export default function CreateLeadReportPage() {
   }
 
   // ── Open / close modal — resets ALL form state ────────────────────────────
-  // FIX #9: full form reset, not just connect_date
-  // FIX #8: businessCategory and businessSub also reset
   // Helper: reverse-map a stored business value → { category, sub }
   function findBusinessParts(business: string): { cat: string; sub: string } {
     if (!business) return { cat: '', sub: '' };
@@ -645,27 +343,26 @@ export default function CreateLeadReportPage() {
 
   function openEditModal(lead: Lead) {
     setEditTarget(lead);
-    const l = lead as any;
-    const { cat, sub } = findBusinessParts(l.business || '');
+    const { cat, sub } = findBusinessParts(lead.business || '');
     setBusinessCategory(cat);
     setBusinessSub(sub);
     setForm({
-      connect_date: l.connect_date ? l.connect_date.slice(0, 10) : '',
-      cust_name:  l.cust_name  || '',
-      phone_no:   l.phone_no   || '',
-      phone_no_2: l.phone_no_2 || '',
-      lead_type:  l.lead_type  || '',
-      location:   l.location   || '',
-      note:       l.note       || '',
-      deferral_bucket:           l.deferral_bucket ?? '',
-      deferral_notes:            l.deferral_notes ?? '',
-      follow_up_after_date:      l.follow_up_after_date ? String(l.follow_up_after_date).slice(0, 10) : '',
-      earliest_purchase_intent_date: l.earliest_purchase_intent_date
-        ? String(l.earliest_purchase_intent_date).slice(0, 10)
+      connect_date: lead.connect_date ? lead.connect_date.slice(0, 10) : '',
+      cust_name:  lead.cust_name  || '',
+      phone_no:   lead.phone_no   || '',
+      phone_no_2: lead.phone_no_2 || '',
+      lead_type:  lead.lead_type  || '',
+      location:   lead.location   || '',
+      note:       lead.note       || '',
+      deferral_bucket:           lead.deferral_bucket ?? '',
+      deferral_notes:            lead.deferral_notes ?? '',
+      follow_up_after_date:      lead.follow_up_after_date ? String(lead.follow_up_after_date).slice(0, 10) : '',
+      earliest_purchase_intent_date: lead.earliest_purchase_intent_date
+        ? String(lead.earliest_purchase_intent_date).slice(0, 10)
         : '',
-      contact_disposition:       l.contact_disposition ?? '',
-      callback_requested_at:     isoToDatetimeLocal(l.callback_requested_at ?? undefined),
-      customer_promised_callback: !!l.customer_promised_callback,
+      contact_disposition:       lead.contact_disposition ?? '',
+      callback_requested_at:     isoToDatetimeLocal(lead.callback_requested_at ?? undefined),
+      customer_promised_callback: !!lead.customer_promised_callback,
     });
     setOpen(true);
   }
@@ -744,14 +441,12 @@ export default function CreateLeadReportPage() {
   }
 
   // ── Delete (with inline confirm modal, not browser confirm()) ─────────────
-  // FIX #4 & FIX #11: proper error handling + no browser confirm()
-  // FIX #6: fetchList is awaited after delete
   async function confirmDelete() {
     if (!deleteTarget) return;
     try {
-      const res = await fetch(`${API_BASE}/api/v1/leads/${deleteTarget.id}`, { // FIX #3
+      const res = await fetch(`${API_BASE}/api/v1/leads/${deleteTarget.id}`, {
         method: 'DELETE',
-        headers: buildHeaders(), // FIX #2
+        headers: buildHeaders(),
       });
       if (!res.ok) {
         const txt = await res.text().catch(() => '');
@@ -759,7 +454,7 @@ export default function CreateLeadReportPage() {
         return;
       }
       showToast(`"${deleteTarget.cust_name || 'Lead'}" deleted`, 'success');
-      await fetchList(); // FIX #6: awaited
+      await fetchList();
     } catch (err) {
       console.error('delete error:', err);
       showToast('Network error — could not delete lead', 'error');
@@ -769,8 +464,6 @@ export default function CreateLeadReportPage() {
   }
 
   // ── Export CSV ─────────────────────────────────────────────────────────────
-  // FIX #4: full error handling + try/catch
-  // FIX #16: blob URL revoked after use
   async function exportCSV() {
     try {
       const res = await fetch(`${API_BASE}/api/v1/leads/export/csv`, {
@@ -801,7 +494,7 @@ export default function CreateLeadReportPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
   if (!roleChecked) {
     return (
-      <div style={{ minHeight: '100vh', background: '#080a10', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontFamily: 'system-ui, sans-serif' }}>
+      <div className="min-h-screen bg-[#080a10] flex items-center justify-center text-zinc-400 font-sans">
         Checking access…
       </div>
     );
@@ -809,10 +502,13 @@ export default function CreateLeadReportPage() {
 
   if (accessDenied) {
     return (
-      <div style={{ minHeight: '100vh', background: '#080a10', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: 'system-ui, sans-serif' }}>
-        <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 18 }}>Access Denied</div>
-        <div style={{ color: '#9ca3af', fontSize: 14 }}>Only Admin and Sales Admin can access this page.</div>
-        <button onClick={() => router.back()} style={{ marginTop: 16, padding: '8px 20px', background: '#1a1a2e', border: '1px solid #333', borderRadius: 8, color: '#e5e5e5', cursor: 'pointer', fontSize: 13 }}>
+      <div className="min-h-screen bg-[#080a10] flex flex-col items-center justify-center gap-3 font-sans">
+        <div className="text-red-500 font-bold text-[18px]">Access Denied</div>
+        <div className="text-zinc-400 text-[14px]">Only Admin and Sales Admin can access this page.</div>
+        <button
+          onClick={() => router.back()}
+          className="mt-4 px-5 py-2 bg-[#1a1a2e] border border-[#333] rounded-lg text-zinc-200 cursor-pointer text-[13px]"
+        >
           Go Back
         </button>
       </div>
@@ -820,93 +516,108 @@ export default function CreateLeadReportPage() {
   }
 
   return (
-    <div className="lm-root">
-      {/* FIX #14: style tag is a stable constant outside component, not re-injected */}
-      <style>{PAGE_STYLES}</style>
+    <div className="flex flex-col min-h-screen bg-[#080a10] text-[#dde3f0] font-sans antialiased text-[13.5px]">
 
       {/* ── Topbar ── */}
-      <header className="lm-topbar">
-        <div className="lm-logo">
-          <div className="lm-logo-mark">V</div>
+      <header className="sticky top-0 z-40 flex items-center justify-between px-7 h-[54px] bg-[#080a10]/90 backdrop-blur-sm border-b border-[#1e2236]">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-[6px] shrink-0 bg-gradient-to-br from-[#00c9b1] to-[#0891b2] flex items-center justify-center font-extrabold text-xs text-[#080a10]">
+            V
+          </div>
           <div>
-            {/* FIX #10: title only appears once — topbar OR page-header, not both */}
-            <div className="lm-logo-label">Voltmate EMS</div>
-            <div className="lm-logo-sub">Lead Management</div>
+            {/* title only appears once — topbar OR page-header, not both */}
+            <div className="text-[13px] font-bold tracking-[0.3px]">Voltmate EMS</div>
+            <div className="text-[9px] text-[#4b5268] tracking-[1.6px] uppercase mt-px">Lead Management</div>
           </div>
         </div>
-        <div className="lm-topbar-right">
-          <div className="lm-search">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 bg-[#0e1118] border border-[#1e2236] rounded-lg px-[13px] py-[7px] w-64 transition-[border-color] focus-within:border-[#00c9b1] focus-within:shadow-[0_0_0_3px_rgba(0,201,177,0.09)]">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              className="shrink-0 text-[#4b5268]"
+            >
               <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
             </svg>
-            {/* FIX #1: onChange sets searchQuery string, never mutates allLeads */}
-            <input placeholder="Search leads, customers..." onChange={handleSearch} aria-label="Search leads" />
+            {/* onChange sets searchQuery string, never mutates allLeads */}
+            <input
+              className="bg-transparent border-none outline-none text-[#dde3f0] text-[12.5px] font-sans w-full placeholder:text-[#4b5268]"
+              placeholder="Search leads, customers..."
+              onChange={handleSearch}
+              aria-label="Search leads"
+            />
           </div>
-          <div className="lm-avatar">M</div>
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#00c9b1] to-[#0891b2] flex items-center justify-center font-bold text-[11px] text-[#080a10] cursor-pointer shrink-0">
+            M
+          </div>
         </div>
       </header>
 
       {/* ── Content ── */}
-      <main className="lm-content">
-        {/* FIX #10: single page header, not duplicated */}
-        <div className="lm-page-header">
-          <div className="lm-page-title">Lead Management</div>
-          <div className="lm-page-sub">Track and manage your dealership leads</div>
+      <main className="p-7 flex-1">
+        {/* single page header, not duplicated */}
+        <div className="mb-[22px]">
+          <div className="text-[21px] font-extrabold tracking-[-0.3px]">Lead Management</div>
+          <div className="text-[#8b93a8] text-[12.5px] mt-1">Track and manage your dealership leads</div>
         </div>
 
         {/* ── Stats ── */}
-        <div className="lm-stats">
-          <div className="lm-stat">
-            <div className="lm-stat-label">Total Leads</div>
-            <div className="lm-stat-val teal">{stats.total}</div>
+        <div className="grid grid-cols-4 gap-[14px] mb-[22px] max-[860px]:grid-cols-2">
+          <div className="bg-[#0e1118] border border-[#1e2236] rounded-[10px] p-[18px_20px] transition-[border-color,transform] hover:border-[#272b40] hover:-translate-y-px">
+            <div className="text-[10.5px] font-semibold text-[#4b5268] uppercase tracking-[0.9px] mb-2">Total Leads</div>
+            <div className="text-[28px] font-extrabold font-mono text-[#00c9b1]">{stats.total}</div>
           </div>
-          <div className="lm-stat">
-            <div className="lm-stat-label">Digital Leads</div>
-            <div className="lm-stat-val blue">{stats.digital}</div>
+          <div className="bg-[#0e1118] border border-[#1e2236] rounded-[10px] p-[18px_20px] transition-[border-color,transform] hover:border-[#272b40] hover:-translate-y-px">
+            <div className="text-[10.5px] font-semibold text-[#4b5268] uppercase tracking-[0.9px] mb-2">Digital Leads</div>
+            <div className="text-[28px] font-extrabold font-mono text-[#60a5fa]">{stats.digital}</div>
           </div>
-          <div className="lm-stat">
-            <div className="lm-stat-label">Non-Digital</div>
-            <div className="lm-stat-val amber">{stats.nonDigital}</div>
+          <div className="bg-[#0e1118] border border-[#1e2236] rounded-[10px] p-[18px_20px] transition-[border-color,transform] hover:border-[#272b40] hover:-translate-y-px">
+            <div className="text-[10.5px] font-semibold text-[#4b5268] uppercase tracking-[0.9px] mb-2">Non-Digital</div>
+            <div className="text-[28px] font-extrabold font-mono text-[#f59e0b]">{stats.nonDigital}</div>
           </div>
-          <div className="lm-stat">
-            <div className="lm-stat-label">This Month</div>
-            <div className="lm-stat-val text">{stats.thisMonth}</div>
+          <div className="bg-[#0e1118] border border-[#1e2236] rounded-[10px] p-[18px_20px] transition-[border-color,transform] hover:border-[#272b40] hover:-translate-y-px">
+            <div className="text-[10.5px] font-semibold text-[#4b5268] uppercase tracking-[0.9px] mb-2">This Month</div>
+            <div className="text-[28px] font-extrabold font-mono text-[#dde3f0]">{stats.thisMonth}</div>
           </div>
         </div>
 
         {/* ── Table ── */}
-        <div className="lm-table-card">
-          <div className="lm-table-header">
+        <div className="bg-[#0e1118] border border-[#1e2236] rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-[15px] border-b border-[#1e2236] flex-wrap gap-2.5">
             <div>
-              <div className="lm-table-title">All Leads</div>
-              <div className="lm-table-sub">
+              <div className="text-sm font-bold">All Leads</div>
+              <div className="text-[11.5px] text-[#4b5268] mt-0.5">
                 {searchQuery
                   ? `Showing ${leads.length} of ${allLeads.length} leads`
                   : `${allLeads.length} leads total`}
               </div>
             </div>
-            <div className="lm-table-actions">
-              <button className="lm-btn lm-btn-ghost" onClick={exportCSV}>↓ Export CSV</button>
-              <button className="lm-btn lm-btn-teal" onClick={openModal}>+ Add Lead</button>
+            <div className="flex gap-2">
+              <button className={BTN_GHOST} onClick={exportCSV}>↓ Export CSV</button>
+              <button className={BTN_TEAL} onClick={openModal}>+ Add Lead</button>
             </div>
           </div>
 
-          <div className="lm-table-outer">
-            <table>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[820px]">
               <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Cust. Code</th>
-                  <th>Connect Date</th>
-                  <th>Customer Name</th>
-                  <th>Business</th>
-                  <th>Phone No.</th>
-                  <th>Location</th>
-                  <th>Lead Type</th>
-                  <th>Buy window</th>
-                  <th>Callback</th>
-                  <th>Logged By</th>
-                  <th>Action</th>
+                <tr className="bg-[#141720] border-b border-[#1e2236]">
+                  <th className={TH_CLS}>#</th>
+                  <th className={TH_CLS}>Cust. Code</th>
+                  <th className={TH_CLS}>Connect Date</th>
+                  <th className={TH_CLS}>Customer Name</th>
+                  <th className={TH_CLS}>Business</th>
+                  <th className={TH_CLS}>Phone No.</th>
+                  <th className={TH_CLS}>Location</th>
+                  <th className={TH_CLS}>Lead Type</th>
+                  <th className={TH_CLS}>Buy window</th>
+                  <th className={TH_CLS}>Callback</th>
+                  <th className={TH_CLS}>Logged By</th>
+                  <th className={TH_CLS}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -914,86 +625,90 @@ export default function CreateLeadReportPage() {
                   <SkeletonRows />
                 ) : leads.length === 0 ? (
                   <tr>
-                    <td colSpan={12}>
-                      <div className="lm-empty">
-                        <div className="lm-empty-icon"></div>
-                        <div className="lm-empty-msg">
+                    <td colSpan={12} className={TD_BASE}>
+                      <div className="text-center py-14 px-5 text-[#4b5268]">
+                        <div className="text-[34px] mb-3 opacity-45"></div>
+                        <div className="text-[13.5px]">
                           {searchQuery
-                            ? <>No leads match <strong>"{searchQuery}"</strong></>
-                            : <>No leads yet. Click <strong>+ Add Lead</strong> to get started.</>}
+                            ? <>No leads match <strong className="text-[#8b93a8]">"{searchQuery}"</strong></>
+                            : <>No leads yet. Click <strong className="text-[#8b93a8]">+ Add Lead</strong> to get started.</>}
                         </div>
                       </div>
                     </td>
                   </tr>
                 ) : (
                   leads.map((l, i) => (
-                    // FIX #15: safe key fallback
-                    <tr key={l.id ?? i}>
-                      <td className="lm-num">{String(i + 1).padStart(2, '0')}</td>
-                      <td className="lm-code">{l.cust_code || '—'}</td>
-                      <td className="lm-date">
+                    // safe key fallback
+                    <tr key={l.id ?? i} className="border-b border-[#1e2236] last:border-b-0 transition-colors hover:bg-white/[0.02]">
+                      <td className={`${TD_BASE} font-mono text-[11px] text-[#8b93a8]`}>{String(i + 1).padStart(2, '0')}</td>
+                      <td className={`${TD_BASE} font-mono text-xs font-medium text-[#00c9b1]`}>{l.cust_code || '—'}</td>
+                      <td className={`${TD_BASE} font-mono text-[11.5px] text-[#8b93a8]`}>
                         {l.connect_date
                           ? new Date(l.connect_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
                           : '—'}
                       </td>
-                      <td style={{ fontWeight: 600 }}>{l.cust_name || '—'}</td>
-                      <td style={{ color: 'var(--text2)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <td className={`${TD_BASE} font-semibold`}>{l.cust_name || '—'}</td>
+                      <td className={`${TD_BASE} text-[#8b93a8] max-w-[160px] overflow-hidden text-ellipsis whitespace-nowrap`}>
                         {l.business || '—'}
                       </td>
-                      <td className="lm-date">{l.phone_no || '—'}</td>
-                      <td style={{ color: 'var(--text2)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {(l as any).location || '—'}
+                      <td className={`${TD_BASE} font-mono text-[11.5px] text-[#8b93a8]`}>{l.phone_no || '—'}</td>
+                      <td className={`${TD_BASE} text-[#8b93a8] max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap`}>
+                        {l.location || '—'}
                       </td>
-                      <td>
-                        <span className={`lm-badge ${leadBadgeClass(l.lead_type)}`}>
+                      <td className={TD_BASE}>
+                        <span className={leadBadgeClasses(l.lead_type || '')}>
                           {l.lead_type || '—'}
                         </span>
                       </td>
-                      <td style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 88, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={labelForDeferral(l.deferral_bucket)}>
+                      <td
+                        className={`${TD_BASE} text-[11px] text-[#8b93a8] max-w-[88px] overflow-hidden text-ellipsis whitespace-nowrap`}
+                        title={labelForDeferral(l.deferral_bucket)}
+                      >
                         {labelForDeferral(l.deferral_bucket)}
                       </td>
-                      <td style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={labelForContact(l.contact_disposition)}>
+                      <td
+                        className={`${TD_BASE} text-[11px] text-[#8b93a8] max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap`}
+                        title={labelForContact(l.contact_disposition)}
+                      >
                         {labelForContact(l.contact_disposition)}
                       </td>
-                      <td>
-                        <div className="lm-audit-cell">
+                      <td className={TD_BASE}>
+                        <div className="flex flex-col gap-[3px] min-w-[130px]">
                           {l.created_by_name && (
-                            <span className="lm-audit-row lm-audit-create">
-                              <span className="lm-audit-icon">＋</span>
+                            <span className="flex items-center gap-1 text-[11px] leading-[1.3] whitespace-nowrap text-[#4ade80]">
+                              <span className="text-[10px] opacity-70">＋</span>
                               <span>{l.created_by_name}</span>
                               {l.created_at && (
-                                <span className="lm-audit-time">
+                                <span className="opacity-[0.55] text-[10px]">
                                   {new Date(l.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'2-digit' })}
                                 </span>
                               )}
                             </span>
                           )}
                           {l.updated_by_name && (
-                            <span className="lm-audit-row lm-audit-edit">
-                              <span className="lm-audit-icon">Edit</span>
+                            <span className="flex items-center gap-1 text-[11px] leading-[1.3] whitespace-nowrap text-[#fbbf24]">
+                              <span className="text-[10px] opacity-70">Edit</span>
                               <span>{l.updated_by_name}</span>
                               {l.updated_at && (
-                                <span className="lm-audit-time">
+                                <span className="opacity-[0.55] text-[10px]">
                                   {new Date(l.updated_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'2-digit' })}
                                 </span>
                               )}
                             </span>
                           )}
-                          {!l.created_by_name && !l.updated_by_name && <span style={{ color: 'var(--text3)' }}>—</span>}
+                          {!l.created_by_name && !l.updated_by_name && <span className="text-[#4b5268]">—</span>}
                         </div>
                       </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
+                      <td className={TD_BASE}>
+                        <div className="flex gap-1.5">
                           <button
-                            className="lm-btn lm-btn-amber"
-                            style={{ fontSize: 12, padding: '5px 12px' }}
+                            className="font-sans font-semibold text-[12px] px-3 py-[5px] rounded-[7px] cursor-pointer inline-flex items-center gap-1.5 transition-[opacity,box-shadow,transform] active:scale-[0.97] whitespace-nowrap bg-[rgba(251,191,36,0.08)] text-[#fbbf24] border border-[rgba(251,191,36,0.22)] hover:bg-[rgba(251,191,36,0.16)]"
                             onClick={() => openEditModal(l)}
                           >
                             Edit
                           </button>
                           <button
-                            className="lm-btn lm-btn-red"
-                            style={{ fontSize: 12, padding: '5px 12px' }}
+                            className={`font-sans font-semibold text-[12px] px-3 py-[5px] rounded-[7px] cursor-pointer inline-flex items-center gap-1.5 transition-[opacity,box-shadow,transform] active:scale-[0.97] whitespace-nowrap bg-[rgba(244,63,94,0.09)] text-[#f43f5e] border border-[rgba(244,63,94,0.22)] hover:bg-[rgba(244,63,94,0.16)]`}
                             onClick={() => setDeleteTarget(l)}
                           >
                             Delete
@@ -1012,28 +727,35 @@ export default function CreateLeadReportPage() {
       {/* ── Add Lead Modal ── */}
       {open && (
         <div
-          className="lm-overlay"
+          className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-5"
           onClick={(e: React.MouseEvent<HTMLDivElement>) => {
             if (e.target === e.currentTarget) closeModal();
           }}
           role="presentation"
         >
-          <div className="lm-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-            <div className="lm-modal-head">
+          <div
+            className="bg-[#0e1118] border border-[#1e2236] rounded-[14px] w-full max-w-[580px] shadow-[0_30px_80px_rgba(0,0,0,0.8)] max-h-[92vh] overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+          >
+            <div className="flex items-start justify-between px-6 pt-[22px] pb-4 border-b border-[#1e2236] sticky top-0 bg-[#0e1118] z-[1]">
               <div>
-                <div className="lm-modal-title" id="modal-title">{editTarget ? 'Edit Lead' : 'Add New Lead'}</div>
-                <div className="lm-modal-sub">
+                <div className="text-base font-extrabold" id="modal-title">
+                  {editTarget ? 'Edit Lead' : 'Add New Lead'}
+                </div>
+                <div className="text-xs text-[#4b5268] mt-[3px]">
                   {editTarget ? (
                     <span>
-                      Editing: <strong>{(editTarget as any).cust_name || ''}</strong>
+                      Editing: <strong>{editTarget.cust_name || ''}</strong>
                       {editTarget.created_by_name && (
-                        <span style={{ marginLeft: 8, fontSize: 11, color: '#4ade80' }}>
+                        <span className="ml-2 text-[11px] text-[#4ade80]">
                           ＋ Added by {editTarget.created_by_name}
                           {editTarget.created_at && ` on ${new Date(editTarget.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
                         </span>
                       )}
                       {editTarget.updated_by_name && (
-                        <span style={{ marginLeft: 8, fontSize: 11, color: '#fbbf24' }}>
+                        <span className="ml-2 text-[11px] text-[#fbbf24]">
                           · Last edited by {editTarget.updated_by_name}
                           {editTarget.updated_at && ` on ${new Date(editTarget.updated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
                         </span>
@@ -1042,30 +764,36 @@ export default function CreateLeadReportPage() {
                   ) : 'Fill in the lead details below'}
                 </div>
               </div>
-              <button className="lm-close" onClick={closeModal} aria-label="Close">Close</button>
+              <button
+                className="bg-transparent border-none cursor-pointer text-[#4b5268] text-[17px] px-1.5 py-1 rounded-[5px] leading-none transition-colors hover:text-[#dde3f0]"
+                onClick={closeModal}
+                aria-label="Close"
+              >
+                Close
+              </button>
             </div>
 
             <form onSubmit={submitForm}>
-              <div className="lm-form-body">
-                <div className="lm-form-grid">
+              <div className="p-6">
+                <div className="grid grid-cols-2 gap-[14px] max-[500px]:grid-cols-1">
 
-                  <div className="lm-fg">
-                    <label className="lm-label" htmlFor="f-date">Connect Date</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL_CLS} htmlFor="f-date">Connect Date</label>
                     <input
                       id="f-date"
                       type="date"
-                      className="lm-field"
+                      className={FIELD}
                       value={form.connect_date}
                       onChange={e => setForm(f => ({ ...f, connect_date: e.target.value }))}
                       required
                     />
                   </div>
 
-                  <div className="lm-fg">
-                    <label className="lm-label" htmlFor="f-name">Cust. Name</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL_CLS} htmlFor="f-name">Cust. Name</label>
                     <input
                       id="f-name"
-                      className="lm-field"
+                      className={FIELD}
                       placeholder="Full name"
                       value={form.cust_name}
                       onChange={e => setForm(f => ({ ...f, cust_name: e.target.value }))}
@@ -1073,11 +801,11 @@ export default function CreateLeadReportPage() {
                     />
                   </div>
 
-                  <div className="lm-fg">
-                    <label className="lm-label" htmlFor="f-cat">Business Category</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL_CLS} htmlFor="f-cat">Business Category</label>
                     <SearchableSelect
                       id="f-cat"
-                      fieldClass="lm-field"
+                      fieldClass={FIELD}
                       options={Object.keys(BUSINESS_OPTIONS)}
                       value={businessCategory}
                       onChange={v => { setBusinessCategory(v); setBusinessSub(''); }}
@@ -1087,11 +815,11 @@ export default function CreateLeadReportPage() {
                     />
                   </div>
 
-                  <div className="lm-fg">
-                    <label className="lm-label" htmlFor="f-sub">Business Type</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL_CLS} htmlFor="f-sub">Business Type</label>
                     <SearchableSelect
                       id="f-sub"
-                      fieldClass="lm-field"
+                      fieldClass={FIELD}
                       options={BUSINESS_OPTIONS[businessCategory] || []}
                       value={businessSub}
                       onChange={v => setBusinessSub(v)}
@@ -1102,46 +830,48 @@ export default function CreateLeadReportPage() {
                     />
                   </div>
 
-                  <div className="lm-fg">
-                    <label className="lm-label" htmlFor="f-phone">Phone No. 1 <span style={{ color: 'var(--red)', fontWeight: 700 }}>*</span></label>
+                  <div className="flex flex-col">
+                    <label className={LABEL_CLS} htmlFor="f-phone">
+                      Phone No. 1 <span className="text-[#f43f5e] font-bold">*</span>
+                    </label>
                     <input
                       id="f-phone"
                       type="tel"
-                      className="lm-field"
+                      className={`${FIELD}${form.phone_no && !isValidPhone(form.phone_no) ? ' !border-[#f43f5e]' : ''}`}
                       placeholder="10-digit mobile number"
                       maxLength={10}
                       required
                       value={form.phone_no}
                       onChange={e => setForm(f => ({ ...f, phone_no: e.target.value.replace(/\D/g, '') }))}
-                      style={form.phone_no && !isValidPhone(form.phone_no) ? { borderColor: 'var(--red)' } : {}}
                     />
                     {form.phone_no && !isValidPhone(form.phone_no) && (
-                      <span style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>Enter a valid 10-digit number starting with 6–9</span>
+                      <span className="text-[11px] text-[#f43f5e] mt-1">Enter a valid 10-digit number starting with 6–9</span>
                     )}
                   </div>
 
-                  <div className="lm-fg">
-                    <label className="lm-label" htmlFor="f-phone2">Phone No. 2 <span style={{ color: 'var(--text3)', fontWeight: 400 }}>(optional)</span></label>
+                  <div className="flex flex-col">
+                    <label className={LABEL_CLS} htmlFor="f-phone2">
+                      Phone No. 2 <span className="text-[#4b5268] font-normal">(optional)</span>
+                    </label>
                     <input
                       id="f-phone2"
                       type="tel"
-                      className="lm-field"
+                      className={`${FIELD}${form.phone_no_2 && !isValidPhoneOptional(form.phone_no_2) ? ' !border-[#f43f5e]' : ''}`}
                       placeholder="Alternate 10-digit number"
                       maxLength={10}
                       value={form.phone_no_2}
                       onChange={e => setForm(f => ({ ...f, phone_no_2: e.target.value.replace(/\D/g, '') }))}
-                      style={form.phone_no_2 && !isValidPhoneOptional(form.phone_no_2) ? { borderColor: 'var(--red)' } : {}}
                     />
                     {form.phone_no_2 && !isValidPhoneOptional(form.phone_no_2) && (
-                      <span style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>Enter a valid 10-digit number starting with 6–9</span>
+                      <span className="text-[11px] text-[#f43f5e] mt-1">Enter a valid 10-digit number starting with 6–9</span>
                     )}
                   </div>
 
-                  <div className="lm-fg">
-                    <label className="lm-label" htmlFor="f-type">Lead Type</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL_CLS} htmlFor="f-type">Lead Type</label>
                     <select
                       id="f-type"
-                      className="lm-field"
+                      className={`${FIELD} !appearance-auto`}
                       value={form.lead_type}
                       onChange={e => setForm(f => ({ ...f, lead_type: e.target.value }))}
                       required
@@ -1152,12 +882,12 @@ export default function CreateLeadReportPage() {
                     </select>
                   </div>
 
-                  <div className="lm-fg full" ref={locRef}>
-                    <label className="lm-label" htmlFor="f-loc">Location (West Bengal)</label>
-                    <div className="lm-loc-wrap">
+                  <div className="flex flex-col col-span-2" ref={locRef}>
+                    <label className={LABEL_CLS} htmlFor="f-loc">Location (West Bengal)</label>
+                    <div className="relative">
                       <input
                         id="f-loc"
-                        className="lm-field"
+                        className={FIELD}
                         autoComplete="off"
                         placeholder="Type a city, town or area in West Bengal…"
                         value={form.location}
@@ -1172,8 +902,8 @@ export default function CreateLeadReportPage() {
                         }}
                       />
                       {(showLocDrop || locLoading) && (
-                        <div className="lm-loc-drop">
-                          {locLoading && <div className="lm-loc-loading">Searching…</div>}
+                        <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-50 bg-[#141720] border border-[#272b40] rounded-lg max-h-[220px] overflow-y-auto shadow-[0_8px_24px_rgba(0,0,0,0.55)]">
+                          {locLoading && <div className="p-3 text-center text-[#4b5268] text-xs">Searching…</div>}
                           {!locLoading && locResults.map((item, idx) => {
                             const parts = item.display_name.split(',');
                             const name = parts.slice(0, 2).join(',').trim();
@@ -1181,12 +911,12 @@ export default function CreateLeadReportPage() {
                             return (
                               <div
                                 key={item.place_id}
-                                className={`lm-loc-item${locHighlight === idx ? ' active' : ''}`}
+                                className={`px-3 py-[9px] cursor-pointer text-[12.5px] border-b border-[#1e2236] last:border-b-0 transition-colors flex flex-col gap-0.5 hover:bg-[rgba(0,201,177,0.09)]${locHighlight === idx ? ' bg-[rgba(0,201,177,0.09)]' : ''}`}
                                 onMouseDown={() => pickLocation(item)}
                                 onMouseEnter={() => setLocHighlight(idx)}
                               >
-                                <span className="lm-loc-name">{name}</span>
-                                {sub && <span className="lm-loc-sub">{sub}</span>}
+                                <span className="text-[#dde3f0] font-semibold">{name}</span>
+                                {sub && <span className="text-[#4b5268] text-[11px]">{sub}</span>}
                               </div>
                             );
                           })}
@@ -1195,34 +925,34 @@ export default function CreateLeadReportPage() {
                     </div>
                   </div>
 
-                  <div className="lm-fg full" style={{ gridColumn: '1 / -1', marginTop: 8, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 12 }}>
+                  <div className="flex flex-col col-span-2 mt-2 pt-[14px] border-t border-[#1e2236]">
+                    <div className="text-[11px] font-bold text-[#4b5268] uppercase tracking-[0.06em] mb-3">
                       Buying timeframe &amp; call outcome
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 12, lineHeight: 1.45 }}>
+                    <div className="text-[11px] text-[#4b5268] mb-3 leading-[1.45]">
                       If buying window is set (except Unknown) or outcome is busy/callback, set <strong>Follow-up from</strong> or <strong>Callback time</strong>.
                     </div>
                   </div>
 
-                  <div className="lm-fg">
-                    <label className="lm-label" htmlFor="lm-deferral">Buying timeframe</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL_CLS} htmlFor="lm-deferral">Buying timeframe</label>
                     <SearchableSelect
                       id="lm-deferral"
-                      fieldClass="lm-field"
+                      fieldClass={FIELD}
                       options={CRM_DEFERRAL_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
                       value={form.deferral_bucket}
                       onChange={v => setForm(f => ({ ...f, deferral_bucket: v }))}
                       placeholder="Optional"
                       emptyLabel="Not specified"
-                      accentColor="var(--teal)"
+                      accentColor="#00c9b1"
                     />
                   </div>
 
-                  <div className="lm-fg">
-                    <label className="lm-label" htmlFor="lm-contact">Call outcome / stall</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL_CLS} htmlFor="lm-contact">Call outcome / stall</label>
                     <SearchableSelect
                       id="lm-contact"
-                      fieldClass="lm-field"
+                      fieldClass={FIELD}
                       options={CRM_CONTACT_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
                       value={form.contact_disposition}
                       onChange={v => setForm(f => ({ ...f, contact_disposition: v }))}
@@ -1232,57 +962,57 @@ export default function CreateLeadReportPage() {
                     />
                   </div>
 
-                  <div className="lm-fg">
-                    <label className="lm-label" htmlFor="lm-follow">Follow-up from</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL_CLS} htmlFor="lm-follow">Follow-up from</label>
                     <input
                       id="lm-follow"
                       type="date"
-                      className="lm-field"
+                      className={FIELD}
                       value={form.follow_up_after_date}
                       onChange={e => setForm(f => ({ ...f, follow_up_after_date: e.target.value }))}
                     />
                   </div>
 
-                  <div className="lm-fg">
-                    <label className="lm-label" htmlFor="lm-earliest">Earliest purchase intent</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL_CLS} htmlFor="lm-earliest">Earliest purchase intent</label>
                     <input
                       id="lm-earliest"
                       type="date"
-                      className="lm-field"
+                      className={FIELD}
                       value={form.earliest_purchase_intent_date}
                       onChange={e => setForm(f => ({ ...f, earliest_purchase_intent_date: e.target.value }))}
                     />
                   </div>
 
-                  <div className="lm-fg">
-                    <label className="lm-label" htmlFor="lm-callback-at">They asked to call after</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL_CLS} htmlFor="lm-callback-at">They asked to call after</label>
                     <input
                       id="lm-callback-at"
                       type="datetime-local"
-                      className="lm-field"
+                      className={FIELD}
                       value={form.callback_requested_at}
                       onChange={e => setForm(f => ({ ...f, callback_requested_at: e.target.value }))}
                     />
                   </div>
 
-                  <div className="lm-fg full" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div className="flex items-center gap-2.5 col-span-2">
                     <input
                       id="lm-promised"
                       type="checkbox"
                       checked={form.customer_promised_callback}
                       onChange={e => setForm(f => ({ ...f, customer_promised_callback: e.target.checked }))}
-                      style={{ width: 18, height: 18, accentColor: '#6366f1', cursor: 'pointer' }}
+                      className="w-[18px] h-[18px] accent-indigo-500 cursor-pointer"
                     />
-                    <label htmlFor="lm-promised" style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text)', userSelect: 'none' }}>
+                    <label htmlFor="lm-promised" className="cursor-pointer text-[13px] text-[#dde3f0] select-none">
                       Customer promised they will call back
                     </label>
                   </div>
 
-                  <div className="lm-fg full">
-                    <label className="lm-label" htmlFor="lm-defer-notes">Timing / callback notes</label>
+                  <div className="flex flex-col col-span-2">
+                    <label className={LABEL_CLS} htmlFor="lm-defer-notes">Timing / callback notes</label>
                     <textarea
                       id="lm-defer-notes"
-                      className="lm-field"
+                      className={`${FIELD} resize-y min-h-[82px] leading-[1.55]`}
                       rows={2}
                       placeholder="Optional context…"
                       value={form.deferral_notes}
@@ -1290,11 +1020,11 @@ export default function CreateLeadReportPage() {
                     />
                   </div>
 
-                  <div className="lm-fg full">
-                    <label className="lm-label" htmlFor="f-note">Note</label>
+                  <div className="flex flex-col col-span-2">
+                    <label className={LABEL_CLS} htmlFor="f-note">Note</label>
                     <textarea
                       id="f-note"
-                      className="lm-field"
+                      className={`${FIELD} resize-y min-h-[82px] leading-[1.55]`}
                       rows={3}
                       placeholder="Any additional notes..."
                       value={form.note}
@@ -1305,11 +1035,11 @@ export default function CreateLeadReportPage() {
                 </div>
               </div>
 
-              <div className="lm-modal-foot">
-                <button type="button" className="lm-btn lm-btn-ghost" onClick={closeModal}>
+              <div className="flex justify-end gap-2 px-6 py-3.5 border-t border-[#1e2236] sticky bottom-0 bg-[#0e1118]">
+                <button type="button" className={BTN_GHOST} onClick={closeModal}>
                   Cancel
                 </button>
-                <button type="submit" className="lm-btn lm-btn-teal" disabled={submitting}>
+                <button type="submit" className={BTN_TEAL} disabled={submitting}>
                   {submitting ? (editTarget ? 'Updating…' : 'Saving…') : (editTarget ? 'Update Lead' : 'Save Lead')}
                 </button>
               </div>
@@ -1319,29 +1049,26 @@ export default function CreateLeadReportPage() {
       )}
 
       {/* ── Delete Confirm Modal (replaces browser confirm()) ── */}
-      {/* FIX #11: proper inline confirmation UI */}
       {deleteTarget && (
-        <div className="lm-confirm-overlay" role="presentation">
-          <div className="lm-confirm-box" role="alertdialog" aria-modal="true">
-            <div className="lm-confirm-title">Delete Lead</div>
-            <div className="lm-confirm-msg">
+        <div className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-[4px] flex items-center justify-center" role="presentation">
+          <div
+            className="bg-[#0e1118] border border-[#1e2236] rounded-xl px-[26px] py-6 max-w-[380px] w-full shadow-[0_24px_60px_rgba(0,0,0,0.75)]"
+            role="alertdialog"
+            aria-modal="true"
+          >
+            <div className="text-[15px] font-bold mb-2">Delete Lead</div>
+            <div className="text-[13px] text-[#8b93a8] mb-5 leading-[1.6]">
               Are you sure you want to delete{' '}
-              <strong style={{ color: 'var(--text)' }}>
+              <strong className="text-[#dde3f0]">
                 {deleteTarget.cust_name || `Lead #${deleteTarget.id}`}
               </strong>?
               <br />This action cannot be undone.
             </div>
-            <div className="lm-confirm-actions">
-              <button
-                className="lm-btn lm-btn-ghost"
-                onClick={() => setDeleteTarget(null)}
-              >
+            <div className="flex justify-end gap-2">
+              <button className={BTN_GHOST} onClick={() => setDeleteTarget(null)}>
                 Cancel
               </button>
-              <button
-                className="lm-btn lm-btn-red"
-                onClick={confirmDelete}
-              >
+              <button className={BTN_RED} onClick={confirmDelete}>
                 Delete
               </button>
             </div>
@@ -1350,10 +1077,9 @@ export default function CreateLeadReportPage() {
       )}
 
       {/* ── Toasts (replaces all alert() calls) ── */}
-      {/* FIX #11: toast notifications instead of alert() */}
-      <div className="lm-toasts" aria-live="polite" aria-atomic="false">
+      <div className="fixed bottom-[22px] right-[22px] flex flex-col gap-2 z-[500] pointer-events-none" aria-live="polite" aria-atomic="false">
         {toasts.map(t => (
-          <div key={t.id} className={`lm-toast ${t.type}`}>{t.message}</div>
+          <div key={t.id} className={toastClasses(t.type)}>{t.message}</div>
         ))}
       </div>
     </div>

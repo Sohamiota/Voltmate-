@@ -65,6 +65,9 @@ export default function SalesPerformance() {
         fetch(`${API_BASE}/api/v1/leads?limit=5000`,  { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_BASE}/api/v1/visits?limit=5000`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
+      if (!leadsRes.ok || !visitsRes.ok) {
+        throw new Error(`HTTP ${leadsRes.status}/${visitsRes.status} fetching leads/visits`);
+      }
       const [lj, vj] = await Promise.all([leadsRes.json(), visitsRes.json()]);
       setLeads(lj.leads   || []);
       setVisits(vj.visits || []);

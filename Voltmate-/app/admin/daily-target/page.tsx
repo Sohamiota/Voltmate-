@@ -113,108 +113,6 @@ function statusColor(s?: string): string {
   return STATUS_COLORS[s || ''] || '#6b7280';
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────────
-
-const S = `
-  *{margin:0;padding:0;box-sizing:border-box;}
-  .root{min-height:100vh;background:#0a0a0a;color:#e5e5e5;font-family:'Inter',system-ui,sans-serif;padding:clamp(14px,4vw,28px);}
-  /* Header */
-  .pg-hdr{margin-bottom:20px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-  .pg-title{font-size:clamp(18px,4vw,24px);font-weight:700;color:#fff;}
-  .pg-sub{color:#9ca3af;font-size:13px;margin-top:3px;}
-  /* Week nav */
-  .week-nav{display:flex;align-items:center;gap:10px;background:#141414;border:1px solid #232323;border-radius:10px;padding:8px 14px;flex-wrap:wrap;}
-  .week-btn{background:transparent;border:1px solid #2a2a2a;color:#9ca3af;border-radius:7px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all .15s;}
-  .week-btn:hover{border-color:#555;color:#e5e5e5;}
-  .week-label{font-size:13px;font-weight:600;color:#00d9ff;white-space:nowrap;}
-  .week-today-btn{background:transparent;border:1px solid #2a2a2a;color:#9ca3af;border-radius:7px;padding:4px 10px;font-size:11px;cursor:pointer;transition:all .15s;}
-  .week-today-btn:hover{border-color:#00d9ff;color:#00d9ff;}
-  .week-today-btn.active{border-color:rgba(0,217,255,.4);color:#00d9ff;background:rgba(0,217,255,.07);}
-  /* Day strip */
-  .day-strip{display:flex;gap:6px;margin-bottom:20px;overflow-x:auto;padding-bottom:4px;}
-  .day-chip{flex-shrink:0;background:#141414;border:1px solid #232323;border-radius:8px;padding:7px 14px;font-size:12px;color:#9ca3af;cursor:pointer;transition:all .15s;text-align:center;}
-  .day-chip:hover{border-color:#444;color:#e5e5e5;}
-  .day-chip.active{background:#0e3a42;border-color:rgba(0,217,255,.4);color:#00d9ff;font-weight:600;}
-  .day-chip.today-chip{border-color:rgba(251,191,36,.35);color:#fbbf24;}
-  .day-chip.today-chip.active{background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.55);}
-  /* Stats */
-  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px;margin-bottom:20px;}
-  .stat{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:14px 16px;}
-  .stat-v{font-size:clamp(20px,4vw,26px);font-weight:700;color:#00d9ff;margin-bottom:2px;}
-  .stat-l{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;}
-  /* Section header */
-  .section-hdr{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
-  .section-title{font-size:15px;font-weight:600;color:#fff;}
-  .search{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:8px 14px;color:#e5e5e5;font-size:13px;outline:none;min-width:180px;}
-  .search:focus{border-color:#00d9ff;}
-  /* Salesperson grid */
-  .emp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;}
-  .emp-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:18px;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;}
-  .emp-card:hover{border-color:#00d9ff;transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,217,255,.12);}
-  .emp-card-pending{border-color:rgba(251,191,36,.4);}
-  .emp-card-pending:hover{border-color:rgba(251,191,36,.7) !important;box-shadow:0 8px 24px rgba(251,191,36,.1) !important;}
-  .emp-card-done{border-color:rgba(34,197,94,.4);}
-  .emp-card-done:hover{border-color:rgba(34,197,94,.7) !important;box-shadow:0 8px 24px rgba(34,197,94,.1) !important;}
-  .emp-av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#0891b2,#0e7490);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;margin-bottom:12px;}
-  .emp-nm{font-size:15px;font-weight:600;color:#fff;margin-bottom:8px;}
-  /* Day pills on card */
-  .day-pills{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px;}
-  .day-pill{font-size:10px;padding:2px 7px;border-radius:5px;font-weight:600;border:1px solid;}
-  .day-pill-active{background:rgba(0,217,255,.08);color:#00d9ff;border-color:rgba(0,217,255,.25);}
-  .day-pill-done{background:rgba(34,197,94,.08);color:#22c55e;border-color:rgba(34,197,94,.2);}
-  .day-pill-empty{background:transparent;color:#374151;border-color:#1e1e1e;}
-  .prog-bg{height:5px;background:#2a2a2a;border-radius:3px;margin-bottom:4px;}
-  .prog-fill{height:5px;border-radius:3px;transition:width .3s;}
-  .prog-label{font-size:11px;color:#6b7280;text-align:right;}
-  .emp-footer{display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid #252525;}
-  .badge-pending-card{background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.3);border-radius:20px;font-size:11px;font-weight:600;padding:3px 10px;}
-  .badge-ok-card{background:rgba(34,197,94,.08);color:#86efac;border:1px solid rgba(34,197,94,.18);border-radius:20px;font-size:11px;padding:3px 10px;}
-  .badge-none-card{background:rgba(107,114,128,.08);color:#6b7280;border:1px solid rgba(107,114,128,.18);border-radius:20px;font-size:11px;padding:3px 10px;}
-  .emp-arrow{color:#4b5563;font-size:16px;}
-  /* Detail */
-  .back-btn{display:inline-flex;align-items:center;gap:6px;color:#9ca3af;font-size:13px;cursor:pointer;background:none;border:none;padding:6px 0;margin-bottom:16px;transition:color .15s;}
-  .back-btn:hover{color:#e5e5e5;}
-  .detail-hdr{display:flex;align-items:center;gap:16px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:20px;margin-bottom:16px;flex-wrap:wrap;}
-  .detail-av{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#0891b2,#0e7490);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;flex-shrink:0;}
-  .detail-nm{font-size:18px;font-weight:700;color:#fff;}
-  .detail-sub{font-size:13px;color:#9ca3af;margin-top:2px;}
-  .detail-stats{display:flex;gap:20px;margin-left:auto;flex-wrap:wrap;}
-  .dms{text-align:center;}
-  .dms-v{font-size:20px;font-weight:700;}
-  .dms-l{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;}
-  /* Tabs */
-  .tabs{display:flex;gap:4px;margin-bottom:16px;background:#141414;border:1px solid #232323;border-radius:10px;padding:4px;overflow-x:auto;}
-  .tab{flex-shrink:0;padding:7px 10px;border:none;background:transparent;color:#9ca3af;font-size:12px;border-radius:7px;cursor:pointer;transition:all .15s;text-align:center;font-weight:500;white-space:nowrap;}
-  .tab.active{background:#0e3a42;color:#00d9ff;font-weight:600;}
-  .tab:hover:not(.active){color:#ccc;}
-  /* Day group header */
-  .day-group-hdr{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#111;border-bottom:1px solid #1e1e1e;}
-  .day-group-lbl{font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;}
-  .day-group-today{color:#fbbf24;}
-  .day-group-count{font-size:11px;color:#4b5563;margin-left:auto;}
-  /* Table */
-  .tbl-wrap{background:#141414;border:1px solid #222;border-radius:12px;overflow:hidden;}
-  .tbl{width:100%;border-collapse:collapse;}
-  .tbl th{padding:11px 14px;font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;text-align:left;background:#111;border-bottom:1px solid #1e1e1e;}
-  .tbl td{padding:12px 14px;font-size:13px;color:#e5e5e5;border-bottom:1px solid #1a1a1a;vertical-align:top;}
-  .tbl tr:last-child td{border-bottom:none;}
-  .tbl tr:hover td{background:#1a1a1a;}
-  .tbl-empty{text-align:center;padding:36px 14px !important;color:#4b5563 !important;font-size:13px !important;}
-  .badge{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:500;border:1px solid;}
-  .badge-updated{background:rgba(34,197,94,.1);color:#22c55e;border-color:rgba(34,197,94,.25);}
-  .badge-pending-v{background:rgba(251,191,36,.1);color:#fbbf24;border-color:rgba(251,191,36,.25);}
-  /* Buttons */
-  .btn-refresh{background:transparent;color:#9ca3af;border:1px solid #2a2a2a;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;}
-  .btn-refresh:hover{border-color:#555;color:#e5e5e5;}
-  /* Empty / loading */
-  .loading{text-align:center;padding:48px 20px;color:#6b7280;font-size:14px;}
-  .no-targets{text-align:center;padding:60px 20px;color:#4b5563;}
-  .no-targets-icon{font-size:42px;margin-bottom:14px;}
-  .no-targets-msg{font-size:15px;font-weight:600;color:#6b7280;margin-bottom:6px;}
-  .no-targets-sub{font-size:13px;color:#4b5563;}
-  @media(max-width:480px){.detail-stats{gap:12px;}.dms-v{font-size:16px;}.tbl th,.tbl td{padding:9px 10px;}}
-`;
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function WeeklyTargetPage() {
@@ -359,7 +257,7 @@ export default function WeeklyTargetPage() {
   // ── Access guard ──────────────────────────────────────────────────────────
   if (!roleChecked) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontFamily: 'system-ui, sans-serif' }}>
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-400 font-sans">
         Checking access…
       </div>
     );
@@ -367,12 +265,12 @@ export default function WeeklyTargetPage() {
 
   if (accessDenied) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: 'system-ui, sans-serif' }}>
-        <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 18 }}>Access Denied</div>
-        <div style={{ color: '#9ca3af', fontSize: 14 }}>Only Admins can view the Weekly Target panel.</div>
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center gap-3 font-sans">
+        <div className="text-red-500 font-bold text-[18px]">Access Denied</div>
+        <div className="text-zinc-400 text-[14px]">Only Admins can view the Weekly Target panel.</div>
         <button
           onClick={() => router.back()}
-          style={{ marginTop: 16, padding: '8px 20px', background: '#1a1a1a', border: '1px solid #333', borderRadius: 8, color: '#e5e5e5', cursor: 'pointer', fontSize: 13 }}
+          className="mt-4 px-5 py-2 bg-zinc-900 border border-[#333] rounded-lg text-zinc-200 cursor-pointer text-[13px]"
         >
           Go Back
         </button>
@@ -381,33 +279,51 @@ export default function WeeklyTargetPage() {
   }
 
   return (
-    <div className="root">
-      <style>{S}</style>
+    <div className="min-h-screen bg-zinc-950 text-zinc-200 font-sans p-[clamp(14px,4vw,28px)]">
 
       {/* ── Header ── */}
-      <div className="pg-hdr">
+      <div className="mb-5 flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <div className="pg-title">Weekly Team Report</div>
-          <div className="pg-sub">
+          <div className="text-[clamp(18px,4vw,24px)] font-bold text-white">Weekly Team Report</div>
+          <div className="text-zinc-400 text-[13px] mt-[3px]">
             {selected
               ? `Viewing ${selected.name}'s targets for the week`
               : 'Team-wide visit targets — grouped by salesperson across the full week'}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button className="btn-refresh" onClick={load}>Refresh</button>
+        <div className="flex gap-2 items-center">
+          <button
+            className="bg-transparent text-zinc-400 border border-zinc-800 px-[14px] py-[7px] rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150 hover:border-[#555] hover:text-zinc-200"
+            onClick={load}
+          >
+            Refresh
+          </button>
         </div>
       </div>
 
       {/* ── Week navigator ── */}
-      <div className="week-nav" style={{ marginBottom: 16 }}>
-        <button className="week-btn" onClick={() => setWeekOffset(o => o - 1)}>Prev</button>
-        <span className="week-label">
+      <div className="flex items-center gap-[10px] bg-zinc-900 border border-[#232323] rounded-[10px] px-[14px] py-2 flex-wrap mb-4">
+        <button
+          className="bg-transparent border border-zinc-800 text-zinc-400 rounded-[7px] w-[30px] h-[30px] flex items-center justify-center cursor-pointer text-base transition-all duration-150 hover:border-[#555] hover:text-zinc-200"
+          onClick={() => setWeekOffset(o => o - 1)}
+        >
+          Prev
+        </button>
+        <span className="text-[13px] font-semibold text-cyan-400 whitespace-nowrap">
           {fmtDateFull(week.start)} – {fmtDateFull(week.end)}
         </span>
-        <button className="week-btn" onClick={() => setWeekOffset(o => o + 1)}>Next</button>
         <button
-          className={`week-today-btn${isCurrentWeek ? ' active' : ''}`}
+          className="bg-transparent border border-zinc-800 text-zinc-400 rounded-[7px] w-[30px] h-[30px] flex items-center justify-center cursor-pointer text-base transition-all duration-150 hover:border-[#555] hover:text-zinc-200"
+          onClick={() => setWeekOffset(o => o + 1)}
+        >
+          Next
+        </button>
+        <button
+          className={`bg-transparent border px-[10px] py-1 text-[11px] cursor-pointer transition-all duration-150 rounded-[7px] ${
+            isCurrentWeek
+              ? 'border-cyan-400/40 text-cyan-400 bg-cyan-400/[0.07]'
+              : 'border-zinc-800 text-zinc-400 hover:border-cyan-400 hover:text-cyan-400'
+          }`}
           onClick={() => setWeekOffset(0)}
         >
           This Week
@@ -415,9 +331,13 @@ export default function WeeklyTargetPage() {
       </div>
 
       {/* ── Day filter strip (grid level) ── */}
-      <div className="day-strip">
+      <div className="flex gap-[6px] mb-5 overflow-x-auto pb-1">
         <div
-          className={`day-chip${dayFilter === null ? ' active' : ''}`}
+          className={`flex-shrink-0 border rounded-lg px-[14px] py-[7px] text-[12px] cursor-pointer transition-all duration-150 text-center ${
+            dayFilter === null
+              ? 'bg-[#0e3a42] border-cyan-400/40 text-cyan-400 font-semibold'
+              : 'bg-zinc-900 border-[#232323] text-zinc-400 hover:border-[#444] hover:text-zinc-200'
+          }`}
           onClick={() => setDayFilter(null)}
         >
           All Days
@@ -425,7 +345,15 @@ export default function WeeklyTargetPage() {
         {weekDays.map(wd => (
           <div
             key={wd.dateStr}
-            className={`day-chip${wd.isToday ? ' today-chip' : ''}${dayFilter === wd.dateStr ? ' active' : ''}`}
+            className={`flex-shrink-0 border rounded-lg px-[14px] py-[7px] text-[12px] cursor-pointer transition-all duration-150 text-center ${
+              dayFilter === wd.dateStr
+                ? wd.isToday
+                  ? 'bg-amber-400/10 border-amber-400/55 text-amber-400 font-semibold'
+                  : 'bg-[#0e3a42] border-cyan-400/40 text-cyan-400 font-semibold'
+                : wd.isToday
+                  ? 'bg-zinc-900 border-amber-400/35 text-amber-400 hover:border-[#444]'
+                  : 'bg-zinc-900 border-[#232323] text-zinc-400 hover:border-[#444] hover:text-zinc-200'
+            }`}
             onClick={() => setDayFilter(prev => prev === wd.dateStr ? null : wd.dateStr)}
           >
             {wd.label}{wd.isToday ? ' (Today)' : ''}
@@ -434,50 +362,50 @@ export default function WeeklyTargetPage() {
       </div>
 
       {/* ── Stats ── */}
-      <div className="stats">
-        <div className="stat">
-          <div className="stat-v">{activeCount}</div>
-          <div className="stat-l">Active Salespersons</div>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] gap-3 mb-5">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-[14px]">
+          <div className="text-[clamp(20px,4vw,26px)] font-bold text-cyan-400 mb-[2px]">{activeCount}</div>
+          <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">Active Salespersons</div>
         </div>
-        <div className="stat">
-          <div className="stat-v">{totalTargets}</div>
-          <div className="stat-l">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-[14px]">
+          <div className="text-[clamp(20px,4vw,26px)] font-bold text-cyan-400 mb-[2px]">{totalTargets}</div>
+          <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">
             {dayFilter ? 'Targets (Day)' : 'Targets (Week)'}
           </div>
         </div>
-        <div className="stat">
-          <div className="stat-v" style={{ color: '#22c55e' }}>{totalUpdated}</div>
-          <div className="stat-l">Updated</div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-[14px]">
+          <div className="text-[clamp(20px,4vw,26px)] font-bold text-green-500 mb-[2px]">{totalUpdated}</div>
+          <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">Updated</div>
         </div>
-        <div className="stat">
-          <div className="stat-v" style={{ color: '#fbbf24' }}>{totalPending}</div>
-          <div className="stat-l">Pending</div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-[14px]">
+          <div className="text-[clamp(20px,4vw,26px)] font-bold text-amber-400 mb-[2px]">{totalPending}</div>
+          <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">Pending</div>
         </div>
-        <div className="stat">
-          <div className="stat-v" style={{ color: '#a78bfa' }}>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-[14px]">
+          <div className="text-[clamp(20px,4vw,26px)] font-bold text-violet-400 mb-[2px]">
             {totalTargets > 0 ? Math.round((totalUpdated / totalTargets) * 100) : 0}%
           </div>
-          <div className="stat-l">Completion</div>
+          <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">Completion</div>
         </div>
       </div>
 
       {loading ? (
-        <div className="loading">Loading weekly targets…</div>
+        <div className="text-center py-12 px-5 text-zinc-500 text-[14px]">Loading weekly targets…</div>
       ) : selectedName === null ? (
 
         /* ════════════════ SALESPERSON GRID ════════════════ */
         <div>
-          <div className="section-hdr">
-            <div className="section-title">
+          <div className="flex items-center justify-between gap-[10px] mb-[14px] flex-wrap">
+            <div className="text-[15px] font-semibold text-white">
               All Salespersons ({visibleRows.length})
               {totalTargets > 0 && (
-                <span style={{ color: '#6b7280', fontWeight: 400, marginLeft: 8, fontSize: 13 }}>
+                <span className="text-zinc-500 font-normal ml-2 text-[13px]">
                   — {totalTargets} target{totalTargets !== 1 ? 's' : ''} {dayFilter ? 'on selected day' : 'this week'}
                 </span>
               )}
             </div>
             <input
-              className="search"
+              className="bg-zinc-900 border border-zinc-800 rounded-lg px-[14px] py-2 text-zinc-200 text-[13px] outline-none min-w-[180px] focus:border-cyan-400"
               placeholder="Search salesperson…"
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -485,13 +413,13 @@ export default function WeeklyTargetPage() {
           </div>
 
           {visibleRows.length === 0 ? (
-            <div className="no-targets">
-              <div className="no-targets-icon"></div>
-              <div className="no-targets-msg">No salesperson found</div>
-              <div className="no-targets-sub">Try a different search term.</div>
+            <div className="text-center py-[60px] px-5 text-[#4b5563]">
+              <div className="text-[42px] mb-[14px]">🔍</div>
+              <div className="text-[15px] font-semibold text-zinc-500 mb-[6px]">No salesperson found</div>
+              <div className="text-[13px] text-[#4b5563]">Try a different search term.</div>
             </div>
           ) : (
-            <div className="emp-grid">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-[14px]">
               {visibleRows.map(sp => {
                 const hasTargets = sp.targets.length > 0;
                 const pct        = hasTargets ? Math.round((sp.updated.length / sp.targets.length) * 100) : 0;
@@ -500,15 +428,23 @@ export default function WeeklyTargetPage() {
                 return (
                   <div
                     key={sp.name}
-                    className={`emp-card${allDone ? ' emp-card-done' : sp.pending.length > 0 ? ' emp-card-pending' : ''}`}
+                    className={`bg-zinc-900 border rounded-[14px] p-[18px] cursor-pointer transition-all duration-200 flex flex-col hover:-translate-y-0.5 ${
+                      allDone
+                        ? 'border-green-500/40 hover:border-green-500/70 hover:shadow-[0_8px_24px_rgba(34,197,94,0.1)]'
+                        : sp.pending.length > 0
+                          ? 'border-amber-400/40 hover:border-amber-400/70 hover:shadow-[0_8px_24px_rgba(251,191,36,0.1)]'
+                          : 'border-zinc-800 hover:border-cyan-400 hover:shadow-[0_8px_24px_rgba(0,217,255,0.12)]'
+                    }`}
                     onClick={() => { setSelectedName(sp.name); setTabFilter('all'); }}
                   >
-                    <div className="emp-av">{getInitials(sp.name)}</div>
-                    <div className="emp-nm">{sp.name}</div>
+                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#0891b2] to-[#0e7490] flex items-center justify-center text-[15px] font-bold text-white mb-3">
+                      {getInitials(sp.name)}
+                    </div>
+                    <div className="text-[15px] font-semibold text-white mb-2">{sp.name}</div>
 
                     {/* Day activity pills */}
                     {!dayFilter && (
-                      <div className="day-pills">
+                      <div className="flex gap-1 flex-wrap mb-[10px]">
                         {weekDays.map(wd => {
                           const cnt = (sp.byDay[wd.dateStr] ?? []).length;
                           const updCnt = (sp.byDay[wd.dateStr] ?? []).filter(v =>
@@ -518,11 +454,17 @@ export default function WeeklyTargetPage() {
                           return (
                             <span
                               key={wd.dateStr}
-                              className={`day-pill ${cnt === 0 ? 'day-pill-empty' : allUpdated ? 'day-pill-done' : 'day-pill-active'}`}
+                              className={`text-[10px] px-[7px] py-[2px] rounded-[5px] font-semibold border ${
+                                cnt === 0
+                                  ? 'bg-transparent text-[#374151] border-[#1e1e1e]'
+                                  : allUpdated
+                                    ? 'bg-green-500/[0.08] text-green-500 border-green-500/20'
+                                    : 'bg-cyan-400/[0.08] text-cyan-400 border-cyan-400/25'
+                              }`}
                               title={`${wd.label}: ${cnt} target${cnt !== 1 ? 's' : ''}${cnt > 0 ? `, ${updCnt} updated` : ''}`}
                             >
                               {DAY_KEYS[weekDays.indexOf(wd)]}
-                              {cnt > 0 && <sup style={{ fontSize: 8, marginLeft: 1 }}>{cnt}</sup>}
+                              {cnt > 0 && <sup className="text-[8px] ml-[1px]">{cnt}</sup>}
                             </span>
                           );
                         })}
@@ -530,27 +472,27 @@ export default function WeeklyTargetPage() {
                     )}
 
                     {/* Progress bar */}
-                    <div className="prog-bg">
+                    <div className="h-[5px] bg-zinc-800 rounded-[3px] mb-1">
                       <div
-                        className="prog-fill"
+                        className="h-[5px] rounded-[3px] transition-[width] duration-300"
                         style={{
                           width: `${pct}%`,
                           background: allDone ? '#22c55e' : pct > 0 ? '#00d9ff' : '#2a2a2a',
                         }}
                       />
                     </div>
-                    <div className="prog-label">
+                    <div className="text-[11px] text-zinc-500 text-right">
                       {hasTargets ? `${sp.updated.length}/${sp.targets.length} updated` : 'No targets this week'}
                     </div>
 
-                    <div className="emp-footer">
+                    <div className="flex items-center justify-between mt-3 pt-[10px] border-t border-[#252525]">
                       {!hasTargets
-                        ? <span className="badge-none-card">No targets</span>
+                        ? <span className="bg-zinc-500/[0.08] text-zinc-500 border border-zinc-500/[0.18] rounded-full text-[11px] px-[10px] py-[3px]">No targets</span>
                         : allDone
-                          ? <span className="badge-ok-card">All {sp.targets.length} updated</span>
-                          : <span className="badge-pending-card">● {sp.pending.length} pending</span>
+                          ? <span className="bg-green-500/[0.08] text-[#86efac] border border-green-500/[0.18] rounded-full text-[11px] px-[10px] py-[3px]">All {sp.targets.length} updated</span>
+                          : <span className="bg-amber-400/[0.12] text-amber-400 border border-amber-400/30 rounded-full text-[11px] font-semibold px-[10px] py-[3px]">● {sp.pending.length} pending</span>
                       }
-                      <span className="emp-arrow"></span>
+                      <span className="text-[#4b5563] text-base">›</span>
                     </div>
                   </div>
                 );
@@ -563,56 +505,69 @@ export default function WeeklyTargetPage() {
 
         /* ════════════════ DETAIL VIEW ════════════════ */
         <div>
-          <button className="back-btn" onClick={() => setSelectedName(null)}>
-            All Salespersons
+          <button
+            className="inline-flex items-center gap-[6px] text-zinc-400 text-[13px] cursor-pointer bg-transparent border-0 py-[6px] mb-4 transition-colors duration-150 hover:text-zinc-200"
+            onClick={() => setSelectedName(null)}
+          >
+            ← All Salespersons
           </button>
 
           {/* Salesperson header */}
-          <div className="detail-hdr">
-            <div className="detail-av">{getInitials(selected!.name)}</div>
+          <div className="flex items-center gap-4 bg-zinc-900 border border-zinc-800 rounded-[14px] p-5 mb-4 flex-wrap">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#0891b2] to-[#0e7490] flex items-center justify-center text-[20px] font-bold text-white flex-shrink-0">
+              {getInitials(selected!.name)}
+            </div>
             <div>
-              <div className="detail-nm">{selected!.name}</div>
-              <div className="detail-sub">
+              <div className="text-[18px] font-bold text-white">{selected!.name}</div>
+              <div className="text-[13px] text-zinc-400 mt-[2px]">
                 {fmtDateFull(week.start)} – {fmtDateFull(week.end)}
               </div>
             </div>
-            <div className="detail-stats">
-              <div className="dms">
-                <div className="dms-v">{selected!.targets.length}</div>
-                <div className="dms-l">Total</div>
+            <div className="flex gap-5 max-[480px]:gap-3 ml-auto flex-wrap">
+              <div className="text-center">
+                <div className="text-[20px] max-[480px]:text-[16px] font-bold">{selected!.targets.length}</div>
+                <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">Total</div>
               </div>
-              <div className="dms">
-                <div className="dms-v" style={{ color: '#22c55e' }}>{selected!.updated.length}</div>
-                <div className="dms-l">Updated</div>
+              <div className="text-center">
+                <div className="text-[20px] max-[480px]:text-[16px] font-bold text-green-500">{selected!.updated.length}</div>
+                <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">Updated</div>
               </div>
-              <div className="dms">
-                <div className="dms-v" style={{ color: '#fbbf24' }}>{selected!.pending.length}</div>
-                <div className="dms-l">Pending</div>
+              <div className="text-center">
+                <div className="text-[20px] max-[480px]:text-[16px] font-bold text-amber-400">{selected!.pending.length}</div>
+                <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">Pending</div>
               </div>
-              <div className="dms">
-                <div className="dms-v" style={{ color: '#a78bfa' }}>
+              <div className="text-center">
+                <div className="text-[20px] max-[480px]:text-[16px] font-bold text-violet-400">
                   {selected!.targets.length > 0
                     ? Math.round((selected!.updated.length / selected!.targets.length) * 100)
                     : 0}%
                 </div>
-                <div className="dms-l">Done</div>
+                <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">Done</div>
               </div>
             </div>
           </div>
 
           {/* Filter tabs: All, each day with targets, Updated, Pending */}
-          <div className="tabs">
+          <div className="flex gap-1 mb-4 bg-zinc-900 border border-[#232323] rounded-[10px] p-1 overflow-x-auto">
             {(['all', 'updated', 'pending'] as const).map(f => {
               const count = f === 'all'     ? selected!.targets.length
                           : f === 'updated' ? selected!.updated.length
                           : selected!.pending.length;
               return (
-                <button key={f} className={`tab${tabFilter === f ? ' active' : ''}`} onClick={() => setTabFilter(f)}>
+                <button
+                  key={f}
+                  className={`flex-shrink-0 px-[10px] py-[7px] border-0 text-[12px] rounded-[7px] cursor-pointer transition-all duration-150 text-center font-medium whitespace-nowrap ${
+                    tabFilter === f
+                      ? 'bg-[#0e3a42] text-cyan-400 font-semibold'
+                      : 'bg-transparent text-zinc-400 hover:text-[#ccc]'
+                  }`}
+                  onClick={() => setTabFilter(f)}
+                >
                   {f === 'all' ? 'All' : f === 'updated' ? 'Updated' : 'Pending'} ({count})
                 </button>
               );
             })}
-            <div style={{ width: 1, background: '#232323', margin: '4px 4px' }} />
+            <div className="w-px bg-[#232323] my-1 mx-1" />
             {weekDays.map(wd => {
               const cnt = (selected!.byDay[wd.dateStr] ?? []).length;
               if (cnt === 0) return null;
@@ -620,9 +575,14 @@ export default function WeeklyTargetPage() {
               return (
                 <button
                   key={wd.dateStr}
-                  className={`tab${tabFilter === wd.dateStr ? ' active' : ''}`}
+                  className={`flex-shrink-0 px-[10px] py-[7px] border-0 text-[12px] rounded-[7px] cursor-pointer transition-all duration-150 text-center font-medium whitespace-nowrap ${
+                    tabFilter === wd.dateStr
+                      ? 'bg-[#0e3a42] text-cyan-400 font-semibold'
+                      : wd.isToday
+                        ? 'bg-transparent text-amber-400 hover:text-[#ccc]'
+                        : 'bg-transparent text-zinc-400 hover:text-[#ccc]'
+                  }`}
                   onClick={() => setTabFilter(wd.dateStr)}
-                  style={wd.isToday ? { color: tabFilter === wd.dateStr ? undefined : '#fbbf24' } : undefined}
                 >
                   {shortDay}{wd.isToday ? ' (Today)' : ''} ({cnt})
                 </button>
@@ -632,17 +592,25 @@ export default function WeeklyTargetPage() {
 
           {/* Visit table grouped by day */}
           {detailVisits.length === 0 ? (
-            <div className="tbl-wrap">
-              <table className="tbl">
+            <div className="bg-zinc-900 border border-[#222] rounded-xl overflow-hidden">
+              <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    <th>Customer</th><th>Day</th><th>Status</th><th>Next Action</th>
-                    <th>Connect Date</th><th>Target Date</th><th>Vehicle</th><th>Phone</th><th>Updated</th><th>Update Status</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Customer</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Day</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Status</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Next Action</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Connect Date</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Target Date</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Vehicle</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Phone</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Updated</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Update Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="tbl-empty" colSpan={10}>
+                    <td className="text-center py-9 px-[14px] text-[#4b5563] text-[13px]" colSpan={10}>
                       No targets for {selected!.name} in this view
                     </td>
                   </tr>
@@ -650,35 +618,32 @@ export default function WeeklyTargetPage() {
               </table>
             </div>
           ) : (
-            <div className="tbl-wrap">
-              <table className="tbl">
+            <div className="bg-zinc-900 border border-[#222] rounded-xl overflow-hidden">
+              <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    <th>Customer</th>
-                    <th>Day</th>
-                    <th>Status</th>
-                    <th>Next Action</th>
-                    <th>Connect Date</th>
-                    <th>Target Date</th>
-                    <th>Vehicle</th>
-                    <th>Phone</th>
-                    <th>Updated</th>
-                    <th>Update Status</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Customer</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Day</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Status</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Next Action</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Connect Date</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Target Date</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Vehicle</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Phone</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Updated</th>
+                    <th className="px-[14px] py-[11px] max-[480px]:px-[10px] max-[480px]:py-[9px] text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.5px] text-left bg-[#111] border-b border-[#1e1e1e]">Update Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tabFilter === 'all' || weekDays.some(w => w.dateStr === tabFilter)
                     ? detailByDay.flatMap(group => [
                         <tr key={`hdr-${group.dateStr}`}>
-                          <td
-                            colSpan={10}
-                            style={{ padding: 0, background: 'transparent' }}
-                          >
-                            <div className="day-group-hdr">
-                              <span className={`day-group-lbl${group.isToday ? ' day-group-today' : ''}`}>
+                          <td colSpan={10} className="p-0 bg-transparent">
+                            <div className="flex items-center gap-[10px] px-[14px] py-[10px] bg-[#111] border-b border-[#1e1e1e]">
+                              <span className={`text-[11px] font-bold uppercase tracking-[0.5px] ${group.isToday ? 'text-amber-400' : 'text-zinc-400'}`}>
                                 {group.label}{group.isToday ? ' — Today' : ''}
                               </span>
-                              <span className="day-group-count">
+                              <span className="text-[11px] text-[#4b5563] ml-auto">
                                 {group.visits.length} target{group.visits.length !== 1 ? 's' : ''}
                               </span>
                             </div>
@@ -708,63 +673,59 @@ function renderVisitRow(
   const isActionToday = v.next_action_date?.slice(0, 10) === today;
 
   return (
-    <tr key={v.id}>
-      <td>
-        <div style={{ fontWeight: 600, color: '#fff' }}>{v.cust_name || '—'}</div>
-        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+    <tr key={v.id} className="group">
+      <td className="px-[14px] py-3 max-[480px]:px-[10px] max-[480px]:py-[9px] text-[13px] text-zinc-200 border-b border-zinc-900 align-top last:border-b-0 group-hover:bg-zinc-900">
+        <div className="font-semibold text-white">{v.cust_name || '—'}</div>
+        <div className="text-[11px] text-zinc-500 mt-[2px]">
           {[v.lead_cust_code, v.lead_location].filter(Boolean).join(' · ')}
         </div>
         {v.note && (
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4, fontStyle: 'italic' }}>
+          <div className="text-[11px] text-zinc-400 mt-1 italic">
             Note: {v.note}
           </div>
         )}
       </td>
-      <td>
-        <span style={{
-          fontSize: 11,
-          fontWeight: 600,
-          color: isActionToday ? '#fbbf24' : '#9ca3af',
-          background: isActionToday ? 'rgba(251,191,36,.08)' : 'transparent',
-          padding: isActionToday ? '2px 6px' : '0',
-          borderRadius: 5,
-          border: isActionToday ? '1px solid rgba(251,191,36,.2)' : 'none',
-        }}>
+      <td className="px-[14px] py-3 max-[480px]:px-[10px] max-[480px]:py-[9px] text-[13px] text-zinc-200 border-b border-zinc-900 align-top last:border-b-0 group-hover:bg-zinc-900">
+        <span className={`text-[11px] font-semibold ${
+          isActionToday
+            ? 'text-amber-400 bg-amber-400/[0.08] px-[6px] py-[2px] rounded-[5px] border border-amber-400/20'
+            : 'text-zinc-400'
+        }`}>
           {getDayLabel(v.next_action_date)}{isActionToday ? ' (Today)' : ''}
         </span>
       </td>
-      <td>
+      <td className="px-[14px] py-3 max-[480px]:px-[10px] max-[480px]:py-[9px] text-[13px] text-zinc-200 border-b border-zinc-900 align-top last:border-b-0 group-hover:bg-zinc-900">
         {v.status ? (
           <span
-            className="badge"
+            className="inline-block px-[9px] py-[3px] rounded-md text-[11px] font-medium border"
             style={{ background: sColor + '22', color: sColor, borderColor: sColor + '55' }}
           >
             {v.status}
           </span>
         ) : '—'}
       </td>
-      <td>{v.next_action || '—'}</td>
-      <td>{fmtDate(v.connect_date)}</td>
-      <td>{fmtDate(v.next_action_date)}</td>
-      <td>{v.vehicle || '—'}</td>
-      <td>{v.phone_no || '—'}</td>
-      <td>
+      <td className="px-[14px] py-3 max-[480px]:px-[10px] max-[480px]:py-[9px] text-[13px] text-zinc-200 border-b border-zinc-900 align-top last:border-b-0 group-hover:bg-zinc-900">{v.next_action || '—'}</td>
+      <td className="px-[14px] py-3 max-[480px]:px-[10px] max-[480px]:py-[9px] text-[13px] text-zinc-200 border-b border-zinc-900 align-top last:border-b-0 group-hover:bg-zinc-900">{fmtDate(v.connect_date)}</td>
+      <td className="px-[14px] py-3 max-[480px]:px-[10px] max-[480px]:py-[9px] text-[13px] text-zinc-200 border-b border-zinc-900 align-top last:border-b-0 group-hover:bg-zinc-900">{fmtDate(v.next_action_date)}</td>
+      <td className="px-[14px] py-3 max-[480px]:px-[10px] max-[480px]:py-[9px] text-[13px] text-zinc-200 border-b border-zinc-900 align-top last:border-b-0 group-hover:bg-zinc-900">{v.vehicle || '—'}</td>
+      <td className="px-[14px] py-3 max-[480px]:px-[10px] max-[480px]:py-[9px] text-[13px] text-zinc-200 border-b border-zinc-900 align-top last:border-b-0 group-hover:bg-zinc-900">{v.phone_no || '—'}</td>
+      <td className="px-[14px] py-3 max-[480px]:px-[10px] max-[480px]:py-[9px] text-[13px] text-zinc-200 border-b border-zinc-900 align-top last:border-b-0 group-hover:bg-zinc-900">
         {done && v.updated_at ? (
           <div>
-            <div style={{ color: '#22c55e', fontSize: 12 }}>
+            <div className="text-green-500 text-[12px]">
               {new Date(v.updated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}{' '}
               {new Date(v.updated_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
             </div>
             {v.updated_by_name && (
-              <div style={{ fontSize: 11, color: '#6b7280' }}>{v.updated_by_name}</div>
+              <div className="text-[11px] text-zinc-500">{v.updated_by_name}</div>
             )}
           </div>
         ) : '—'}
       </td>
-      <td>
+      <td className="px-[14px] py-3 max-[480px]:px-[10px] max-[480px]:py-[9px] text-[13px] text-zinc-200 border-b border-zinc-900 align-top last:border-b-0 group-hover:bg-zinc-900">
         {done
-          ? <span className="badge badge-updated">Updated</span>
-          : <span className="badge badge-pending-v">Pending</span>
+          ? <span className="inline-block px-[9px] py-[3px] rounded-md text-[11px] font-medium border bg-green-500/10 text-green-500 border-green-500/25">Updated</span>
+          : <span className="inline-block px-[9px] py-[3px] rounded-md text-[11px] font-medium border bg-amber-400/10 text-amber-400 border-amber-400/25">Pending</span>
         }
       </td>
     </tr>

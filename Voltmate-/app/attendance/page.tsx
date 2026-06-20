@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { AttendanceRecord, LeaveBalance, LeaveRequest } from '@/types/api';
 
 /** Returns an AbortSignal that fires after `ms` milliseconds. */
 function timeoutSignal(ms: number): AbortSignal {
@@ -51,7 +52,7 @@ function fmtDate(dateStr: string): string {
 }
 
 function fmtDuration(secs: number | null | undefined): string {
-  if (!secs) return '—';
+  if (secs == null || !Number.isFinite(secs)) return '—';
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
@@ -65,123 +66,13 @@ function elapsedSince(iso: string): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-const CSS = `
-  *{box-sizing:border-box;margin:0;padding:0;}
-  .att-root{max-width:900px;margin:0 auto;padding:28px 20px;font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;}
-  /* Header */
-  .att-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:12px;flex-wrap:wrap;}
-  .att-user{display:flex;align-items:center;gap:12px;}
-  .att-avatar{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0;user-select:none;}
-  .att-user-name{font-size:17px;font-weight:700;color:#fff;line-height:1.3;}
-  .att-user-sub{font-size:12px;color:#9ca3af;margin-top:2px;}
-  .att-nav{display:flex;align-items:center;gap:10px;}
-  .att-nav-btn{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#9ca3af;font-size:16px;transition:all .15s;line-height:1;}
-  .att-nav-btn:hover{border-color:#555;color:#fff;}
-  .att-month-label{font-size:15px;font-weight:700;color:#fff;min-width:130px;text-align:center;}
-  /* Clock row */
-  .att-clock-row{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
-  .att-timer{font-size:13px;color:#9ca3af;}
-  .att-timer strong{color:#00d9ff;font-variant-numeric:tabular-nums;font-size:15px;font-weight:700;}
-  .att-btn{padding:8px 20px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;}
-  .att-btn:disabled{opacity:.45;cursor:not-allowed;}
-  .att-btn-in{background:#22c55e;color:#fff;}
-  .att-btn-out{background:#ef4444;color:#fff;}
-  .att-btn-ref{background:transparent;border:1px solid #2a2a2a;color:#9ca3af;}
-  .att-btn-ref:hover{border-color:#555;color:#e5e5e5;}
-  /* Stats */
-  .att-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px;}
-  .att-stat{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:16px 20px;}
-  .att-stat-val{font-size:30px;font-weight:700;margin-bottom:4px;line-height:1;}
-  .att-stat-lbl{font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.6px;font-weight:500;}
-  /* Calendar card */
-  .att-cal{background:#111;border:1px solid #2a2a2a;border-radius:14px;overflow:hidden;margin-bottom:12px;}
-  .att-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);}
-  .att-cal-head{background:#161616;border-bottom:1px solid #222;}
-  .att-cal-head-cell{padding:10px 4px;text-align:center;font-size:11px;font-weight:600;color:#6b7280;letter-spacing:.5px;}
-  /* Day cells */
-  .att-day{min-height:76px;border-right:1px solid #1e1e1e;border-bottom:1px solid #1e1e1e;padding:7px 6px 5px;cursor:pointer;transition:background .12s;position:relative;}
-  .att-day:nth-child(7n){border-right:none;}
-  .att-day:hover{background:#1a1a1a;}
-  .att-day.att-empty{cursor:default;background:transparent !important;}
-  .att-day.att-weekend .att-day-num{color:#3d4555;}
-  .att-day-num-wrap{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;margin-bottom:5px;}
-  .att-day-num{font-size:13px;color:#9ca3af;}
-  .att-day.att-today .att-day-num-wrap{background:#3b82f6;border-radius:50%;}
-  .att-day.att-today .att-day-num{color:#fff;font-weight:700;}
-  .att-day-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;border:1px solid;margin-bottom:3px;white-space:nowrap;}
-  .att-day-time{font-size:10px;color:#6b7280;}
-  .att-day.att-selected{background:#1a1c2e !important;}
-  /* Legend */
-  .att-legend{display:flex;flex-wrap:wrap;gap:14px;padding:12px 16px;border-top:1px solid #1e1e1e;}
-  .att-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#9ca3af;}
-  .att-legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
-  /* Detail panel */
-  .att-detail{background:#111;border:1px solid #2a2a2a;border-radius:12px;padding:18px 20px;min-height:64px;display:flex;align-items:center;}
-  .att-detail-empty{color:#4b5563;font-size:13px;}
-  .att-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:16px;width:100%;}
-  .att-detail-item label{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;}
-  .att-detail-item span{font-size:14px;color:#e5e5e5;font-weight:500;}
-  /* Network badge */
-  .att-net-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;border:1px solid;margin-bottom:10px;}
-  .att-net-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-  /* Location / GPS */
-  .att-gps-bar{display:flex;align-items:center;gap:10px;background:#0f1a0f;border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:10px 14px;margin-bottom:14px;flex-wrap:wrap;}
-  .att-gps-bar-warn{background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.25);}
-  .att-gps-bar-info{background:rgba(59,130,246,.06);border-color:rgba(59,130,246,.25);}
-  .att-gps-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-  .att-gps-text{font-size:12px;font-weight:500;flex:1;}
-  .att-btn-checkin{background:rgba(99,102,241,.18);border:1px solid rgba(99,102,241,.4);color:#a5b4fc;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
-  .att-btn-checkin:hover{background:rgba(99,102,241,.28);}
-  .att-btn-checkin:disabled{opacity:.45;cursor:not-allowed;}
-  .att-ping-count{font-size:11px;color:#6b7280;margin-left:auto;}
-  /* Leave */
-  .att-leave-panel{background:#111;border:1px solid #2a2a2a;border-radius:14px;padding:16px 18px;margin-bottom:16px;}
-  .att-leave-hdr{font-size:14px;font-weight:700;color:#fff;margin-bottom:12px;}
-  .att-leave-balances{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
-  .att-leave-bal{background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:12px 14px;}
-  .att-leave-bal-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;font-weight:600;}
-  .att-leave-bal-val{font-size:26px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums;}
-  .att-leave-bal-sub{font-size:10px;color:#9ca3af;margin-top:4px;line-height:1.4;}
-  .att-leave-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .att-leave-form.full{grid-column:1/-1;}
-  .att-leave-field label{display:block;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;font-weight:600;}
-  .att-leave-field input,.att-leave-field select,.att-leave-field textarea{width:100%;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:8px 10px;color:#e5e5e5;font-size:13px;font-family:inherit;}
-  .att-leave-field textarea{min-height:56px;resize:vertical;}
-  .att-leave-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
-  .att-leave-btn{padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid;}
-  .att-leave-btn-primary{background:rgba(59,130,246,.15);border-color:rgba(59,130,246,.4);color:#93c5fd;}
-  .att-leave-btn-primary:disabled{opacity:.45;cursor:not-allowed;}
-  .att-leave-note{font-size:11px;color:#9ca3af;margin-top:10px;line-height:1.45;}
-  .att-leave-warn{font-size:11px;color:#fcd34d;margin-top:8px;line-height:1.45;padding:8px 10px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:8px;}
-  .att-leave-file{font-size:12px;color:#d1d5db;}
-  .att-leave-proof-btn{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid rgba(168,85,247,.4);background:rgba(168,85,247,.12);color:#d8b4fe;cursor:pointer;}
-  .att-leave-req{margin-top:12px;padding-top:12px;border-top:1px solid #2a2a2a;}
-  .att-leave-req-row{font-size:12px;color:#d1d5db;padding:6px 0;border-bottom:1px dashed #2a2a2a;display:flex;justify-content:space-between;gap:8px;align-items:center;}
-  .att-leave-req-row:last-child{border-bottom:none;}
-  .att-holiday-badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:9px;font-weight:600;border:1px solid rgba(244,114,182,.35);color:#f472b6;background:rgba(244,114,182,.12);}
-  .att-day.att-holiday{background:rgba(244,114,182,.04);}
-  .att-day.att-holiday:hover{background:rgba(244,114,182,.09);}
-  @media(max-width:540px){.att-leave-balances,.att-leave-form{grid-template-columns:1fr;}}
-  /* Mobile */
-  @media(max-width:540px){
-    .att-stat{padding:12px 10px;}
-    .att-stat-val{font-size:22px;}
-    .att-day{min-height:54px;padding:5px 3px;}
-    .att-day-time{display:none;}
-    .att-month-label{min-width:100px;font-size:13px;}
-    .att-day-badge{font-size:9px;padding:1px 5px;}
-  }
-  @media(max-width:360px){
-    .att-cal-head-cell{font-size:9px;padding:8px 2px;}
-    .att-day-num{font-size:11px;}
-    .att-stats{gap:6px;}
-  }
-`;
+/** Shared base classes for action buttons */
+const btnBase = 'px-5 py-2 rounded-lg text-[13px] font-semibold cursor-pointer transition-opacity duration-150 disabled:opacity-45 disabled:cursor-not-allowed';
 
 export default function AttendancePage() {
-  const [current,     setCurrent]     = useState<any>(null);
+  const [current,     setCurrent]     = useState<AttendanceRecord | null>(null);
   const [loading,     setLoading]     = useState(true);
-  const [history,     setHistory]     = useState<any[]>([]);
+  const [history,     setHistory]     = useState<AttendanceRecord[]>([]);
   const [busy,        setBusy]        = useState(false);
   const [me,          setMe]          = useState<{ sub?: number; name: string; email: string; role?: string; is_on_probation?: boolean } | null>(null);
   const [elapsed,     setElapsed]     = useState('00:00:00');
@@ -208,18 +99,18 @@ export default function AttendancePage() {
   const [checkingIn,  setCheckingIn]  = useState(false);
 
   // Leave management
-  const [leaveBalance, setLeaveBalance] = useState<any>(null);
-  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
-  const [holidays, setHolidays] = useState<{ date: string; name: string }[]>([]);
-  const [leaveType, setLeaveType] = useState<'CL' | 'SL'>('CL');
-  const [leaveStart, setLeaveStart] = useState('');
-  const [leaveEnd, setLeaveEnd] = useState('');
-  const [leaveReason, setLeaveReason] = useState('');
+  const [leaveBalance,     setLeaveBalance]     = useState<LeaveBalance | null>(null);
+  const [leaveRequests,    setLeaveRequests]    = useState<LeaveRequest[]>([]);
+  const [holidays,         setHolidays]         = useState<{ date: string; name: string }[]>([]);
+  const [leaveType,        setLeaveType]        = useState<'CL' | 'SL'>('CL');
+  const [leaveStart,       setLeaveStart]       = useState('');
+  const [leaveEnd,         setLeaveEnd]         = useState('');
+  const [leaveReason,      setLeaveReason]      = useState('');
   const [leaveDaysPreview, setLeaveDaysPreview] = useState<number | null>(null);
-  const [leaveNeedsProof, setLeaveNeedsProof] = useState(false);
-  const [minClStart, setMinClStart] = useState('');
-  const [proofFile, setProofFile] = useState<File | null>(null);
-  const [leaveBusy, setLeaveBusy] = useState(false);
+  const [leaveNeedsProof,  setLeaveNeedsProof]  = useState(false);
+  const [minClStart,       setMinClStart]       = useState('');
+  const [proofFile,        setProofFile]        = useState<File | null>(null);
+  const [leaveBusy,        setLeaveBusy]        = useState(false);
 
   function minClStartLocal(): string {
     const d = new Date();
@@ -537,7 +428,7 @@ export default function AttendancePage() {
     if (timerRef.current) clearInterval(timerRef.current);
     if (current?.clock_in_at) {
       setElapsed(elapsedSince(current.clock_in_at));
-      timerRef.current = setInterval(() => setElapsed(elapsedSince(current.clock_in_at)), 1000);
+      timerRef.current = setInterval(() => setElapsed(elapsedSince(current.clock_in_at!)), 1000);
     } else {
       setElapsed('00:00:00');
       // Clocked out — stop location interval
@@ -639,7 +530,7 @@ export default function AttendancePage() {
   // History arrives newest-first (DESC created_at). Iterate oldest-first so that
   // newer records (e.g. a 'leave' entry inserted when leave was approved) always
   // overwrite older ones (e.g. the original clock-in record for the same date).
-  const dayMap: Record<string, any> = {};
+  const dayMap: Record<string, AttendanceRecord & { _dateKey: string }> = {};
   [...history].reverse().forEach(a => {
     const key = toDateKey(a.date);
     if (key) dayMap[key] = { ...a, _dateKey: key };
@@ -669,46 +560,62 @@ export default function AttendancePage() {
 
   const selectedRecord  = selectedDay ? dayMap[selectedDay] ?? null : null;
   const selectedHoliday = selectedDay ? holidays.find(h => h.date === selectedDay) ?? null : null;
-  const initials       = me ? getInitials(me.name) : '?';
+  const initials        = me ? getInitials(me.name) : '?';
 
   const roleLabel = me?.role
     ? me.role.charAt(0).toUpperCase() + me.role.slice(1)
     : '';
 
-  return (
-    <div style={{ background: '#0a0a0a', minHeight: '100vh', color: '#e5e5e5' }}>
-      <style>{CSS}</style>
+  const fieldInputCls = 'w-full bg-zinc-900 border border-[#333] rounded-lg px-2.5 py-2 text-zinc-200 text-[13px] font-sans';
+  const detailLabelCls = 'text-[10px] text-zinc-500 uppercase tracking-[0.5px] block mb-1';
+  const detailValueCls = 'text-[14px] text-zinc-200 font-medium';
 
-      <div className="att-root">
+  return (
+    <div className="bg-zinc-950 min-h-screen text-zinc-200 font-sans">
+      <div className="max-w-[900px] mx-auto px-5 py-7">
 
         {/* ── Header: avatar + name + month nav ── */}
-        <div className="att-header">
-          <div className="att-user">
-            <div className="att-avatar">{initials}</div>
+        <div className="flex justify-between items-center mb-[18px] gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-[46px] h-[46px] rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-base font-bold text-white shrink-0 select-none">
+              {initials}
+            </div>
             <div>
-              <div className="att-user-name">{me?.name || '—'}</div>
-              <div className="att-user-sub">
+              <div className="text-[17px] font-bold text-white leading-[1.3]">{me?.name || '—'}</div>
+              <div className="text-xs text-zinc-400 mt-0.5">
                 {me?.email || ''}
                 {roleLabel ? ` · ${roleLabel}` : ''}
               </div>
             </div>
           </div>
-          <div className="att-nav">
-            <button className="att-nav-btn" onClick={prevMonth}>Prev</button>
-            <span className="att-month-label">{MONTH_NAMES[viewMonth]} {viewYear}</span>
-            <button className="att-nav-btn" onClick={nextMonth}>Next</button>
+          <div className="flex items-center gap-2.5">
+            <button
+              className="bg-zinc-900 border border-zinc-800 rounded-lg w-8 h-8 flex items-center justify-center cursor-pointer text-zinc-400 text-base transition-all duration-150 leading-none hover:border-zinc-500 hover:text-white"
+              onClick={prevMonth}
+            >
+              Prev
+            </button>
+            <span className="text-[15px] font-bold text-white min-w-[130px] text-center max-[540px]:min-w-[100px] max-[540px]:text-[13px]">
+              {MONTH_NAMES[viewMonth]} {viewYear}
+            </span>
+            <button
+              className="bg-zinc-900 border border-zinc-800 rounded-lg w-8 h-8 flex items-center justify-center cursor-pointer text-zinc-400 text-base transition-all duration-150 leading-none hover:border-zinc-500 hover:text-white"
+              onClick={nextMonth}
+            >
+              Next
+            </button>
           </div>
         </div>
 
         {/* ── Network status badge ── */}
         {network.checked && (
           <div
-            className="att-net-badge"
+            className="inline-flex items-center gap-1.5 px-3 py-[5px] rounded-[20px] text-xs font-medium border mb-2.5"
             style={network.allowed
               ? { color: '#22c55e', background: 'rgba(34,197,94,.1)', borderColor: 'rgba(34,197,94,.3)' }
               : { color: '#f59e0b', background: 'rgba(245,158,11,.1)', borderColor: 'rgba(245,158,11,.3)' }}
           >
-            <span className="att-net-dot" style={{ background: network.allowed ? '#22c55e' : '#f59e0b' }} />
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: network.allowed ? '#22c55e' : '#f59e0b' }} />
             {network.no_network_rules
               ? `No office IP whitelist yet — clock-in saves as pending. Server sees IP ${network.ip ?? '—'}; ask admin to add this to Allowed networks if you are on the office LAN.`
               : network.allowed
@@ -718,24 +625,26 @@ export default function AttendancePage() {
         )}
 
         {/* ── Clock In / Out + live timer ── */}
-        <div className="att-clock-row">
+        <div className="flex items-center gap-2.5 mb-[18px] flex-wrap">
           {current ? (
             <>
-              <div className="att-timer">Clocked in · <strong>{elapsed}</strong></div>
-              <button className="att-btn att-btn-out" onClick={clockOut} disabled={busy}>
+              <div className="text-[13px] text-zinc-400">
+                Clocked in · <strong className="text-cyan-400 tabular-nums text-[15px] font-bold">{elapsed}</strong>
+              </div>
+              <button className={`${btnBase} bg-red-500 text-white`} onClick={clockOut} disabled={busy}>
                 {busy ? 'Clocking out…' : 'Clock Out'}
               </button>
             </>
           ) : hasCompletedToday ? (
-            <div className="att-timer" style={{ color: '#22c55e' }}>
+            <div className="text-[13px] text-green-500">
               Attendance marked for today &nbsp;·&nbsp;
-              {fmtTime(todayRecord.clock_in_at)} – {fmtTime(todayRecord.clock_out_at)}
+              {fmtTime(todayRecord?.clock_in_at)} – {fmtTime(todayRecord?.clock_out_at)}
             </div>
           ) : (
             <>
-              <div className="att-timer">{loading ? 'Loading…' : 'Not clocked in'}</div>
+              <div className="text-[13px] text-zinc-400">{loading ? 'Loading…' : 'Not clocked in'}</div>
               <button
-                className="att-btn att-btn-in"
+                className={`${btnBase} bg-green-500 text-white`}
                 onClick={clockIn}
                 disabled={busy || loading}
               >
@@ -743,19 +652,33 @@ export default function AttendancePage() {
               </button>
             </>
           )}
-          <button className="att-btn att-btn-ref" onClick={() => { fetchAll(); fetchNetworkStatus(); }} disabled={loading}>
+          <button
+            className={`${btnBase} bg-transparent border border-zinc-800 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200`}
+            onClick={() => { fetchAll(); fetchNetworkStatus(); }}
+            disabled={loading}
+          >
             {loading ? '…' : 'Refresh'}
           </button>
         </div>
 
         {/* ── GPS / Location status bar (only while clocked in) ── */}
         {current && (
-          <div className={`att-gps-bar${gpsStatus === 'denied' || gpsStatus === 'unavailable' ? ' att-gps-bar-warn' : gpsStatus === 'idle' ? ' att-gps-bar-info' : ''}`}>
+          <div className={[
+            'flex items-center gap-2.5 rounded-[10px] px-[14px] py-2.5 mb-[14px] flex-wrap border',
+            gpsStatus === 'denied' || gpsStatus === 'unavailable'
+              ? 'bg-[rgba(239,68,68,0.06)] border-[rgba(239,68,68,0.25)]'
+              : gpsStatus === 'idle'
+                ? 'bg-[rgba(59,130,246,0.06)] border-[rgba(59,130,246,0.25)]'
+                : 'bg-[#0f1a0f] border-[rgba(34,197,94,0.25)]',
+          ].join(' ')}>
             <span
-              className="att-gps-dot"
+              className="w-2 h-2 rounded-full shrink-0"
               style={{ background: gpsStatus === 'granted' ? '#22c55e' : gpsStatus === 'denied' || gpsStatus === 'unavailable' ? '#ef4444' : '#6b7280' }}
             />
-            <span className="att-gps-text" style={{ color: gpsStatus === 'granted' ? '#86efac' : gpsStatus === 'denied' || gpsStatus === 'unavailable' ? '#fca5a5' : '#9ca3af' }}>
+            <span
+              className="text-xs font-medium flex-1"
+              style={{ color: gpsStatus === 'granted' ? '#86efac' : gpsStatus === 'denied' || gpsStatus === 'unavailable' ? '#fca5a5' : '#9ca3af' }}
+            >
               {gpsStatus === 'granted'     && 'Location tracking active — pinging every 30 min'}
               {gpsStatus === 'denied'      && 'Location access denied — your trail will not be recorded for attendance review'}
               {gpsStatus === 'unavailable' && 'GPS not available on this device'}
@@ -763,7 +686,7 @@ export default function AttendancePage() {
             </span>
             {gpsStatus !== 'unavailable' && (
               <button
-                className="att-btn-checkin"
+                className="bg-[rgba(99,102,241,0.18)] border border-[rgba(99,102,241,0.4)] text-[#a5b4fc] px-[14px] py-[6px] rounded-lg text-xs font-semibold cursor-pointer transition-all duration-150 hover:bg-[rgba(99,102,241,0.28)] disabled:opacity-45 disabled:cursor-not-allowed"
                 onClick={handleManualCheckIn}
                 disabled={checkingIn}
                 title="Record your current location as a manual check-in"
@@ -772,26 +695,17 @@ export default function AttendancePage() {
               </button>
             )}
             {pingCount > 0 && (
-              <span className="att-ping-count">{pingCount} ping{pingCount !== 1 ? 's' : ''} recorded</span>
+              <span className="text-[11px] text-zinc-500 ml-auto">{pingCount} ping{pingCount !== 1 ? 's' : ''} recorded</span>
             )}
           </div>
         )}
 
         {/* ── Probation warning banner ── */}
         {me?.is_on_probation && (
-          <div style={{
-            background:   'rgba(239,68,68,.08)',
-            border:       '1px solid rgba(239,68,68,.3)',
-            borderRadius: 10,
-            padding:      '12px 16px',
-            marginBottom: 16,
-            display:      'flex',
-            alignItems:   'center',
-            gap:          10,
-          }}>
+          <div className="bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.3)] rounded-[10px] px-4 py-3 mb-4 flex items-center gap-2.5">
             <div>
-              <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 13 }}>You are on probation</div>
-              <div style={{ color: '#fca5a5', fontSize: 12, marginTop: 2 }}>
+              <div className="text-red-500 font-bold text-[13px]">You are on probation</div>
+              <div className="text-[#fca5a5] text-xs mt-0.5">
                 You have been absent for 3 or more consecutive working days this month.
                 Please report to your manager.
               </div>
@@ -800,30 +714,30 @@ export default function AttendancePage() {
         )}
 
         {/* ── Leave balance & apply ── */}
-        <div className="att-leave-panel">
-          <div className="att-leave-hdr">Leave balance · FY {leaveBalance?.fy_label || '…'}</div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-[14px] px-[18px] py-4 mb-4">
+          <div className="text-[14px] font-bold text-white mb-3">Leave balance · FY {leaveBalance?.fy_label || '…'}</div>
           {leaveBalance?.on_probation ? (
-            <div className="att-leave-note" style={{ color: '#fca5a5', marginBottom: 10 }}>
+            <div className="text-[11px] text-[#fca5a5] leading-[1.45] mb-2.5">
               Probation until {leaveBalance.probation_end}. You can apply for leave after completing 3 months from join date.
             </div>
           ) : null}
-          <div className="att-leave-balances">
-            <div className="att-leave-bal">
-              <div className="att-leave-bal-lbl">Casual leave (CL)</div>
-              <div className="att-leave-bal-val" style={{ color: '#93c5fd' }}>
+          <div className="grid grid-cols-2 gap-2.5 mb-[14px] max-[540px]:grid-cols-1">
+            <div className="bg-zinc-900 border border-[#333] rounded-[10px] px-[14px] py-3">
+              <div className="text-[10px] uppercase tracking-[0.5px] text-zinc-500 font-semibold">Casual leave (CL)</div>
+              <div className="text-[26px] font-extrabold mt-1 tabular-nums text-[#93c5fd]">
                 {leaveBalance ? leaveBalance.cl_available : '…'}
               </div>
-              <div className="att-leave-bal-sub">
+              <div className="text-[10px] text-zinc-400 mt-1 leading-[1.4]">
                 Earned {leaveBalance?.cl_earned ?? 0} · Used {leaveBalance?.cl_used ?? 0}
                 {leaveBalance?.cl_pending ? ` · Pending ${leaveBalance.cl_pending}` : ''}
               </div>
             </div>
-            <div className="att-leave-bal">
-              <div className="att-leave-bal-lbl">Sick leave (SL)</div>
-              <div className="att-leave-bal-val" style={{ color: '#d8b4fe' }}>
+            <div className="bg-zinc-900 border border-[#333] rounded-[10px] px-[14px] py-3">
+              <div className="text-[10px] uppercase tracking-[0.5px] text-zinc-500 font-semibold">Sick leave (SL)</div>
+              <div className="text-[26px] font-extrabold mt-1 tabular-nums text-[#d8b4fe]">
                 {leaveBalance ? leaveBalance.sl_available : '…'}
               </div>
-              <div className="att-leave-bal-sub">
+              <div className="text-[10px] text-zinc-400 mt-1 leading-[1.4]">
                 Earned {leaveBalance?.sl_earned ?? 0}
                 {leaveBalance?.sl_carried_forward ? ` + ${leaveBalance.sl_carried_forward} carried` : ''}
                 · Used {leaveBalance?.sl_used ?? 0}
@@ -831,19 +745,20 @@ export default function AttendancePage() {
             </div>
           </div>
           {leaveBalance?.next_accrual_note && (
-            <div className="att-leave-note">{leaveBalance.next_accrual_note}</div>
+            <div className="text-[11px] text-zinc-400 mt-2.5 leading-[1.45]">{leaveBalance.next_accrual_note}</div>
           )}
           {leaveType === 'CL' && (
-            <div className="att-leave-warn">
+            <div className="text-[11px] text-[#fcd34d] mt-2 leading-[1.45] px-2.5 py-2 bg-[rgba(251,191,36,0.08)] border border-[rgba(251,191,36,0.25)] rounded-lg">
               Casual leave must be applied at least <strong>2 days before</strong> the start date
               (earliest: {minClStart || minClStartLocal()}).
             </div>
           )}
 
-          <div className="att-leave-form" style={{ marginTop: 14 }}>
-            <div className="att-leave-field">
-              <label>Leave type</label>
+          <div className="grid grid-cols-2 gap-2.5 mt-[14px] max-[540px]:grid-cols-1">
+            <div>
+              <label className="block text-[10px] text-zinc-500 uppercase tracking-[0.4px] mb-1 font-semibold">Leave type</label>
               <select
+                className={fieldInputCls}
                 value={leaveType}
                 onChange={e => setLeaveType(e.target.value as 'CL' | 'SL')}
                 disabled={!leaveBalance?.can_apply}
@@ -852,13 +767,18 @@ export default function AttendancePage() {
                 <option value="SL">Sick leave (SL)</option>
               </select>
             </div>
-            <div className="att-leave-field">
-              <label>Working days in range</label>
-              <input readOnly value={leaveDaysPreview != null ? String(leaveDaysPreview) : '—'} />
-            </div>
-            <div className="att-leave-field">
-              <label>From</label>
+            <div>
+              <label className="block text-[10px] text-zinc-500 uppercase tracking-[0.4px] mb-1 font-semibold">Working days in range</label>
               <input
+                className={fieldInputCls}
+                readOnly
+                value={leaveDaysPreview != null ? String(leaveDaysPreview) : '—'}
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-zinc-500 uppercase tracking-[0.4px] mb-1 font-semibold">From</label>
+              <input
+                className={fieldInputCls}
                 type="date"
                 value={leaveStart}
                 min={leaveType === 'CL' ? (minClStart || minClStartLocal()) : undefined}
@@ -866,18 +786,20 @@ export default function AttendancePage() {
                 disabled={!leaveBalance?.can_apply}
               />
             </div>
-            <div className="att-leave-field">
-              <label>To</label>
+            <div>
+              <label className="block text-[10px] text-zinc-500 uppercase tracking-[0.4px] mb-1 font-semibold">To</label>
               <input
+                className={fieldInputCls}
                 type="date"
                 value={leaveEnd}
                 onChange={e => setLeaveEnd(e.target.value)}
                 disabled={!leaveBalance?.can_apply}
               />
             </div>
-            <div className="att-leave-field full">
-              <label>Reason</label>
+            <div className="col-span-full">
+              <label className="block text-[10px] text-zinc-500 uppercase tracking-[0.4px] mb-1 font-semibold">Reason</label>
               <textarea
+                className={`${fieldInputCls} min-h-[56px] resize-y`}
                 value={leaveReason}
                 onChange={e => setLeaveReason(e.target.value)}
                 placeholder="Brief reason for leave"
@@ -885,26 +807,26 @@ export default function AttendancePage() {
               />
             </div>
             {leaveNeedsProof && (
-              <div className="att-leave-field full">
-                <label>Medical proof (required for admin approval)</label>
+              <div className="col-span-full">
+                <label className="block text-[10px] text-zinc-500 uppercase tracking-[0.4px] mb-1 font-semibold">Medical proof (required for admin approval)</label>
                 <input
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
-                  className="att-leave-file"
+                  className="text-xs text-[#d1d5db]"
                   disabled={!leaveBalance?.can_apply}
                   onChange={e => setProofFile(e.target.files?.[0] ?? null)}
                 />
-                <div className="att-leave-note" style={{ marginTop: 6 }}>
+                <div className="text-[11px] text-zinc-400 mt-1.5 leading-[1.45]">
                   Sick leave over 2 days requires a medical certificate (PDF or image, max 3 MB).
                   You can upload now or after submitting the request.
                 </div>
               </div>
             )}
           </div>
-          <div className="att-leave-actions">
+          <div className="flex gap-2 flex-wrap mt-3">
             <button
               type="button"
-              className="att-leave-btn att-leave-btn-primary"
+              className="px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer border bg-[rgba(59,130,246,0.15)] border-[rgba(59,130,246,0.4)] text-[#93c5fd] disabled:opacity-45 disabled:cursor-not-allowed"
               disabled={leaveBusy || !leaveBalance?.can_apply || !leaveStart || !leaveEnd}
               onClick={() => void submitLeave()}
             >
@@ -913,27 +835,27 @@ export default function AttendancePage() {
           </div>
 
           {leaveRequests.filter(r => r.status === 'pending').length > 0 && (
-            <div className="att-leave-req">
-              <div className="att-leave-hdr" style={{ fontSize: 12, marginBottom: 8 }}>Pending requests</div>
+            <div className="mt-3 pt-3 border-t border-zinc-800">
+              <div className="text-xs font-bold text-white mb-2">Pending requests</div>
               {leaveRequests.filter(r => r.status === 'pending').map(r => (
-                <div key={r.id} className="att-leave-req-row">
+                <div key={r.id} className="text-xs text-[#d1d5db] py-[6px] border-b border-dashed border-zinc-800 last:border-b-0 flex justify-between gap-2 items-center">
                   <span>
                     {r.leave_type} · {r.start_date?.slice(0, 10)} → {r.end_date?.slice(0, 10)} ({r.days}d)
                     {r.requires_proof && !r.proof_path && (
-                      <span style={{ color: '#fcd34d' }}> · Proof pending</span>
+                      <span className="text-[#fcd34d]"> · Proof pending</span>
                     )}
                     {r.proof_path && (
-                      <span style={{ color: '#86efac' }}> · Proof uploaded</span>
+                      <span className="text-[#86efac]"> · Proof uploaded</span>
                     )}
                   </span>
-                  <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <span className="flex gap-1.5 flex-wrap">
                     {r.requires_proof && !r.proof_path && (
-                      <label className="att-leave-proof-btn" style={{ cursor: 'pointer' }}>
+                      <label className="text-[11px] py-1 px-2.5 rounded-md border border-[rgba(168,85,247,0.4)] bg-[rgba(168,85,247,0.12)] text-[#d8b4fe] cursor-pointer">
                         Upload proof
                         <input
                           type="file"
                           accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
-                          style={{ display: 'none' }}
+                          className="hidden"
                           onChange={e => {
                             const f = e.target.files?.[0];
                             if (f) void uploadProofForRequest(r.id, f);
@@ -942,7 +864,11 @@ export default function AttendancePage() {
                         />
                       </label>
                     )}
-                    <button type="button" className="att-btn att-btn-ref" onClick={() => void cancelLeave(r.id)}>
+                    <button
+                      type="button"
+                      className={`${btnBase} bg-transparent border border-zinc-800 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200`}
+                      onClick={() => void cancelLeave(r.id)}
+                    >
                       Cancel
                     </button>
                   </span>
@@ -953,36 +879,50 @@ export default function AttendancePage() {
         </div>
 
         {/* ── Stats row ── */}
-        <div className="att-stats">
-          <div className="att-stat">
-            <div className="att-stat-val" style={{ color: '#22c55e' }}>{loading ? '…' : presentCount}</div>
-            <div className="att-stat-lbl">Present</div>
+        <div className="grid grid-cols-3 gap-3 mb-[18px] max-[360px]:gap-1.5">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-4 max-[540px]:px-2.5 max-[540px]:py-3">
+            <div className="text-[30px] font-bold mb-1 leading-none text-green-500 max-[540px]:text-[22px]">
+              {loading ? '…' : presentCount}
+            </div>
+            <div className="text-[11px] text-zinc-400 uppercase tracking-[0.6px] font-medium">Present</div>
           </div>
-          <div className="att-stat">
-            <div className="att-stat-val" style={{ color: '#ef4444' }}>{loading ? '…' : absentCount}</div>
-            <div className="att-stat-lbl">Absent</div>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-4 max-[540px]:px-2.5 max-[540px]:py-3">
+            <div className="text-[30px] font-bold mb-1 leading-none text-red-500 max-[540px]:text-[22px]">
+              {loading ? '…' : absentCount}
+            </div>
+            <div className="text-[11px] text-zinc-400 uppercase tracking-[0.6px] font-medium">Absent</div>
           </div>
-          <div className="att-stat">
-            <div className="att-stat-val" style={{ color: '#3b82f6' }}>{loading ? '…' : leaveCount}</div>
-            <div className="att-stat-lbl">Leave</div>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-4 max-[540px]:px-2.5 max-[540px]:py-3">
+            <div className="text-[30px] font-bold mb-1 leading-none text-blue-500 max-[540px]:text-[22px]">
+              {loading ? '…' : leaveCount}
+            </div>
+            <div className="text-[11px] text-zinc-400 uppercase tracking-[0.6px] font-medium">Leave</div>
           </div>
         </div>
 
         {/* ── Monthly calendar ── */}
-        <div className="att-cal">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-[14px] overflow-hidden mb-3">
 
           {/* Day-of-week header */}
-          <div className="att-cal-grid att-cal-head">
+          <div className="grid grid-cols-7 bg-[#161616] border-b border-[#222]">
             {DAY_NAMES.map(d => (
-              <div key={d} className="att-cal-head-cell">{d}</div>
+              <div
+                key={d}
+                className="py-2.5 px-1 text-center text-[11px] font-semibold text-zinc-500 tracking-[0.5px] max-[360px]:text-[9px] max-[360px]:p-[8px_2px]"
+              >
+                {d}
+              </div>
             ))}
           </div>
 
           {/* Day cells */}
-          <div className="att-cal-grid">
+          <div className="grid grid-cols-7">
             {/* Leading empty cells */}
             {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-              <div key={`empty-${i}`} className="att-day att-empty" />
+              <div
+                key={`empty-${i}`}
+                className="min-h-[76px] border-r border-b border-[#1e1e1e] [&:nth-child(7n)]:border-r-0 max-[540px]:min-h-[54px]"
+              />
             ))}
 
             {/* Actual day cells */}
@@ -997,38 +937,47 @@ export default function AttendancePage() {
               const holidayObj = holidays.find(h => h.date === dateStr);
               const isHoliday  = !!holidayObj;
               const isSelected = dateStr === selectedDay;
-              const cfg        = record && !isFuture ? (STATUS_CONFIG[record.status] ?? STATUS_CONFIG.pending) : null;
+              const cfg        = record && !isFuture ? (STATUS_CONFIG[record.status ?? ''] ?? STATUS_CONFIG.pending) : null;
 
               return (
                 <div
                   key={dateStr}
                   className={[
-                    'att-day',
-                    isToday    ? 'att-today'    : '',
-                    isWeekend  ? 'att-weekend'  : '',
-                    isHoliday  ? 'att-holiday'  : '',
-                    isSelected ? 'att-selected' : '',
+                    'min-h-[76px] border-r border-b border-[#1e1e1e] p-[7px_6px_5px] cursor-pointer transition-colors duration-[120ms] relative hover:bg-zinc-900 [&:nth-child(7n)]:border-r-0',
+                    'max-[540px]:min-h-[54px] max-[540px]:p-[5px_3px]',
+                    isHoliday  ? 'bg-[rgba(244,114,182,0.04)] hover:!bg-[rgba(244,114,182,0.09)]' : '',
+                    isSelected ? '!bg-[#1a1c2e]' : '',
                   ].filter(Boolean).join(' ')}
                   onClick={() => setSelectedDay(isSelected ? null : dateStr)}
                 >
-                  <div className="att-day-num-wrap">
-                    <span className="att-day-num">{day}</span>
+                  <div className={`inline-flex items-center justify-center w-6 h-6 mb-[5px]${isToday ? ' bg-blue-500 rounded-full' : ''}`}>
+                    <span className={[
+                      'text-[13px] max-[360px]:text-[11px]',
+                      isToday    ? 'text-white font-bold'
+                      : isWeekend ? 'text-[#3d4555]'
+                      : 'text-zinc-400',
+                    ].join(' ')}>
+                      {day}
+                    </span>
                   </div>
                   {isHoliday && (
-                    <div className="att-holiday-badge" title={holidayObj?.name}>
+                    <div
+                      className="inline-block px-[7px] py-0.5 rounded-[20px] text-[9px] font-semibold border border-[rgba(244,114,182,0.35)] text-pink-400 bg-[rgba(244,114,182,0.12)]"
+                      title={holidayObj?.name}
+                    >
                       {holidayObj?.name || 'Holiday'}
                     </div>
                   )}
                   {cfg && (
                     <>
                       <div
-                        className="att-day-badge"
+                        className="inline-block px-2 py-0.5 rounded-[20px] text-[10px] font-semibold border mb-[3px] whitespace-nowrap max-[540px]:text-[9px] max-[540px]:px-[5px] max-[540px]:py-px"
                         style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }}
                       >
                         {cfg.label}
                       </div>
                       {record.clock_in_at && (
-                        <div className="att-day-time">{fmtTime(record.clock_in_at)}</div>
+                        <div className="text-[10px] text-zinc-500 max-[540px]:hidden">{fmtTime(record.clock_in_at)}</div>
                       )}
                     </>
                   )}
@@ -1038,7 +987,7 @@ export default function AttendancePage() {
           </div>
 
           {/* Legend */}
-          <div className="att-legend">
+          <div className="flex flex-wrap gap-[14px] px-4 py-3 border-t border-[#1e1e1e]">
             {[
               { label: 'Present',  color: '#22c55e' },
               { label: 'Absent',   color: '#ef4444' },
@@ -1048,8 +997,8 @@ export default function AttendancePage() {
               { label: 'Half day', color: '#a78bfa' },
               { label: 'Weekend',  color: '#374151' },
             ].map(({ label, color }) => (
-              <div key={label} className="att-legend-item">
-                <span className="att-legend-dot" style={{ background: color }} />
+              <div key={label} className="flex items-center gap-[5px] text-[11px] text-zinc-400">
+                <span className="w-[9px] h-[9px] rounded-full shrink-0" style={{ background: color }} />
                 {label}
               </div>
             ))}
@@ -1057,52 +1006,55 @@ export default function AttendancePage() {
         </div>
 
         {/* ── Day detail panel ── */}
-        <div className="att-detail">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-[18px] min-h-16 flex items-center">
           {!selectedDay ? (
-            <span className="att-detail-empty">Click on any day to view details</span>
+            <span className="text-[#4b5563] text-[13px]">Click on any day to view details</span>
           ) : (
-            <div className="att-detail-grid">
-              <div className="att-detail-item">
-                <label>Date</label>
-                <span>{fmtDate(selectedDay)}</span>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-4 w-full">
+              <div>
+                <label className={detailLabelCls}>Date</label>
+                <span className={detailValueCls}>{fmtDate(selectedDay)}</span>
               </div>
               {selectedHoliday && (
-                <div className="att-detail-item">
-                  <label>Holiday</label>
-                  <span style={{ color: '#f472b6' }}>{selectedHoliday.name}</span>
+                <div>
+                  <label className={detailLabelCls}>Holiday</label>
+                  <span className="text-[14px] text-pink-400 font-medium">{selectedHoliday.name}</span>
                 </div>
               )}
               {selectedRecord ? (
                 <>
-                  <div className="att-detail-item">
-                    <label>Status</label>
-                    <span style={{ color: (STATUS_CONFIG[selectedRecord.status] ?? STATUS_CONFIG.pending).color }}>
-                      {(STATUS_CONFIG[selectedRecord.status] ?? STATUS_CONFIG.pending).label}
+                  <div>
+                    <label className={detailLabelCls}>Status</label>
+                    <span
+                      className="text-[14px] font-medium"
+                      style={{ color: (STATUS_CONFIG[selectedRecord.status ?? ''] ?? STATUS_CONFIG.pending).color }}
+                    >
+                      {(STATUS_CONFIG[selectedRecord.status ?? ''] ?? STATUS_CONFIG.pending).label}
                     </span>
                   </div>
-                  <div className="att-detail-item">
-                    <label>Clock In</label>
-                    <span>{fmtTime(selectedRecord.clock_in_at) || '—'}</span>
+                  <div>
+                    <label className={detailLabelCls}>Clock In</label>
+                    <span className={detailValueCls}>{fmtTime(selectedRecord.clock_in_at) || '—'}</span>
                   </div>
-                  <div className="att-detail-item">
-                    <label>Clock Out</label>
-                    <span>{fmtTime(selectedRecord.clock_out_at) || '—'}</span>
+                  <div>
+                    <label className={detailLabelCls}>Clock Out</label>
+                    <span className={detailValueCls}>{fmtTime(selectedRecord.clock_out_at) || '—'}</span>
                   </div>
-                  <div className="att-detail-item">
-                    <label>Duration</label>
-                    <span>{fmtDuration(selectedRecord.duration_seconds)}</span>
+                  <div>
+                    <label className={detailLabelCls}>Duration</label>
+                    <span className={detailValueCls}>{fmtDuration(selectedRecord.duration_seconds)}</span>
                   </div>
                   {selectedRecord.note && (
-                    <div className="att-detail-item">
-                      <label>Note</label>
-                      <span style={{ fontSize: 12 }}>{selectedRecord.note}</span>
+                    <div>
+                      <label className={detailLabelCls}>Note</label>
+                      <span className="text-xs text-zinc-200 font-medium">{selectedRecord.note}</span>
                     </div>
                   )}
                 </>
               ) : (
-                <div className="att-detail-item" style={{ gridColumn: '1/-1' }}>
-                  <label>Status</label>
-                  <span style={{ color: '#6b7280' }}>
+                <div className="col-span-full">
+                  <label className={detailLabelCls}>Status</label>
+                  <span className="text-[14px] text-zinc-500 font-medium">
                     {selectedDay > todayStr ? 'Not yet' : selectedHoliday ? 'Company holiday' : 'No record'}
                   </span>
                 </div>

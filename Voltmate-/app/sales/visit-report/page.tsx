@@ -160,308 +160,36 @@ function fmtDateTime(d?: string) {
   return new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const PAGE_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
-
-  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-  :root {
-    --bg: #0a0c12;
-    --surface: #0f1117;
-    --surface2: #141720;
-    --surface3: #1a1d2e;
-    --border: #1e2236;
-    --border2: #272b40;
-    --accent: #00d9ff;
-    --accent-dim: rgba(0,217,255,0.08);
-    --accent-glow: rgba(0,217,255,0.18);
-    --teal: #00c9b1;
-    --amber: #fbbf24;
-    --red: #f43f5e;
-    --green: #10b981;
-    --text: #e8edf5;
-    --text2: #8e97ad;
-    --text3: #545968;
-    --mono: 'IBM Plex Mono', monospace;
-  }
-
-  body {
-    font-family: 'Outfit', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    font-size: 14px;
-    -webkit-font-smoothing: antialiased;
-  }
-
-  /* ── Layout ── */
-  .vr-root { display: flex; flex-direction: column; min-height: 100vh; }
-  .vr-content { padding: 32px 28px; flex: 1; max-width: 1680px; margin: 0 auto; width: 100%; }
-
-  /* ── Header ── */
-  .vr-header { margin-bottom: 28px; }
-  .vr-title { font-size: 28px; font-weight: 800; letter-spacing: -.5px; margin-bottom: 6px; }
-  .vr-subtitle { font-size: 13.5px; color: var(--text2); }
-
-  /* ── Filters Card ── */
-  .vr-filters {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 20px 22px; margin-bottom: 20px;
-  }
-  .vr-filters-label {
-    font-size: 11px; font-weight: 700; color: var(--text3);
-    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .vr-filters-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;
-    align-items: end;
-  }
-  .vr-fg { display: flex; flex-direction: column; }
-  .vr-label {
-    font-size: 10.5px; font-weight: 600; color: var(--text3);
-    text-transform: uppercase; letter-spacing: .9px; margin-bottom: 6px;
-  }
-  .vr-field {
-    font-family: 'Outfit', sans-serif; font-size: 13px;
-    background: var(--bg); border: 1px solid var(--border);
-    color: var(--text); padding: 8px 12px; border-radius: 7px; width: 100%;
-    transition: border-color .15s, box-shadow .15s;
-    appearance: none; -webkit-appearance: none;
-  }
-  .vr-field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
-  .vr-field::placeholder { color: var(--text3); }
-  select.vr-field {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 12 12'%3E%3Cpath fill='%23545968' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
-  }
-  .vr-btn-clear {
-    font-family: 'Outfit', sans-serif; font-size: 12.5px; font-weight: 600;
-    padding: 8px 16px; border-radius: 7px;
-    border: 1px solid var(--border); background: transparent; color: var(--text2);
-    cursor: pointer; transition: all .15s; white-space: nowrap;
-  }
-  .vr-btn-clear:hover { border-color: var(--border2); color: var(--text); }
-
-  /* ── Stats ── */
-  .vr-stats { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-  .vr-stat {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: 14px 18px; flex: 1; min-width: 140px;
-    transition: border-color .15s;
-  }
-  .vr-stat:hover { border-color: var(--border2); }
-  .vr-stat-label {
-    font-size: 10.5px; font-weight: 600; color: var(--text3);
-    text-transform: uppercase; letter-spacing: .9px; margin-bottom: 7px;
-  }
-  .vr-stat-val { font-size: 24px; font-weight: 800; font-family: var(--mono); }
-  .vr-stat-val.accent { color: var(--accent); }
-  .vr-stat-val.teal   { color: var(--teal); }
-  .vr-stat-val.amber  { color: var(--amber); }
-  .vr-stat-val.green  { color: var(--green); }
-
-  /* ── Table Card ── */
-  .vr-table-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; overflow: hidden;
-  }
-  .vr-table-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 20px; border-bottom: 1px solid var(--border);
-    flex-wrap: wrap; gap: 10px;
-  }
-  .vr-table-title { font-size: 14px; font-weight: 700; }
-  .vr-table-sub { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
-  .vr-table-actions { display: flex; gap: 8px; }
-  .vr-btn {
-    font-family: 'Outfit', sans-serif; font-size: 12.5px; font-weight: 600;
-    padding: 7px 14px; border-radius: 7px; border: none; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 6px;
-    transition: opacity .15s, box-shadow .15s, transform .1s; white-space: nowrap;
-  }
-  .vr-btn:active { transform: scale(0.97); }
-  .vr-btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
-  .vr-btn-ghost:hover { border-color: var(--border2); color: var(--text); }
-  .vr-btn-preview { background: rgba(0,217,255,.06); color: var(--accent); border: 1px solid rgba(0,217,255,.22); font-size: 12px; padding: 5px 12px; }
-  .vr-btn-preview:hover { background: rgba(0,217,255,.12); }
-
-  .vr-table-outer { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; min-width: 1280px; }
-  thead tr { background: var(--surface2); }
-  th {
-    padding: 11px 16px; text-align: left;
-    font-size: 10px; font-weight: 700; color: var(--text3);
-    text-transform: uppercase; letter-spacing: 1px; white-space: nowrap;
-    border-bottom: 1px solid var(--border);
-    cursor: pointer; user-select: none; position: relative;
-    transition: color .15s;
-  }
-  th:hover { color: var(--text2); }
-  th.sortable::after {
-    content: ''; position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
-    font-size: 11px; color: var(--text3); opacity: 0; transition: opacity .15s;
-  }
-  th.sortable:hover::after { opacity: 1; }
-  th.sorted::after { opacity: 1; color: var(--accent); }
-  th.sorted.asc::after { content: '↑'; }
-  th.sorted.desc::after { content: '↓'; }
-
-  td {
-    padding: 13px 16px; color: var(--text); font-size: 13px;
-    border-bottom: 1px solid rgba(30,34,54,0.6); vertical-align: middle;
-  }
-  tbody tr:last-child td { border-bottom: none; }
-  tbody tr { transition: background .1s; }
-  tbody tr:hover { background: rgba(255,255,255,0.02); }
-
-  .vr-num { font-family: var(--mono); font-size: 11px; color: var(--text3); }
-  .vr-code { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--accent); }
-  .vr-date { font-family: var(--mono); font-size: 11.5px; color: var(--text2); }
-
-  /* ── Badge ── */
-  .vr-badge {
-    display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px;
-    font-size: 11px; font-weight: 600; white-space: nowrap;
-  }
-  .vr-badge.new        { background: rgba(100,116,139,.1); color: var(--text3); border: 1px solid rgba(100,116,139,.22); }
-  .vr-badge.connected  { background: rgba(16,185,129,.1); color: var(--green); border: 1px solid rgba(16,185,129,.25); }
-  .vr-badge.testdrive  { background: rgba(0,217,255,.08); color: var(--accent); border: 1px solid rgba(0,217,255,.2); }
-  .vr-badge.quotation  { background: rgba(251,191,36,.08); color: var(--amber); border: 1px solid rgba(251,191,36,.22); }
-  .vr-badge.won        { background: rgba(16,185,129,.12); color: var(--green); border: 1px solid rgba(16,185,129,.3); }
-  .vr-badge.lost       { background: rgba(244,63,94,.1); color: var(--red); border: 1px solid rgba(244,63,94,.25); }
-  .vr-badge.default    { background: rgba(0,201,177,.08); color: var(--teal); border: 1px solid rgba(0,201,177,.2); }
-
-  /* ── Empty & Loading ── */
-  .vr-empty { text-align: center; padding: 64px 20px; color: var(--text3); }
-  .vr-empty-icon { font-size: 40px; margin-bottom: 14px; opacity: .4; }
-  .vr-empty-msg { font-size: 14px; }
-  .vr-empty-msg strong { color: var(--text2); }
-
-  .vr-skel-row td { padding: 14px 16px; }
-  .vr-skel {
-    height: 13px; border-radius: 4px;
-    background: linear-gradient(90deg, var(--surface2) 0%, var(--border) 50%, var(--surface2) 100%);
-    background-size: 200% 100%;
-    animation: skel 1.6s infinite;
-  }
-  @keyframes skel { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-
-  .vr-error {
-    background: rgba(244,63,94,.08); border: 1px solid rgba(244,63,94,.22);
-    color: var(--red); padding: 14px 18px; border-radius: 10px; margin-bottom: 20px;
-    font-size: 13px; font-weight: 500;
-  }
-
-  /* ── Preview Modal ── */
-  .vr-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,.72); backdrop-filter: blur(4px);
-    z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px;
-    animation: fadeIn .15s ease;
-  }
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  .vr-preview-modal {
-    background: var(--surface); border: 1px solid var(--border2);
-    border-radius: 16px; width: 100%; max-width: 740px; max-height: 88vh;
-    display: flex; flex-direction: column; overflow: hidden;
-    box-shadow: 0 32px 80px rgba(0,0,0,.6);
-    animation: slideUp .18s ease;
-  }
-  @keyframes slideUp { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-  .vr-pv-head {
-    padding: 22px 24px 18px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
-    flex-shrink: 0;
-  }
-  .vr-pv-name { font-size: 20px; font-weight: 800; letter-spacing: -.3px; }
-  .vr-pv-code { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-top: 4px; }
-  .vr-pv-close {
-    background: transparent; border: 1px solid var(--border); color: var(--text2);
-    width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px;
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    transition: all .15s;
-  }
-  .vr-pv-close:hover { background: rgba(244,63,94,.1); border-color: var(--red); color: var(--red); }
-
-  .vr-pv-body { overflow-y: auto; padding: 22px 24px; flex: 1; display: flex; flex-direction: column; gap: 24px; }
-
-  .vr-pv-section-title {
-    font-size: 10px; font-weight: 700; color: var(--text3);
-    text-transform: uppercase; letter-spacing: 1.2px;
-    margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
-  }
-  .vr-pv-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-
-  .vr-pv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .vr-pv-field { display: flex; flex-direction: column; gap: 4px; }
-  .vr-pv-field.full { grid-column: 1 / -1; }
-  .vr-pv-field-label {
-    font-size: 10px; font-weight: 600; color: var(--text3);
-    text-transform: uppercase; letter-spacing: .8px;
-  }
-  .vr-pv-field-val {
-    font-size: 13.5px; color: var(--text); background: var(--surface2);
-    border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px;
-    min-height: 38px; word-break: break-word; line-height: 1.5;
-  }
-  .vr-pv-field-val.mono { font-family: var(--mono); font-size: 12.5px; }
-
-  /* ── Audit row inside preview ── */
-  .vr-pv-audit { display: flex; flex-wrap: wrap; gap: 10px; }
-  .vr-pv-audit-pill {
-    display: flex; align-items: center; gap: 6px;
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 8px; padding: 7px 12px; font-size: 12px;
-  }
-  .vr-pv-audit-pill .icon { font-size: 13px; }
-  .vr-pv-audit-pill .name { color: var(--text); font-weight: 600; }
-  .vr-pv-audit-pill .time { color: var(--text3); font-size: 11px; }
-  .vr-pv-audit-pill.create .icon { color: #4ade80; }
-  .vr-pv-audit-pill.edit   .icon { color: #fbbf24; }
-
-  /* ── History timeline ── */
-  .vr-pv-timeline { display: flex; flex-direction: column; gap: 0; }
-  .vr-pv-tl-item { display: flex; gap: 14px; position: relative; padding-bottom: 18px; }
-  .vr-pv-tl-item:last-child { padding-bottom: 0; }
-  .vr-pv-tl-left { display: flex; flex-direction: column; align-items: center; width: 28px; flex-shrink: 0; }
-  .vr-pv-tl-dot {
-    width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border);
-    display: flex; align-items: center; justify-content: center; font-size: 12px;
-    flex-shrink: 0; background: var(--surface2);
-  }
-  .vr-pv-tl-dot.create { border-color: #4ade80; color: #4ade80; background: rgba(74,222,128,.08); }
-  .vr-pv-tl-dot.update { border-color: #fbbf24; color: #fbbf24; background: rgba(251,191,36,.08); }
-  .vr-pv-tl-dot.delete { border-color: var(--red); color: var(--red); background: rgba(244,63,94,.08); }
-  .vr-pv-tl-line { flex: 1; width: 1px; background: var(--border); margin-top: 4px; }
-  .vr-pv-tl-right { flex: 1; padding-top: 4px; }
-  .vr-pv-tl-action { font-size: 13px; font-weight: 600; color: var(--text); }
-  .vr-pv-tl-who { font-size: 12px; color: var(--text2); margin-top: 2px; }
-  .vr-pv-tl-when { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-top: 3px; }
-  .vr-pv-tl-details { font-size: 11.5px; color: var(--text3); margin-top: 4px; font-style: italic; }
-  .vr-pv-no-history { color: var(--text3); font-size: 13px; text-align: center; padding: 24px 0; }
-  .vr-pv-hist-loading { color: var(--text3); font-size: 13px; text-align: center; padding: 18px 0; }
-`;
-
 // ─── Badge helpers ─────────────────────────────────────────────────────────────
-function badgeClass(status?: string | null): string {
+const BADGE_BASE = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap border';
+
+function badgeClasses(status?: string | null): string {
   const s = (status || '').toLowerCase();
-  if (s.includes('new') || s.includes('attempted')) return 'new';
-  if (s.includes('connected')) return 'connected';
-  if (s.includes('test drive') || s.includes('demo')) return 'testdrive';
-  if (s.includes('quotation')) return 'quotation';
-  if (s.includes('catalogue')) return 'quotation';
-  if (s.includes('delivered') || s.includes('won')) return 'won';
-  if (s.includes('lost')) return 'lost';
-  return 'default';
+  if (s.includes('new') || s.includes('attempted'))
+    return `${BADGE_BASE} bg-slate-500/10 text-zinc-500 border-slate-500/20`;
+  if (s.includes('connected'))
+    return `${BADGE_BASE} bg-emerald-500/10 text-green-500 border-emerald-500/25`;
+  if (s.includes('test drive') || s.includes('demo'))
+    return `${BADGE_BASE} bg-cyan-400/[0.08] text-cyan-400 border-cyan-400/20`;
+  if (s.includes('quotation') || s.includes('catalogue'))
+    return `${BADGE_BASE} bg-amber-400/[0.08] text-amber-400 border-amber-400/[0.22]`;
+  if (s.includes('delivered') || s.includes('won'))
+    return `${BADGE_BASE} bg-emerald-500/[0.12] text-green-500 border-emerald-500/30`;
+  if (s.includes('lost'))
+    return `${BADGE_BASE} bg-rose-500/10 text-rose-500 border-rose-500/25`;
+  return `${BADGE_BASE} bg-teal-400/[0.08] text-teal-400 border-teal-400/20`;
 }
-function tlDotClass(action: string) {
-  if (action === 'create') return 'create';
-  if (action === 'update') return 'update';
-  if (action === 'delete') return 'delete';
-  return '';
+
+const QUOTATION_BADGE = `${BADGE_BASE} bg-amber-400/[0.08] text-amber-400 border-amber-400/[0.22]`;
+
+function tlDotClasses(action: string): string {
+  const base = 'w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs flex-shrink-0';
+  if (action === 'create') return `${base} border-green-400 text-green-400 bg-green-400/[0.08]`;
+  if (action === 'update') return `${base} border-amber-400 text-amber-400 bg-amber-400/[0.08]`;
+  if (action === 'delete') return `${base} border-rose-500 text-rose-500 bg-rose-500/[0.08]`;
+  return `${base} border-zinc-700 text-zinc-500 bg-zinc-800`;
 }
+
 function tlIcon(action: string) {
   if (action === 'create') return '＋';
   if (action === 'update') return 'Edit';
@@ -475,14 +203,24 @@ function tlLabel(action: string) {
   return action;
 }
 
+// ─── Shared class constants ────────────────────────────────────────────────────
+const FIELD_CLS =
+  'font-sans text-[13px] bg-zinc-950 border border-zinc-800 text-zinc-200 px-3 py-2 rounded-[7px] w-full transition-[border-color,box-shadow] duration-150 appearance-none focus:outline-none focus:border-cyan-400 focus:ring-[3px] focus:ring-cyan-400/10 placeholder:text-zinc-500';
+
+const TH_BASE =
+  'px-4 py-[11px] text-left text-[10px] font-bold uppercase tracking-[1px] whitespace-nowrap border-b border-zinc-800 select-none';
+const TH_SORT = `${TH_BASE} cursor-pointer transition-colors duration-150 hover:text-zinc-400`;
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function SkeletonRows() {
   return (
     <>
       {[1, 2, 3, 4, 5, 6].map(n => (
-        <tr key={n} className="vr-skel-row">
+        <tr key={n}>
           {[26, 88, 120, 110, 140, 90, 160, 52, 120, 110, 90, 100, 95, 88, 100, 85, 70, 60].map((w, i) => (
-            <td key={i}><div className="vr-skel" style={{ width: w }} /></td>
+            <td key={i} className="px-4 py-3.5">
+              <div className="h-[13px] rounded animate-pulse bg-zinc-800" style={{ width: w }} />
+            </td>
           ))}
         </tr>
       ))}
@@ -520,6 +258,7 @@ export default function VisitReportPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchVisits = useCallback(async () => {
@@ -606,8 +345,7 @@ export default function VisitReportPage() {
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterHot('all');
-    const searchInput = document.querySelector<HTMLInputElement>('input.vr-field[placeholder]');
-    if (searchInput) searchInput.value = '';
+    if (searchInputRef.current) searchInputRef.current.value = '';
   }
 
   // ── Filtered & sorted visits ──────────────────────────────────────────────
@@ -705,125 +443,177 @@ export default function VisitReportPage() {
     setTimeout(() => URL.revokeObjectURL(url), 150);
   }
 
+  // ── Sort th helper ─────────────────────────────────────────────────────────
+  function thCls(field: SortField): string {
+    return sortField === field ? `${TH_SORT} text-zinc-300` : `${TH_SORT} text-zinc-500`;
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="vr-root">
-      <style>{PAGE_STYLES}</style>
+    <div className="flex flex-col min-h-screen">
 
-      <div className="vr-content">
+      <div className="px-7 py-8 flex-1 max-w-[1680px] mx-auto w-full">
         {/* Header */}
-        <div className="vr-header">
+        <div className="mb-7">
           <div>
-            <div className="vr-title">Visit Report</div>
-            <div className="vr-subtitle">Track and analyze customer visits recorded via Create Visit Report</div>
+            <div className="text-[28px] font-extrabold tracking-tight mb-1.5 text-zinc-100">Visit Report</div>
+            <div className="text-[13.5px] text-zinc-400">Track and analyze customer visits recorded via Create Visit Report</div>
           </div>
-          <div style={{ marginTop: 8, display: 'flex', gap: 12, alignItems: 'center' }}>
+          <div className="mt-2 flex gap-3 items-center">
             {connected === null ? (
-              <div style={{ color: 'var(--text3)', fontSize: 13 }}>Checking backend...</div>
+              <div className="text-zinc-500 text-[13px]">Checking backend...</div>
             ) : connected ? (
-              <div style={{ color: 'var(--teal)', fontSize: 13 }}>Backend: Connected</div>
+              <div className="text-teal-400 text-[13px]">Backend: Connected</div>
             ) : (
-              <div style={{ color: 'var(--red)', fontSize: 13 }}>Backend: Disconnected</div>
+              <div className="text-rose-500 text-[13px]">Backend: Disconnected</div>
             )}
-            <button type="button" className="vr-btn vr-btn-ghost"
+            <button
+              type="button"
+              className="font-sans text-[12.5px] font-semibold py-[7px] px-3.5 rounded-[7px] cursor-pointer inline-flex items-center gap-1.5 transition-[opacity,box-shadow,transform] duration-150 whitespace-nowrap active:scale-[0.97] bg-transparent text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-200"
               onClick={() => { fetchVisits(); (async () => { try { const r = await fetch(`${API_BASE}/api/v1/health`); setConnected(r.ok); } catch { setConnected(false); } })(); }}>
               Retry
             </button>
           </div>
         </div>
 
-        {error && <div className="vr-error">{error}</div>}
+        {error && (
+          <div className="bg-rose-500/[0.08] border border-rose-500/[0.22] text-rose-500 px-[18px] py-[14px] rounded-[10px] mb-5 text-[13px] font-medium">
+            {error}
+          </div>
+        )}
 
         {/* Filters */}
-        <div className="vr-filters">
-          <div className="vr-filters-label">Filters</div>
-          <div className="vr-filters-grid">
-            <div className="vr-fg">
-              <label className="vr-label">Search</label>
-              <input className="vr-field" placeholder="Customer, code, location, salesperson..." onChange={handleSearch} />
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-[22px] py-5 mb-5">
+          <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-[1px] mb-3.5 flex items-center gap-2">Filters</div>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 items-end">
+            <div className="flex flex-col">
+              <label className="text-[10.5px] font-semibold text-zinc-500 uppercase tracking-[0.9px] mb-1.5">Search</label>
+              <input
+                ref={searchInputRef}
+                className={FIELD_CLS}
+                placeholder="Customer, code, location, salesperson..."
+                onChange={handleSearch}
+              />
             </div>
-            <div className="vr-fg">
-              <label className="vr-label">Status</label>
-              <SearchableSelect fieldClass="vr-field" options={statusFilterOptions} value={filterStatus} onChange={v => setFilterStatus(v)} emptyLabel="All statuses" accentColor="var(--accent)" />
+            <div className="flex flex-col">
+              <label className="text-[10.5px] font-semibold text-zinc-500 uppercase tracking-[0.9px] mb-1.5">Status</label>
+              <SearchableSelect
+                fieldClass={FIELD_CLS}
+                options={statusFilterOptions}
+                value={filterStatus}
+                onChange={v => setFilterStatus(v)}
+                emptyLabel="All statuses"
+                accentColor="#00d9ff"
+              />
             </div>
-            <div className="vr-fg">
-              <label className="vr-label">Date From</label>
-              <input type="date" className="vr-field" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
+            <div className="flex flex-col">
+              <label className="text-[10.5px] font-semibold text-zinc-500 uppercase tracking-[0.9px] mb-1.5">Date From</label>
+              <input type="date" className={FIELD_CLS} value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
             </div>
-            <div className="vr-fg">
-              <label className="vr-label">Date To</label>
-              <input type="date" className="vr-field" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
+            <div className="flex flex-col">
+              <label className="text-[10.5px] font-semibold text-zinc-500 uppercase tracking-[0.9px] mb-1.5">Date To</label>
+              <input type="date" className={FIELD_CLS} value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
             </div>
-            <div className="vr-fg">
-              <label className="vr-label">Hot lead</label>
-              <select className="vr-field" value={filterHot} onChange={e => setFilterHot(e.target.value as 'all' | 'hot' | 'not_hot')}>
+            <div className="flex flex-col">
+              <label className="text-[10.5px] font-semibold text-zinc-500 uppercase tracking-[0.9px] mb-1.5">Hot lead</label>
+              <select className={FIELD_CLS} value={filterHot} onChange={e => setFilterHot(e.target.value as 'all' | 'hot' | 'not_hot')}>
                 <option value="all">All</option>
                 <option value="hot">Hot only</option>
                 <option value="not_hot">Not hot</option>
               </select>
             </div>
-            <div className="vr-fg" style={{ justifyContent: 'flex-end', minWidth: 200 }}>
-              <label className="vr-label">Report scope</label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text2)', cursor: 'pointer', userSelect: 'none' }}>
+            <div className="flex flex-col justify-end min-w-[200px]">
+              <label className="text-[10.5px] font-semibold text-zinc-500 uppercase tracking-[0.9px] mb-1.5">Report scope</label>
+              <label className="flex items-center gap-2.5 text-[13px] text-zinc-400 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={includeLost}
                   onChange={e => setIncludeLost(e.target.checked)}
-                  style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
+                  className="w-4 h-4 cursor-pointer accent-cyan-400"
                 />
                 Include lost &amp; closed
               </label>
             </div>
-            <button className="vr-btn-clear" onClick={clearFilters}>Clear All</button>
+            <button
+              className="font-sans text-[12.5px] font-semibold px-4 py-2 rounded-[7px] border border-zinc-800 bg-transparent text-zinc-400 cursor-pointer transition-all duration-150 whitespace-nowrap hover:border-zinc-700 hover:text-zinc-200"
+              onClick={clearFilters}
+            >
+              Clear All
+            </button>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="vr-stats">
-          <div className="vr-stat"><div className="vr-stat-label">Total Visits</div><div className="vr-stat-val accent">{stats.total}</div></div>
-          <div className="vr-stat"><div className="vr-stat-label">Connected</div><div className="vr-stat-val green">{stats.connected}</div></div>
-          <div className="vr-stat"><div className="vr-stat-label">Demos</div><div className="vr-stat-val teal">{stats.testDrive}</div></div>
-          <div className="vr-stat"><div className="vr-stat-label">Won</div><div className="vr-stat-val amber">{stats.won}</div></div>
+        <div className="flex gap-3 mb-5 flex-wrap">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-[10px] px-[18px] py-[14px] flex-1 min-w-[140px] transition-[border-color] duration-150 hover:border-zinc-700">
+            <div className="text-[10.5px] font-semibold text-zinc-500 uppercase tracking-[0.9px] mb-[7px]">Total Visits</div>
+            <div className="text-2xl font-extrabold font-mono text-cyan-400">{stats.total}</div>
+          </div>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-[10px] px-[18px] py-[14px] flex-1 min-w-[140px] transition-[border-color] duration-150 hover:border-zinc-700">
+            <div className="text-[10.5px] font-semibold text-zinc-500 uppercase tracking-[0.9px] mb-[7px]">Connected</div>
+            <div className="text-2xl font-extrabold font-mono text-green-500">{stats.connected}</div>
+          </div>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-[10px] px-[18px] py-[14px] flex-1 min-w-[140px] transition-[border-color] duration-150 hover:border-zinc-700">
+            <div className="text-[10.5px] font-semibold text-zinc-500 uppercase tracking-[0.9px] mb-[7px]">Demos</div>
+            <div className="text-2xl font-extrabold font-mono text-teal-400">{stats.testDrive}</div>
+          </div>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-[10px] px-[18px] py-[14px] flex-1 min-w-[140px] transition-[border-color] duration-150 hover:border-zinc-700">
+            <div className="text-[10.5px] font-semibold text-zinc-500 uppercase tracking-[0.9px] mb-[7px]">Won</div>
+            <div className="text-2xl font-extrabold font-mono text-amber-400">{stats.won}</div>
+          </div>
         </div>
 
         {/* Table */}
-        <div className="vr-table-card">
-          <div className="vr-table-header">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800 flex-wrap gap-2.5">
             <div>
-              <div className="vr-table-title">
+              <div className="text-sm font-bold text-zinc-100">
                 {visits.length === allVisits.length ? `${allVisits.length} Total Visits` : `${visits.length} of ${allVisits.length} Visits`}
               </div>
-              <div className="vr-table-sub">
+              <div className="text-[11.5px] text-zinc-500 mt-0.5">
                 {filterStatus || searchQuery || filterDateFrom || filterDateTo || filterHot !== 'all' ? 'Filtered results' : 'Complete visit records'}
               </div>
             </div>
-            <div className="vr-table-actions">
-              <button className="vr-btn vr-btn-ghost" onClick={exportCSV}>↓ Export CSV</button>
+            <div className="flex gap-2">
+              <button
+                className="font-sans text-[12.5px] font-semibold py-[7px] px-3.5 rounded-[7px] cursor-pointer inline-flex items-center gap-1.5 transition-[opacity,box-shadow,transform] duration-150 whitespace-nowrap active:scale-[0.97] bg-transparent text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-200"
+                onClick={exportCSV}
+              >
+                ↓ Export CSV
+              </button>
             </div>
           </div>
 
-          <div className="vr-table-outer">
-            <table>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[1280px]">
               <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Cust Code</th>
-                  <th className={`sortable ${sortField === 'cust_name' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('cust_name')}>Customer</th>
-                  <th>Lead Type</th>
-                  <th>Location</th>
-                  <th>Connect Date</th>
-                  <th className={`sortable ${sortField === 'salesperson_name' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('salesperson_name')}>Salesperson</th>
-                  <th>Phone</th>
-                  <th>Vehicle</th>
-                  <th className={`sortable ${sortField === 'status' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('status')}>Status</th>
-                  <th>Hot</th>
-                  <th>Lost – NI</th>
-                  <th className={`sortable ${sortField === 'visit_date' ? `sorted ${sortDir}` : ''}`} onClick={() => handleSort('visit_date')}>Visit Date</th>
-                  <th title="GPS captured at save (visit-linked ping)">Visit GPS</th>
-                  <th>Buy window</th>
-                  <th>Callback</th>
-                  <th>Next Action</th>
-                  <th>Preview</th>
+                <tr className="bg-zinc-800/40">
+                  <th className={`${TH_BASE} text-zinc-500`}>#</th>
+                  <th className={`${TH_BASE} text-zinc-500`}>Cust Code</th>
+                  <th className={thCls('cust_name')} onClick={() => handleSort('cust_name')}>
+                    Customer {sortField === 'cust_name' && <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                  </th>
+                  <th className={`${TH_BASE} text-zinc-500`}>Lead Type</th>
+                  <th className={`${TH_BASE} text-zinc-500`}>Location</th>
+                  <th className={`${TH_BASE} text-zinc-500`}>Connect Date</th>
+                  <th className={thCls('salesperson_name')} onClick={() => handleSort('salesperson_name')}>
+                    Salesperson {sortField === 'salesperson_name' && <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                  </th>
+                  <th className={`${TH_BASE} text-zinc-500`}>Phone</th>
+                  <th className={`${TH_BASE} text-zinc-500`}>Vehicle</th>
+                  <th className={thCls('status')} onClick={() => handleSort('status')}>
+                    Status {sortField === 'status' && <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                  </th>
+                  <th className={`${TH_BASE} text-zinc-500`}>Hot</th>
+                  <th className={`${TH_BASE} text-zinc-500`}>Lost – NI</th>
+                  <th className={thCls('visit_date')} onClick={() => handleSort('visit_date')}>
+                    Visit Date {sortField === 'visit_date' && <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                  </th>
+                  <th className={`${TH_BASE} text-zinc-500`} title="GPS captured at save (visit-linked ping)">Visit GPS</th>
+                  <th className={`${TH_BASE} text-zinc-500`}>Buy window</th>
+                  <th className={`${TH_BASE} text-zinc-500`}>Callback</th>
+                  <th className={`${TH_BASE} text-zinc-500`}>Next Action</th>
+                  <th className={`${TH_BASE} text-zinc-500`}>Preview</th>
                 </tr>
               </thead>
               <tbody>
@@ -831,9 +621,9 @@ export default function VisitReportPage() {
                   <SkeletonRows />
                 ) : visits.length === 0 ? (
                   <tr><td colSpan={18}>
-                    <div className="vr-empty">
-                      <div className="vr-empty-icon"></div>
-                      <div className="vr-empty-msg">
+                    <div className="text-center py-16 px-5 text-zinc-500">
+                      <div className="text-[40px] mb-3.5 opacity-40"></div>
+                      <div className="text-sm">
                         {searchQuery || filterStatus || filterDateFrom || filterDateTo || filterHot !== 'all'
                           ? <>No visits match your filters</>
                           : <>No visits recorded yet</>}
@@ -842,75 +632,83 @@ export default function VisitReportPage() {
                   </td></tr>
                 ) : (
                   visits.map((v, i) => (
-                      <tr key={v.id ?? i}>
-                        <td className="vr-num">{String(i + 1).padStart(2, '0')}</td>
-                        <td className="vr-code">{v.lead_cust_code || '—'}</td>
-                        <td style={{ fontWeight: 500 }}>{v.cust_name || '—'}</td>
-                        <td>
-                          {v.lead_type ? (
-                            <span className={`vr-badge ${v.lead_type === 'Digital Lead' ? 'testdrive' : 'default'}`}>{v.lead_type}</span>
-                          ) : '—'}
-                        </td>
-                        <td
-                          style={{
-                            color: 'var(--text2)',
-                            maxWidth: 200,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                          title={v.lead_location || undefined}
+                    <tr key={v.id ?? i} className="transition-colors duration-100 hover:bg-white/[0.02] [&:last-child>td]:border-b-0">
+                      <td className="px-4 py-[13px] border-b border-zinc-800/60 align-middle font-mono text-[11px] text-zinc-500">{String(i + 1).padStart(2, '0')}</td>
+                      <td className="px-4 py-[13px] border-b border-zinc-800/60 align-middle font-mono text-xs font-medium text-cyan-400">{v.lead_cust_code || '—'}</td>
+                      <td className="px-4 py-[13px] border-b border-zinc-800/60 align-middle text-zinc-200 text-[13px] font-medium">{v.cust_name || '—'}</td>
+                      <td className="px-4 py-[13px] border-b border-zinc-800/60 align-middle text-[13px]">
+                        {v.lead_type ? (
+                          <span className={v.lead_type === 'Digital Lead' ? `${BADGE_BASE} bg-cyan-400/[0.08] text-cyan-400 border-cyan-400/20` : `${BADGE_BASE} bg-teal-400/[0.08] text-teal-400 border-teal-400/20`}>{v.lead_type}</span>
+                        ) : '—'}
+                      </td>
+                      <td
+                        className="px-4 py-[13px] border-b border-zinc-800/60 align-middle text-zinc-400 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap text-[13px]"
+                        title={v.lead_location || undefined}
+                      >
+                        {v.lead_location?.trim() ? v.lead_location : '—'}
+                      </td>
+                      <td className="px-4 py-[13px] border-b border-zinc-800/60 align-middle font-mono text-[11.5px] text-zinc-400">{fmtDate(v.connect_date)}</td>
+                      <td className="px-4 py-[13px] border-b border-zinc-800/60 align-middle text-zinc-400 text-[13px]">{v.salesperson_name || '—'}</td>
+                      <td className="px-4 py-[13px] border-b border-zinc-800/60 align-middle text-[13px]">
+                        <div className="font-mono text-[11.5px] text-zinc-400">{v.phone_no || '—'}</div>
+                        {v.phone_no_2 && <div className="font-mono text-[11px] text-zinc-500 mt-0.5">{v.phone_no_2}</div>}
+                      </td>
+                      <td className="px-4 py-[13px] border-b border-zinc-800/60 align-middle text-zinc-400 max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-[13px]">{v.vehicle || '—'}</td>
+                      <td className="px-4 py-[13px] border-b border-zinc-800/60 align-middle text-[13px]">
+                        <span className={badgeClasses(v.status)}>{v.status || '—'}</span>
+                      </td>
+                      <td className="px-4 py-[13px] border-b border-zinc-800/60 align-middle text-center text-[13px]">
+                        {v.is_hot_lead ? (
+                          <span className={`${QUOTATION_BADGE} text-[10px]`}>Hot</span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td
+                        className="px-4 py-[13px] border-b border-zinc-800/60 align-middle max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap text-xs text-zinc-400"
+                        title={formatLostNiSummary(v)}
+                      >
+                        {formatLostNiSummary(v)}
+                      </td>
+                      <td className="px-4 py-[13px] border-b border-zinc-800/60 align-middle font-mono text-[11.5px] text-zinc-400">{fmtDate(v.visit_date)}</td>
+                      <td className="px-4 py-[13px] border-b border-zinc-800/60 align-middle text-[11px] text-zinc-400 whitespace-nowrap">
+                        {v.visit_location_captured_at ? (
+                          <span className={`${QUOTATION_BADGE} text-[10px]`} title={fmtDateTime(v.visit_location_captured_at)}>
+                            {fmtDateTime(v.visit_location_captured_at)}
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td
+                        className="px-4 py-[13px] border-b border-zinc-800/60 align-middle text-[11px] text-zinc-400 max-w-[88px] overflow-hidden text-ellipsis whitespace-nowrap"
+                        title={labelForDeferral(v.deferral_bucket)}
+                      >
+                        {labelForDeferral(v.deferral_bucket)}
+                      </td>
+                      <td
+                        className="px-4 py-[13px] border-b border-zinc-800/60 align-middle text-[11px] text-zinc-400 max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap"
+                        title={labelForContact(v.contact_disposition)}
+                      >
+                        {labelForContact(v.contact_disposition)}
+                      </td>
+                      <td className="px-4 py-[13px] border-b border-zinc-800/60 align-middle text-zinc-400 text-[13px]">
+                        {v.next_action || '—'}
+                        {v.next_action_date && (
+                          <span className="block mt-0.5 font-mono text-[11px] text-zinc-500">
+                            {fmtDate(v.next_action_date)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-[13px] border-b border-zinc-800/60 align-middle text-[13px]">
+                        <button
+                          className="font-sans text-xs font-semibold py-[5px] px-3 rounded-[7px] cursor-pointer inline-flex items-center gap-1.5 transition-[opacity,box-shadow,transform] duration-150 whitespace-nowrap active:scale-[0.97] bg-cyan-400/[0.06] text-cyan-400 border border-cyan-400/[0.22] hover:bg-cyan-400/[0.12]"
+                          onClick={() => openPreview(v)}
                         >
-                          {v.lead_location?.trim() ? v.lead_location : '—'}
-                        </td>
-                        <td className="vr-date">{fmtDate(v.connect_date)}</td>
-                        <td style={{ color: 'var(--text2)' }}>{v.salesperson_name || '—'}</td>
-                        <td>
-                          <div style={{ fontFamily: 'var(--mono)', fontSize: '11.5px', color: 'var(--text2)' }}>{v.phone_no || '—'}</div>
-                          {v.phone_no_2 && <div style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--text3)', marginTop: 2 }}>{v.phone_no_2}</div>}
-                        </td>
-                        <td style={{ color: 'var(--text2)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.vehicle || '—'}</td>
-                        <td><span className={`vr-badge ${badgeClass(v.status)}`}>{v.status || '—'}</span></td>
-                        <td style={{ textAlign: 'center' }}>
-                          {v.is_hot_lead ? (
-                            <span className="vr-badge quotation" style={{ fontSize: 10 }}>Hot</span>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                        <td style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text2)' }} title={formatLostNiSummary(v)}>
-                          {formatLostNiSummary(v)}
-                        </td>
-                        <td className="vr-date">{fmtDate(v.visit_date)}</td>
-                        <td style={{ fontSize: 11, color: 'var(--text2)', whiteSpace: 'nowrap' }}>
-                          {v.visit_location_captured_at ? (
-                            <span className="vr-badge quotation" style={{ fontSize: 10 }} title={fmtDateTime(v.visit_location_captured_at)}>
-                              {fmtDateTime(v.visit_location_captured_at)}
-                            </span>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                        <td style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 88, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={labelForDeferral(v.deferral_bucket)}>
-                          {labelForDeferral(v.deferral_bucket)}
-                        </td>
-                        <td style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={labelForContact(v.contact_disposition)}>
-                          {labelForContact(v.contact_disposition)}
-                        </td>
-                        <td style={{ color: 'var(--text2)' }}>
-                          {v.next_action || '—'}
-                          {v.next_action_date && (
-                            <span style={{ display: 'block', marginTop: 2, fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--text3)' }}>
-                              {fmtDate(v.next_action_date)}
-                            </span>
-                          )}
-                        </td>
-                        <td>
-                          <button className="vr-btn vr-btn-preview" onClick={() => openPreview(v)}>
-                            View
-                          </button>
-                        </td>
-                      </tr>
+                          View
+                        </button>
+                      </td>
+                    </tr>
                   ))
                 )}
               </tbody>
@@ -921,149 +719,163 @@ export default function VisitReportPage() {
 
       {/* ── Preview Modal ── */}
       {previewVisit && (
-        <div className="vr-overlay" role="presentation" onClick={e => { if (e.target === e.currentTarget) closePreview(); }}>
-          <div className="vr-preview-modal" role="dialog" aria-modal="true">
+        <div
+          className="fixed inset-0 bg-black/[0.72] backdrop-blur-[4px] z-[1000] flex items-center justify-center p-5 animate-in fade-in duration-150"
+          role="presentation"
+          onClick={e => { if (e.target === e.currentTarget) closePreview(); }}
+        >
+          <div
+            className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-[740px] max-h-[88vh] flex flex-col overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] animate-in fade-in slide-in-from-bottom-3 duration-200"
+            role="dialog"
+            aria-modal="true"
+          >
 
             {/* Head */}
-            <div className="vr-pv-head">
+            <div className="px-6 pt-[22px] pb-[18px] border-b border-zinc-800 flex items-start justify-between gap-3 flex-shrink-0">
               <div>
-                <div className="vr-pv-name">{previewVisit.cust_name || 'Unknown Customer'}</div>
-                <div className="vr-pv-code">{previewVisit.lead_cust_code || '—'} · Visit #{previewVisit.id}</div>
+                <div className="text-xl font-extrabold tracking-tight text-zinc-100">{previewVisit.cust_name || 'Unknown Customer'}</div>
+                <div className="font-mono text-xs text-cyan-400 mt-1">{previewVisit.lead_cust_code || '—'} · Visit #{previewVisit.id}</div>
               </div>
-              <button className="vr-pv-close" onClick={closePreview} aria-label="Close">Close</button>
+              <button
+                className="bg-transparent border border-zinc-800 text-zinc-400 w-8 h-8 rounded-lg cursor-pointer text-base flex items-center justify-center flex-shrink-0 transition-all duration-150 hover:bg-rose-500/10 hover:border-rose-500 hover:text-rose-500"
+                onClick={closePreview}
+                aria-label="Close"
+              >
+                Close
+              </button>
             </div>
 
             {/* Body */}
-            <div className="vr-pv-body">
+            <div className="overflow-y-auto px-6 py-[22px] flex-1 flex flex-col gap-6">
 
               {/* ── Details ── */}
               <div>
-                <div className="vr-pv-section-title">Visit Details</div>
-                <div className="vr-pv-grid">
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Connect Date</div>
-                    <div className="vr-pv-field-val mono">{fmtDate(previewVisit.connect_date)}</div>
+                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[1.2px] mb-3.5 flex items-center gap-2 after:content-[''] after:flex-1 after:h-px after:bg-zinc-800">Visit Details</div>
+                <div className="grid grid-cols-2 gap-3.5">
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Connect Date</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed font-mono text-[12.5px]">{fmtDate(previewVisit.connect_date)}</div>
                   </div>
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Visit GPS captured</div>
-                    <div className="vr-pv-field-val mono">
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Visit GPS captured</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed font-mono text-[12.5px]">
                       {previewVisit.visit_location_captured_at ? fmtDateTime(previewVisit.visit_location_captured_at) : '—'}
                     </div>
                   </div>
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Buying timeframe</div>
-                    <div className="vr-pv-field-val">{labelForDeferral(previewVisit.deferral_bucket)}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Buying timeframe</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">{labelForDeferral(previewVisit.deferral_bucket)}</div>
                   </div>
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Call outcome</div>
-                    <div className="vr-pv-field-val">{labelForContact(previewVisit.contact_disposition)}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Call outcome</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">{labelForContact(previewVisit.contact_disposition)}</div>
                   </div>
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Follow-up from</div>
-                    <div className="vr-pv-field-val mono">{fmtDate(previewVisit.follow_up_after_date)}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Follow-up from</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed font-mono text-[12.5px]">{fmtDate(previewVisit.follow_up_after_date)}</div>
                   </div>
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Earliest purchase intent</div>
-                    <div className="vr-pv-field-val mono">{fmtDate(previewVisit.earliest_purchase_intent_date)}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Earliest purchase intent</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed font-mono text-[12.5px]">{fmtDate(previewVisit.earliest_purchase_intent_date)}</div>
                   </div>
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">They asked to call after</div>
-                    <div className="vr-pv-field-val mono">
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">They asked to call after</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed font-mono text-[12.5px]">
                       {previewVisit.callback_requested_at ? fmtDateTime(previewVisit.callback_requested_at) : '—'}
                     </div>
                   </div>
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Customer promised callback</div>
-                    <div className="vr-pv-field-val">{previewVisit.customer_promised_callback ? 'Yes' : 'No'}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Customer promised callback</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">{previewVisit.customer_promised_callback ? 'Yes' : 'No'}</div>
                   </div>
                   {previewVisit.deferral_notes?.trim() ? (
-                    <div className="vr-pv-field full">
-                      <div className="vr-pv-field-label">Timing / callback notes</div>
-                      <div className="vr-pv-field-val">{previewVisit.deferral_notes}</div>
+                    <div className="flex flex-col gap-1 col-span-2">
+                      <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Timing / callback notes</div>
+                      <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">{previewVisit.deferral_notes}</div>
                     </div>
                   ) : null}
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Visit Date</div>
-                    <div className="vr-pv-field-val mono">{fmtDate(previewVisit.visit_date)}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Visit Date</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed font-mono text-[12.5px]">{fmtDate(previewVisit.visit_date)}</div>
                   </div>
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Status</div>
-                    <div className="vr-pv-field-val">
-                      <span className={`vr-badge ${badgeClass(previewVisit.status)}`}>{previewVisit.status || '—'}</span>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Status</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">
+                      <span className={badgeClasses(previewVisit.status)}>{previewVisit.status || '—'}</span>
                     </div>
                   </div>
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Lead Type</div>
-                    <div className="vr-pv-field-val">
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Lead Type</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">
                       {previewVisit.lead_type ? (
-                        <span className={`vr-badge ${previewVisit.lead_type === 'Digital Lead' ? 'testdrive' : 'default'}`}>{previewVisit.lead_type}</span>
+                        <span className={previewVisit.lead_type === 'Digital Lead' ? `${BADGE_BASE} bg-cyan-400/[0.08] text-cyan-400 border-cyan-400/20` : `${BADGE_BASE} bg-teal-400/[0.08] text-teal-400 border-teal-400/20`}>{previewVisit.lead_type}</span>
                       ) : '—'}
                     </div>
                   </div>
-                  <div className="vr-pv-field full">
-                    <div className="vr-pv-field-label">Lead location</div>
-                    <div className="vr-pv-field-val">{previewVisit.lead_location?.trim() ? previewVisit.lead_location : '—'}</div>
+                  <div className="flex flex-col gap-1 col-span-2">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Lead location</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">{previewVisit.lead_location?.trim() ? previewVisit.lead_location : '—'}</div>
                   </div>
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Lead priority</div>
-                    <div className="vr-pv-field-val">
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Lead priority</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">
                       {previewVisit.is_hot_lead ? (
-                        <span className="vr-badge quotation" style={{ fontSize: 11 }}>Hot lead</span>
+                        <span className={`${QUOTATION_BADGE} text-[11px]`}>Hot lead</span>
                       ) : (
-                        <span style={{ color: 'var(--text3)' }}>Standard</span>
+                        <span className="text-zinc-500">Standard</span>
                       )}
                     </div>
                   </div>
                   {(previewVisit.lost_not_interested_reason || previewVisit.lost_reason_notes?.trim()) && (
                     <>
-                      <div className="vr-pv-field full">
-                        <div className="vr-pv-field-label">Lost – Not interested</div>
-                        <div className="vr-pv-field-val">{formatLostNiSummary(previewVisit)}</div>
+                      <div className="flex flex-col gap-1 col-span-2">
+                        <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Lost – Not interested</div>
+                        <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">{formatLostNiSummary(previewVisit)}</div>
                       </div>
                       {previewVisit.lost_reason_notes?.trim() &&
                         previewVisit.lost_not_interested_reason &&
                         previewVisit.lost_not_interested_reason !== 'other' && (
-                          <div className="vr-pv-field full">
-                            <div className="vr-pv-field-label">Notes</div>
-                            <div className="vr-pv-field-val">{previewVisit.lost_reason_notes}</div>
+                          <div className="flex flex-col gap-1 col-span-2">
+                            <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Notes</div>
+                            <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">{previewVisit.lost_reason_notes}</div>
                           </div>
                         )}
                       {previewVisit.lost_not_interested_reason === 'other' && previewVisit.lost_reason_notes?.trim() && (
-                        <div className="vr-pv-field full">
-                          <div className="vr-pv-field-label">Explanation</div>
-                          <div className="vr-pv-field-val">{previewVisit.lost_reason_notes}</div>
+                        <div className="flex flex-col gap-1 col-span-2">
+                          <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Explanation</div>
+                          <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">{previewVisit.lost_reason_notes}</div>
                         </div>
                       )}
                     </>
                   )}
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Salesperson</div>
-                    <div className="vr-pv-field-val">{previewVisit.salesperson_name || '—'}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Salesperson</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">{previewVisit.salesperson_name || '—'}</div>
                   </div>
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Vehicle</div>
-                    <div className="vr-pv-field-val">{previewVisit.vehicle || '—'}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Vehicle</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">{previewVisit.vehicle || '—'}</div>
                   </div>
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Phone No. 1</div>
-                    <div className="vr-pv-field-val mono">{previewVisit.phone_no || '—'}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Phone No. 1</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed font-mono text-[12.5px]">{previewVisit.phone_no || '—'}</div>
                   </div>
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Phone No. 2</div>
-                    <div className="vr-pv-field-val mono">{previewVisit.phone_no_2 || <span style={{ color: 'var(--text3)', fontStyle: 'italic' }}>—</span>}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Phone No. 2</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed font-mono text-[12.5px]">{previewVisit.phone_no_2 || <span className="text-zinc-500 italic">—</span>}</div>
                   </div>
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Next Action</div>
-                    <div className="vr-pv-field-val">{previewVisit.next_action || '—'}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Next Action</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">{previewVisit.next_action || '—'}</div>
                   </div>
-                  <div className="vr-pv-field">
-                    <div className="vr-pv-field-label">Next Action Date</div>
-                    <div className="vr-pv-field-val mono">{fmtDate(previewVisit.next_action_date)}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Next Action Date</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed font-mono text-[12.5px]">{fmtDate(previewVisit.next_action_date)}</div>
                   </div>
                   {previewVisit.note && (
-                    <div className="vr-pv-field full">
-                      <div className="vr-pv-field-label">Note</div>
-                      <div className="vr-pv-field-val">{previewVisit.note}</div>
+                    <div className="flex flex-col gap-1 col-span-2">
+                      <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Note</div>
+                      <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">{previewVisit.note}</div>
                     </div>
                   )}
                 </div>
@@ -1071,18 +883,18 @@ export default function VisitReportPage() {
 
               {/* ── Audit ── */}
               <div>
-                <div className="vr-pv-section-title">Record Audit</div>
-                <div className="vr-pv-audit">
-                  <div className="vr-pv-audit-pill create">
-                    <span className="icon">＋</span>
-                    <span className="name">Added by {previewVisit.created_by_name || 'unknown'}</span>
-                    <span className="time">{fmtDateTime(previewVisit.created_at)}</span>
+                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[1.2px] mb-3.5 flex items-center gap-2 after:content-[''] after:flex-1 after:h-px after:bg-zinc-800">Record Audit</div>
+                <div className="flex flex-wrap gap-2.5">
+                  <div className="flex items-center gap-1.5 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[7px] text-xs">
+                    <span className="text-[13px] text-green-400">＋</span>
+                    <span className="text-zinc-200 font-semibold">Added by {previewVisit.created_by_name || 'unknown'}</span>
+                    <span className="text-zinc-500 text-[11px]">{fmtDateTime(previewVisit.created_at)}</span>
                   </div>
                   {previewVisit.updated_by_name && (
-                    <div className="vr-pv-audit-pill edit">
-                      <span className="icon">Edit</span>
-                      <span className="name">Last edited by {previewVisit.updated_by_name}</span>
-                      <span className="time">{fmtDateTime(previewVisit.updated_at)}</span>
+                    <div className="flex items-center gap-1.5 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[7px] text-xs">
+                      <span className="text-[13px] text-amber-400">Edit</span>
+                      <span className="text-zinc-200 font-semibold">Last edited by {previewVisit.updated_by_name}</span>
+                      <span className="text-zinc-500 text-[11px]">{fmtDateTime(previewVisit.updated_at)}</span>
                     </div>
                   )}
                 </div>
@@ -1090,24 +902,24 @@ export default function VisitReportPage() {
 
               {/* ── History ── */}
               <div>
-                <div className="vr-pv-section-title">Activity History</div>
+                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[1.2px] mb-3.5 flex items-center gap-2 after:content-[''] after:flex-1 after:h-px after:bg-zinc-800">Activity History</div>
                 {historyLoading ? (
-                  <div className="vr-pv-hist-loading">Loading history…</div>
+                  <div className="text-zinc-500 text-[13px] text-center py-[18px]">Loading history…</div>
                 ) : history.length === 0 ? (
-                  <div className="vr-pv-no-history">No activity history recorded for this visit.</div>
+                  <div className="text-zinc-500 text-[13px] text-center py-6">No activity history recorded for this visit.</div>
                 ) : (
-                  <div className="vr-pv-timeline">
+                  <div className="flex flex-col">
                     {history.map((log, idx) => (
-                      <div key={log.id} className="vr-pv-tl-item">
-                        <div className="vr-pv-tl-left">
-                          <div className={`vr-pv-tl-dot ${tlDotClass(log.action)}`}>{tlIcon(log.action)}</div>
-                          {idx < history.length - 1 && <div className="vr-pv-tl-line" />}
+                      <div key={log.id} className="flex gap-3.5 relative pb-[18px] last:pb-0">
+                        <div className="flex flex-col items-center w-7 flex-shrink-0">
+                          <div className={tlDotClasses(log.action)}>{tlIcon(log.action)}</div>
+                          {idx < history.length - 1 && <div className="flex-1 w-px bg-zinc-800 mt-1" />}
                         </div>
-                        <div className="vr-pv-tl-right">
-                          <div className="vr-pv-tl-action">{tlLabel(log.action)}</div>
-                          {log.performed_by_name && <div className="vr-pv-tl-who">by {log.performed_by_name}</div>}
-                          <div className="vr-pv-tl-when">{fmtDateTime(log.performed_at)}</div>
-                          {log.details && <div className="vr-pv-tl-details">{log.details}</div>}
+                        <div className="flex-1 pt-1">
+                          <div className="text-[13px] font-semibold text-zinc-200">{tlLabel(log.action)}</div>
+                          {log.performed_by_name && <div className="text-xs text-zinc-400 mt-0.5">by {log.performed_by_name}</div>}
+                          <div className="text-[11px] text-zinc-500 font-mono mt-[3px]">{fmtDateTime(log.performed_at)}</div>
+                          {log.details && <div className="text-[11.5px] text-zinc-500 mt-1 italic">{log.details}</div>}
                         </div>
                       </div>
                     ))}

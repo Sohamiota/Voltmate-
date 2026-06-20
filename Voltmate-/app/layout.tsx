@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import AuthGuard from './AuthGuard'
 
 import './globals.css'
 
-const _geist = Geist({ subsets: ['latin'] })
-const _geistMono = Geist_Mono({ subsets: ['latin'] })
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'Voltmate - Employee Management System',
@@ -29,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={inter.variable}>
       <body className="font-sans antialiased">
         <AuthGuard>{children}</AuthGuard>
       </body>

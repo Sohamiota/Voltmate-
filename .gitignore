@@ -72,14 +72,25 @@ backend/scripts/clear-test-data.ts
 backend/scripts/debug_stats.js
 backend/scripts/call_stats.js
 backend/scripts/generate_hash.js
+backend/scripts/gen-hash-once.js
 
-# ── Personal / one-off ops scripts (machine-local; remove lines if you want them tracked)
+# ── One-off / personal ops scripts (date-specific reports, one-time fixes) ─────
 backend/scripts/attendance-report.js
 backend/scripts/fix-rahul.js
 backend/scripts/sanjoy-absent.js
 backend/scripts/sanjoy-full.js
 backend/scripts/update-network.js
 backend/scripts/utpal-absent.js
+backend/scripts/_check-statuses.js
+backend/scripts/active-leads-report.js
+backend/scripts/demo-not-scheduled-report.js
+backend/scripts/export-leads-last-month.mjs
+backend/scripts/location-leads-report.mjs
+
+# ── Root-level junk files ────────────────────────────────────────────────────────
+,
+commit_msg.txt
+render_db.json
 
 # ── Sample seed data & SQL (keep migrate + seed-vehicles.js in repo; data optional)
 backend/scripts/seed-vehicles-data.json

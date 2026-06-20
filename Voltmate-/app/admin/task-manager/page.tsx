@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Task } from '@/types/api';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
@@ -41,131 +42,16 @@ function taskBadge(s: string): React.CSSProperties {
   return                            { background: 'rgba(96,165,250,.1)', color: '#60a5fa', borderColor: 'rgba(96,165,250,.25)' };
 }
 
-// ─── Inline CSS ───────────────────────────────────────────────────────────────
-const PAGE_STYLES = `
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  .atm-root {
-    min-height: 100vh;
-    background: #080a10;
-    color: #dde3f0;
-    font-family: 'Inter', system-ui, sans-serif;
-    padding: clamp(16px,4vw,28px) clamp(12px,4vw,26px);
-  }
-
-  /* ── Header ── */
-  .atm-hd { margin-bottom: 26px; }
-  .atm-title { font-size: clamp(20px,3vw,26px); font-weight: 700; color: #fff; }
-  .atm-sub { font-size: 13px; color: #6b7280; margin-top: 4px; }
-
-  /* ── Stat cards ── */
-  .atm-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 24px; }
-  @media(max-width:860px){ .atm-stats { grid-template-columns: repeat(2,1fr); } }
-  @media(max-width:480px){ .atm-stats { grid-template-columns: 1fr 1fr; } }
-  .atm-stat { background: #0e1118; border: 1px solid #1e2236; border-radius: 12px; padding: 18px 20px; }
-  .atm-stat-label { font-size: 11px; font-weight: 600; color: #4b5268; text-transform: uppercase; letter-spacing: .9px; margin-bottom: 8px; }
-  .atm-stat-val   { font-size: 28px; font-weight: 800; font-family: 'DM Mono', monospace; }
-  .atm-stat-val.amber  { color: #f59e0b; }
-  .atm-stat-val.green  { color: #22c55e; }
-  .atm-stat-val.red    { color: #ef4444; }
-  .atm-stat-val.text   { color: #dde3f0; }
-
-  /* ── Table card ── */
-  .atm-card { background: #0e1118; border: 1px solid #1e2236; border-radius: 14px; overflow: hidden; }
-  .atm-card-head {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 22px; border-bottom: 1px solid #1e2236; flex-wrap: wrap; gap: 12px;
-  }
-  .atm-card-title { font-size: 15px; font-weight: 700; color: #fff; }
-  .atm-card-sub   { font-size: 12px; color: #4b5268; margin-top: 2px; }
-  .atm-controls { display: flex; gap: 10px; flex-wrap: wrap; }
-
-  .atm-input {
-    background: #141720; border: 1px solid #1e2236; border-radius: 8px;
-    padding: 8px 13px; color: #dde3f0; font-size: 13px; outline: none;
-    transition: border-color .15s;
-  }
-  .atm-input:focus { border-color: #00c9b1; }
-  .atm-input::placeholder { color: #4b5268; }
-  select.atm-input { cursor: pointer; min-width: 140px; }
-
-  .atm-btn {
-    padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer;
-    font-size: 13px; font-weight: 600; white-space: nowrap;
-    display: inline-flex; align-items: center; gap: 6px; transition: opacity .15s;
-  }
-  .atm-btn:disabled { opacity: .45; cursor: not-allowed; }
-  .atm-btn-ghost { background: transparent; color: #8b93a8; border: 1px solid #1e2236; }
-  .atm-btn-ghost:hover { border-color: #2c2f42; color: #dde3f0; }
-  .atm-btn-approve { background: rgba(34,197,94,.14); color: #22c55e; border: 1px solid rgba(34,197,94,.28); }
-  .atm-btn-approve:hover { background: rgba(34,197,94,.22); }
-  .atm-btn-reject  { background: rgba(239,68,68,.13); color: #ef4444; border: 1px solid rgba(239,68,68,.28); }
-  .atm-btn-reject:hover  { background: rgba(239,68,68,.22); }
-  .atm-btn-reset   { background: rgba(251,191,36,.12); color: #fbbf24; border: 1px solid rgba(251,191,36,.28); font-size: 12px; padding: 5px 12px; }
-  .atm-btn-hist    { background: rgba(124,58,237,.12); color: #a78bfa; border: 1px solid rgba(124,58,237,.25); font-size: 12px; padding: 5px 12px; }
-
-  /* ── Table ── */
-  .atm-tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  table.atm-tbl { width: 100%; border-collapse: collapse; min-width: 900px; }
-  .atm-tbl thead tr { background: #141720; border-bottom: 1px solid #1e2236; }
-  .atm-tbl th {
-    padding: 11px 16px; text-align: left; color: #4b5268;
-    font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .9px; white-space: nowrap;
-  }
-  .atm-tbl td { padding: 14px 16px; border-bottom: 1px solid #141720; vertical-align: middle; font-size: 13px; }
-  .atm-tbl tbody tr:last-child td { border-bottom: none; }
-  .atm-tbl tbody tr:hover td { background: rgba(255,255,255,.018); }
-
-  .atm-num  { color: #4b5268; font-size: 12px; font-family: monospace; }
-  .atm-date { color: #8b93a8; font-size: 12px; font-family: monospace; white-space: nowrap; }
-  .atm-emp-name  { font-weight: 600; color: #dde3f0; }
-  .atm-emp-email { font-size: 11px; color: #4b5268; margin-top: 2px; }
-  .atm-desc { color: #c9cfe0; white-space: pre-wrap; word-break: break-word; max-width: 280px; }
-  .atm-actions { display: flex; gap: 7px; align-items: center; }
-
-  .atm-badge {
-    display: inline-flex; align-items: center; padding: 3px 10px;
-    border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid; white-space: nowrap;
-  }
-
-  /* ── Empty / loading ── */
-  .atm-empty { text-align: center; padding: 56px 20px; color: #4b5268; font-size: 14px; }
-
-  /* ── Modal overlay ── */
-  .atm-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,.78); backdrop-filter: blur(5px);
-    z-index: 200; display: flex; align-items: flex-start; justify-content: center;
-    padding: 16px; overflow-y: auto;
-  }
-  .atm-modal {
-    background: #0e1118; border: 1px solid #1e2236; border-radius: 14px;
-    padding: 22px 24px; width: 100%; max-width: 600px;
-    margin-top: auto; margin-bottom: auto; animation: aSlideUp .18s ease;
-  }
-  @keyframes aSlideUp { from { opacity:0; transform:translateY(14px) } to { opacity:1; transform:translateY(0) } }
-  .atm-modal-title { font-size: 15px; font-weight: 700; color: #fff; }
-  .atm-modal-sub   { font-size: 12px; color: #6b7280; margin-top: 3px; }
-  .atm-hist-item {
-    background: #141720; border: 1px solid #1e2236; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px;
-  }
-
-  /* ── Toast ── */
-  .atm-toast-wrap { position: fixed; bottom: 22px; right: 22px; z-index: 500; display: flex; flex-direction: column; gap: 8px; }
-  .atm-toast { padding: 11px 18px; border-radius: 9px; font-size: 13px; font-weight: 600; border: 1px solid; animation: aSlideUp .2s ease; max-width: 300px; }
-  .atm-toast.success { background: rgba(34,197,94,.1);  border-color: rgba(34,197,94,.3);  color: #22c55e; }
-  .atm-toast.error   { background: rgba(239,68,68,.1);  border-color: rgba(239,68,68,.3);  color: #ef4444; }
-`;
-
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function AdminTaskManagerPage() {
-  const [tasks,         setTasks]         = useState<any[]>([]);
+  const [tasks,         setTasks]         = useState<Task[]>([]);
   const [loading,       setLoading]       = useState(true);
   const [search,        setSearch]        = useState('');
   const [approvalFilter,setApprovalFilter]= useState<string>('All');
   const [acting,        setActing]        = useState<number | null>(null);
 
   // History modal
-  const [histTask,      setHistTask]      = useState<any>(null);
+  const [histTask,      setHistTask]      = useState<Task | null>(null);
   const [history,       setHistory]       = useState<any[]>([]);
   const [histLoading,   setHistLoading]   = useState(false);
 
@@ -211,7 +97,7 @@ export default function AdminTaskManagerPage() {
   }
 
   // ── History modal ──────────────────────────────────────────────────────────
-  async function openHistory(task: any) {
+  async function openHistory(task: Task) {
     setHistTask(task); setHistLoading(true); setHistory([]);
     try {
       const r = await fetch(`${API}/api/v1/tasks/${task.id}/history`, { headers: hdr() });
@@ -239,56 +125,54 @@ export default function AdminTaskManagerPage() {
   });
 
   return (
-    <div className="atm-root">
-      <style>{PAGE_STYLES}</style>
+    <div className="font-sans min-h-screen bg-[#080a10] text-[#dde3f0] p-4 sm:p-6 lg:p-7">
 
       {/* ── Header ── */}
-      <div className="atm-hd">
-        <div className="atm-title">Admin Task Manager</div>
-        <div className="atm-sub">Review, approve and reject employee daily tasks</div>
+      <div className="mb-6">
+        <div className="text-[clamp(20px,3vw,26px)] font-bold text-white">Admin Task Manager</div>
+        <div className="text-[13px] text-zinc-500 mt-1">Review, approve and reject employee daily tasks</div>
       </div>
 
       {/* ── Stat Cards ── */}
-      <div className="atm-stats">
-        <div className="atm-stat">
-          <div className="atm-stat-label">Total Tasks</div>
-          <div className="atm-stat-val text">{stats.total}</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className="bg-[#0e1118] border border-[#1e2236] rounded-xl p-4 px-5">
+          <div className="text-[11px] font-semibold text-[#4b5268] uppercase tracking-[0.9px] mb-2">Total Tasks</div>
+          <div className="text-[28px] font-extrabold font-mono text-[#dde3f0]">{stats.total}</div>
         </div>
-        <div className="atm-stat">
-          <div className="atm-stat-label">Pending Review</div>
-          <div className="atm-stat-val amber">{stats.pending}</div>
+        <div className="bg-[#0e1118] border border-[#1e2236] rounded-xl p-4 px-5">
+          <div className="text-[11px] font-semibold text-[#4b5268] uppercase tracking-[0.9px] mb-2">Pending Review</div>
+          <div className="text-[28px] font-extrabold font-mono text-amber-500">{stats.pending}</div>
         </div>
-        <div className="atm-stat">
-          <div className="atm-stat-label">Approved</div>
-          <div className="atm-stat-val green">{stats.approved}</div>
+        <div className="bg-[#0e1118] border border-[#1e2236] rounded-xl p-4 px-5">
+          <div className="text-[11px] font-semibold text-[#4b5268] uppercase tracking-[0.9px] mb-2">Approved</div>
+          <div className="text-[28px] font-extrabold font-mono text-green-500">{stats.approved}</div>
         </div>
-        <div className="atm-stat">
-          <div className="atm-stat-label">Rejected</div>
-          <div className="atm-stat-val red">{stats.rejected}</div>
+        <div className="bg-[#0e1118] border border-[#1e2236] rounded-xl p-4 px-5">
+          <div className="text-[11px] font-semibold text-[#4b5268] uppercase tracking-[0.9px] mb-2">Rejected</div>
+          <div className="text-[28px] font-extrabold font-mono text-red-500">{stats.rejected}</div>
         </div>
       </div>
 
       {/* ── Table Card ── */}
-      <div className="atm-card">
-        <div className="atm-card-head">
+      <div className="bg-[#0e1118] border border-[#1e2236] rounded-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2236] flex-wrap gap-3">
           <div>
-            <div className="atm-card-title">All Employee Tasks</div>
-            <div className="atm-card-sub">
+            <div className="text-[15px] font-bold text-white">All Employee Tasks</div>
+            <div className="text-[12px] text-[#4b5268] mt-0.5">
               {approvalFilter !== 'All'
                 ? `${filtered.length} ${approvalFilter.toLowerCase()} tasks`
                 : `${filtered.length} of ${tasks.length} tasks`}
             </div>
           </div>
-          <div className="atm-controls">
+          <div className="flex gap-2.5 flex-wrap">
             <input
-              className="atm-input"
+              className="w-[220px] bg-[#141720] border border-[#1e2236] rounded-lg px-3 py-2 text-[#dde3f0] text-[13px] outline-none focus:border-[#00c9b1] placeholder-[#4b5268] transition-colors"
               placeholder="Search employee, task…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              style={{ width: 220 }}
             />
             <select
-              className="atm-input"
+              className="cursor-pointer min-w-[140px] bg-[#141720] border border-[#1e2236] rounded-lg px-3 py-2 text-[#dde3f0] text-[13px] outline-none focus:border-[#00c9b1] transition-colors"
               value={approvalFilter}
               onChange={e => setApprovalFilter(e.target.value)}
             >
@@ -296,27 +180,31 @@ export default function AdminTaskManagerPage() {
                 <option key={f} value={f}>{f === 'All' ? 'All Statuses' : f}</option>
               ))}
             </select>
-            <button className="atm-btn atm-btn-ghost" onClick={fetchTasks} disabled={loading}>
+            <button
+              className="px-4 py-2 rounded-lg text-[13px] font-semibold whitespace-nowrap inline-flex items-center gap-1.5 transition-opacity disabled:opacity-45 disabled:cursor-not-allowed bg-transparent text-[#8b93a8] border border-[#1e2236] hover:border-[#2c2f42] hover:text-[#dde3f0]"
+              onClick={fetchTasks}
+              disabled={loading}
+            >
               {loading ? 'Loading…' : 'Refresh'}
             </button>
           </div>
         </div>
 
-        <div className="atm-tbl-wrap">
+        <div className="overflow-x-auto">
           {loading ? (
-            <div className="atm-empty">Loading tasks…</div>
+            <div className="text-center py-14 px-5 text-[#4b5268] text-[14px]">Loading tasks…</div>
           ) : filtered.length === 0 ? (
-            <div className="atm-empty">
+            <div className="text-center py-14 px-5 text-[#4b5268] text-[14px]">
               {search || approvalFilter !== 'All'
                 ? 'No tasks match your filters.'
                 : 'No tasks submitted yet.'}
             </div>
           ) : (
-            <table className="atm-tbl">
+            <table className="w-full border-collapse min-w-[900px]">
               <thead>
-                <tr>
+                <tr className="bg-[#141720] border-b border-[#1e2236]">
                   {['#', 'Date', 'Employee', 'Task Description', 'Task Status', 'Approval', 'Reviewed By', 'Submitted', 'Actions'].map(h => (
-                    <th key={h}>{h}</th>
+                    <th key={h} className="px-4 py-2.5 text-left text-[#4b5268] text-[10.5px] font-semibold uppercase tracking-[0.9px] whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -324,55 +212,59 @@ export default function AdminTaskManagerPage() {
                 {filtered.map((t, i) => {
                   const isActing = acting === t.id;
                   return (
-                    <tr key={t.id}>
-                      <td className="atm-num">{String(i + 1).padStart(2, '0')}</td>
+                    <tr key={t.id} className="hover:bg-white/[0.018]">
+                      <td className="px-4 py-3.5 border-b border-[#141720] align-middle text-[13px] text-[#4b5268] text-[12px] font-mono">
+                        {String(i + 1).padStart(2, '0')}
+                      </td>
 
-                      <td className="atm-date">
+                      <td className="px-4 py-3.5 border-b border-[#141720] align-middle text-[13px] text-[#8b93a8] text-[12px] font-mono whitespace-nowrap">
                         {fmtDate(t.task_date)}
                         {t.task_date === todayISO() && (
-                          <span style={{ marginLeft: 6, fontSize: 9, padding: '2px 6px', background: 'rgba(0,201,177,.12)', color: '#00c9b1', borderRadius: 4, border: '1px solid rgba(0,201,177,.25)' }}>
+                          <span className="ml-1.5 text-[9px] px-1.5 py-0.5 bg-[rgba(0,201,177,0.12)] text-[#00c9b1] rounded border border-[rgba(0,201,177,0.25)]">
                             TODAY
                           </span>
                         )}
                       </td>
 
-                      <td>
-                        <div className="atm-emp-name">{t.employee_name || '—'}</div>
-                        <div className="atm-emp-email">{t.employee_email || ''}</div>
+                      <td className="px-4 py-3.5 border-b border-[#141720] align-middle text-[13px]">
+                        <div className="font-semibold text-[#dde3f0]">{t.employee_name || '—'}</div>
+                        <div className="text-[11px] text-[#4b5268] mt-0.5">{t.employee_email || ''}</div>
                       </td>
 
-                      <td>
-                        <div className="atm-desc">{t.description}</div>
+                      <td className="px-4 py-3.5 border-b border-[#141720] align-middle text-[13px]">
+                        <div className="text-[#c9cfe0] whitespace-pre-wrap break-words max-w-[280px]">{t.description}</div>
                       </td>
 
-                      <td>
-                        <span className="atm-badge" style={taskBadge(t.status)}>{t.status}</span>
+                      <td className="px-4 py-3.5 border-b border-[#141720] align-middle text-[13px]">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap" style={taskBadge(t.status)}>{t.status}</span>
                       </td>
 
-                      <td>
-                        <span className="atm-badge" style={approvalBadge(t.approval_status)}>
+                      <td className="px-4 py-3.5 border-b border-[#141720] align-middle text-[13px]">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap" style={approvalBadge(t.approval_status ?? '')}>
                           {t.approval_status}
                         </span>
                       </td>
 
-                      <td>
+                      <td className="px-4 py-3.5 border-b border-[#141720] align-middle text-[13px]">
                         {t.approved_by_name ? (
                           <>
-                            <div style={{ fontSize: 12, color: '#dde3f0' }}>{t.approved_by_name}</div>
-                            <div style={{ fontSize: 11, color: '#4b5268' }}>{t.approved_at ? fmtTs(t.approved_at) : ''}</div>
+                            <div className="text-[12px] text-[#dde3f0]">{t.approved_by_name}</div>
+                            <div className="text-[11px] text-[#4b5268]">{t.approved_at ? fmtTs(t.approved_at) : ''}</div>
                           </>
                         ) : (
-                          <span style={{ color: '#4b5268', fontSize: 12 }}>—</span>
+                          <span className="text-[#4b5268] text-[12px]">—</span>
                         )}
                       </td>
 
-                      <td className="atm-date">{fmtTs(t.created_at)}</td>
+                      <td className="px-4 py-3.5 border-b border-[#141720] align-middle text-[13px] text-[#8b93a8] text-[12px] font-mono whitespace-nowrap">
+                        {fmtTs(t.created_at ?? '')}
+                      </td>
 
-                      <td>
-                        <div className="atm-actions">
+                      <td className="px-4 py-3.5 border-b border-[#141720] align-middle text-[13px]">
+                        <div className="flex gap-[7px] items-center">
                           {t.approval_status !== 'Approved' && (
                             <button
-                              className="atm-btn atm-btn-approve"
+                              className="px-4 py-2 rounded-lg text-[13px] font-semibold whitespace-nowrap inline-flex items-center gap-1.5 transition-opacity disabled:opacity-45 disabled:cursor-not-allowed bg-green-500/[0.14] text-green-500 border border-green-500/[0.28] hover:bg-green-500/[0.22]"
                               disabled={isActing}
                               onClick={() => setApproval(t.id, 'Approved')}
                             >
@@ -381,7 +273,7 @@ export default function AdminTaskManagerPage() {
                           )}
                           {t.approval_status !== 'Rejected' && (
                             <button
-                              className="atm-btn atm-btn-reject"
+                              className="px-4 py-2 rounded-lg text-[13px] font-semibold whitespace-nowrap inline-flex items-center gap-1.5 transition-opacity disabled:opacity-45 disabled:cursor-not-allowed bg-red-500/[0.13] text-red-500 border border-red-500/[0.28] hover:bg-red-500/[0.22]"
                               disabled={isActing}
                               onClick={() => setApproval(t.id, 'Rejected')}
                             >
@@ -390,7 +282,7 @@ export default function AdminTaskManagerPage() {
                           )}
                           {t.approval_status !== 'Pending' && (
                             <button
-                              className="atm-btn atm-btn-reset"
+                              className="px-3 py-1.5 rounded-lg text-[12px] font-semibold whitespace-nowrap inline-flex items-center gap-1.5 transition-opacity disabled:opacity-45 disabled:cursor-not-allowed bg-amber-400/[0.12] text-amber-400 border border-amber-400/[0.28]"
                               disabled={isActing}
                               onClick={() => setApproval(t.id, 'Pending')}
                               title="Reset to Pending"
@@ -399,7 +291,7 @@ export default function AdminTaskManagerPage() {
                             </button>
                           )}
                           <button
-                            className="atm-btn atm-btn-hist"
+                            className="px-3 py-1.5 rounded-lg text-[12px] font-semibold whitespace-nowrap inline-flex items-center gap-1.5 transition-opacity bg-violet-500/[0.12] text-violet-400 border border-violet-500/[0.25]"
                             onClick={() => openHistory(t)}
                           >
                             History
@@ -418,57 +310,57 @@ export default function AdminTaskManagerPage() {
       {/* ── History Modal ── */}
       {histTask && (
         <div
-          className="atm-overlay"
+          className="fixed inset-0 bg-black/[0.78] backdrop-blur-[5px] z-[200] flex items-start justify-center p-4 overflow-y-auto"
           role="presentation"
           onClick={e => { if (e.target === e.currentTarget) setHistTask(null); }}
         >
-          <div className="atm-modal" role="dialog" aria-modal="true">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
+          <div className="bg-[#0e1118] border border-[#1e2236] rounded-2xl p-6 w-full max-w-[600px] my-auto" role="dialog" aria-modal="true">
+            <div className="flex justify-between items-start mb-4">
               <div>
-                <div className="atm-modal-title">Edit History</div>
-                <div className="atm-modal-sub">{fmtDate(histTask.task_date)} · {histTask.employee_name}</div>
+                <div className="text-[15px] font-bold text-white">Edit History</div>
+                <div className="text-[12px] text-zinc-500 mt-0.5">{fmtDate(histTask.task_date)} · {histTask.employee_name}</div>
               </div>
               <button
                 onClick={() => setHistTask(null)}
-                style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: 17, padding: '2px 6px' }}
+                className="bg-transparent border-none text-zinc-500 cursor-pointer text-[17px] px-1.5 py-0.5"
               >Close</button>
             </div>
 
             {histLoading ? (
-              <div style={{ textAlign: 'center', padding: 30, color: '#6b7280' }}>Loading…</div>
+              <div className="text-center p-7 text-zinc-500">Loading…</div>
             ) : history.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 30, color: '#4b5268', fontSize: 14 }}>
+              <div className="text-center p-7 text-[#4b5268] text-[14px]">
                 No edits recorded for this task.
               </div>
             ) : (
-              <div style={{ maxHeight: 420, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div className="max-h-[420px] overflow-y-auto flex flex-col gap-2.5">
                 {history.map((h, idx) => (
-                  <div key={h.id} className="atm-hist-item">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <span style={{ fontSize: 12, color: '#8b93a8' }}>
+                  <div key={h.id} className="bg-[#141720] border border-[#1e2236] rounded-xl px-4 py-3.5">
+                    <div className="flex justify-between mb-2.5">
+                      <span className="text-[12px] text-[#8b93a8]">
                         Edit #{history.length - idx} by{' '}
-                        <strong style={{ color: '#dde3f0' }}>{h.edited_by_name || 'Unknown'}</strong>
+                        <strong className="text-[#dde3f0]">{h.edited_by_name || 'Unknown'}</strong>
                       </span>
-                      <span style={{ fontSize: 11, color: '#4b5268' }}>{fmtTs(h.edited_at)}</span>
+                      <span className="text-[11px] text-[#4b5268]">{fmtTs(h.edited_at)}</span>
                     </div>
                     {h.old_description !== h.new_description && (
-                      <div style={{ marginBottom: 8 }}>
-                        <div style={{ fontSize: 10, color: '#4b5268', textTransform: 'uppercase', letterSpacing: '.8px', marginBottom: 5 }}>Description</div>
-                        <div style={{ fontSize: 12, color: '#ef4444', background: 'rgba(239,68,68,.07)', padding: '6px 10px', borderRadius: 6, marginBottom: 4 }}>
-                          <span style={{ color: '#6b7280' }}>Before: </span>{h.old_description}
+                      <div className="mb-2">
+                        <div className="text-[10px] text-[#4b5268] uppercase tracking-[0.8px] mb-1.5">Description</div>
+                        <div className="text-[12px] text-red-500 bg-red-500/[0.07] px-2.5 py-1.5 rounded-md mb-1">
+                          <span className="text-zinc-500">Before: </span>{h.old_description}
                         </div>
-                        <div style={{ fontSize: 12, color: '#22c55e', background: 'rgba(34,197,94,.07)', padding: '6px 10px', borderRadius: 6 }}>
-                          <span style={{ color: '#6b7280' }}>After: </span>{h.new_description}
+                        <div className="text-[12px] text-green-500 bg-green-500/[0.07] px-2.5 py-1.5 rounded-md">
+                          <span className="text-zinc-500">After: </span>{h.new_description}
                         </div>
                       </div>
                     )}
                     {h.old_status !== h.new_status && (
                       <div>
-                        <div style={{ fontSize: 10, color: '#4b5268', textTransform: 'uppercase', letterSpacing: '.8px', marginBottom: 5 }}>Status</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                          <span className="atm-badge" style={taskBadge(h.old_status)}>{h.old_status}</span>
-                          <span style={{ color: '#4b5268' }}>→</span>
-                          <span className="atm-badge" style={taskBadge(h.new_status)}>{h.new_status}</span>
+                        <div className="text-[10px] text-[#4b5268] uppercase tracking-[0.8px] mb-1.5">Status</div>
+                        <div className="flex items-center gap-2 text-[12px]">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap" style={taskBadge(h.old_status)}>{h.old_status}</span>
+                          <span className="text-[#4b5268]">→</span>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap" style={taskBadge(h.new_status)}>{h.new_status}</span>
                         </div>
                       </div>
                     )}
@@ -481,9 +373,18 @@ export default function AdminTaskManagerPage() {
       )}
 
       {/* ── Toasts ── */}
-      <div className="atm-toast-wrap" aria-live="polite">
+      <div className="fixed bottom-5 right-5 z-[500] flex flex-col gap-2" aria-live="polite">
         {toasts.map(t => (
-          <div key={t.id} className={`atm-toast ${t.type}`}>{t.msg}</div>
+          <div
+            key={t.id}
+            className={`px-4 py-2.5 rounded-[9px] text-[13px] font-semibold border max-w-[300px] ${
+              t.type === 'success'
+                ? 'bg-green-500/10 border-green-500/30 text-green-500'
+                : 'bg-red-500/10 border-red-500/30 text-red-500'
+            }`}
+          >
+            {t.msg}
+          </div>
         ))}
       </div>
     </div>

@@ -105,79 +105,6 @@ function agingBucketText(bucket: string): string {
   return '#ef4444';
 }
 
-// ── Inline styles ─────────────────────────────────────────────────────────────
-
-const S = `
-  *{margin:0;padding:0;box-sizing:border-box;}
-  .root{min-height:100vh;background:#0a0a0a;color:#e5e5e5;font-family:'Inter',system-ui,sans-serif;padding:clamp(14px,4vw,28px);}
-  .pg-hdr{margin-bottom:24px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-  .pg-title{font-size:clamp(18px,4vw,24px);font-weight:700;color:#fff;}
-  .pg-sub{color:#9ca3af;font-size:13px;margin-top:4px;}
-  .btn-refresh{background:transparent;color:#9ca3af;border:1px solid #2a2a2a;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;}
-  .btn-refresh:hover{border-color:#555;color:#e5e5e5;}
-  /* KPI bar */
-  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px;}
-  .kpi{background:#1a1a1a;border:1px solid #222;border-radius:14px;padding:18px 20px;}
-  .kpi-v{font-size:clamp(26px,5vw,34px);font-weight:800;line-height:1;margin-bottom:4px;}
-  .kpi-l{font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.6px;}
-  .kpi-sub{font-size:11px;margin-top:5px;}
-  /* Panels */
-  .panel{background:#141414;border:1px solid #222;border-radius:14px;padding:20px;margin-bottom:20px;}
-  .panel-title{font-size:14px;font-weight:600;color:#fff;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
-  .panel-title span{font-size:11px;color:#9ca3af;font-weight:400;}
-  /* Two-col */
-  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
-  @media(max-width:680px){.two-col{grid-template-columns:1fr;}}
-  /* Funnel */
-  .funnel-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
-  .funnel-label{width:180px;font-size:12px;color:#9ca3af;flex-shrink:0;text-align:right;}
-  .funnel-bar-wrap{flex:1;background:#1e1e1e;border-radius:6px;height:24px;overflow:hidden;}
-  .funnel-bar{height:100%;border-radius:6px;display:flex;align-items:center;padding-left:8px;font-size:11px;font-weight:600;color:#fff;transition:width .5s;}
-  .funnel-count{font-size:12px;color:#9ca3af;width:40px;text-align:right;flex-shrink:0;}
-  /* Table */
-  .tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid #1e1e1e;}
-  .tbl{width:100%;border-collapse:collapse;}
-  .tbl th{padding:10px 14px;font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;text-align:left;background:#111;border-bottom:1px solid #1e1e1e;white-space:nowrap;}
-  .tbl td{padding:11px 14px;font-size:13px;color:#e5e5e5;border-bottom:1px solid #181818;vertical-align:middle;}
-  .tbl tr:last-child td{border-bottom:none;}
-  .tbl tr:hover td{background:#1a1a1a;}
-  .tbl-empty{text-align:center;padding:32px 14px !important;color:#4b5563 !important;font-size:13px !important;}
-  /* Badges */
-  .badge{display:inline-flex;align-items:center;justify-content:center;padding:2px 9px;border-radius:6px;font-size:11px;font-weight:700;border:1px solid;}
-  .badge-red{background:rgba(239,68,68,.12);color:#ef4444;border-color:rgba(239,68,68,.3);}
-  .badge-amber{background:rgba(251,191,36,.1);color:#fbbf24;border-color:rgba(251,191,36,.25);}
-  .badge-orange{background:rgba(249,115,22,.1);color:#f97316;border-color:rgba(249,115,22,.25);}
-  .badge-green{background:rgba(34,197,94,.1);color:#22c55e;border-color:rgba(34,197,94,.25);}
-  .badge-gray{background:rgba(107,114,128,.1);color:#9ca3af;border-color:rgba(107,114,128,.25);}
-  /* Tabs */
-  .tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
-  .tab{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:6px 14px;font-size:12px;color:#9ca3af;cursor:pointer;transition:all .15s;}
-  .tab:hover{color:#e5e5e5;}
-  .tab.active{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.35);color:#ef4444;font-weight:600;}
-  /* Bar chart */
-  .bar-chart{display:flex;flex-direction:column;gap:8px;}
-  .bar-row{display:flex;align-items:center;gap:10px;}
-  .bar-lbl{font-size:11px;color:#9ca3af;width:120px;flex-shrink:0;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;}
-  .bar-wrap{flex:1;background:#1e1e1e;border-radius:5px;height:20px;overflow:hidden;}
-  .bar-fill{height:100%;border-radius:5px;transition:width .4s;}
-  .bar-val{font-size:11px;color:#9ca3af;width:32px;text-align:right;flex-shrink:0;}
-  /* Trend chart */
-  .trend-wrap{overflow-x:auto;}
-  .trend-svg{display:block;}
-  /* Aging heatmap */
-  .aging-grid{overflow-x:auto;}
-  .aging-tbl{width:100%;border-collapse:collapse;}
-  .aging-tbl th{padding:8px 12px;font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;text-align:center;background:#111;border:1px solid #1e1e1e;}
-  .aging-tbl td{padding:8px 12px;font-size:12px;text-align:center;border:1px solid #1e1e1e;font-weight:600;}
-  .aging-tbl .row-label{text-align:left;color:#9ca3af;font-size:11px;font-weight:400;white-space:nowrap;}
-  /* Sort btn */
-  .sort-btn{background:none;border:none;color:#6b7280;font-size:10px;cursor:pointer;padding:0 4px;}
-  .sort-btn.active{color:#ef4444;}
-  /* Loading / empty */
-  .loading{text-align:center;padding:60px 20px;color:#6b7280;font-size:14px;}
-  .health-pill{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid;}
-`;
-
 // ── Component ──────────────────────────────────────────────────────────────────
 
 type AtRiskTab = 'overdue' | 'no_date' | 'stale';
@@ -277,7 +204,7 @@ export default function SalesAnalyticsPage() {
           const dir = spAsc ? 1 : -1;
           return spSort === 'health'
             ? dir * (a.health - b.health)
-            : dir * ((a as any)[spSort] - (b as any)[spSort]);
+            : dir * ((Number(a[spSort as keyof typeof a]) || 0) - (Number(b[spSort as keyof typeof b]) || 0));
         })
     : [];
 
@@ -316,18 +243,23 @@ export default function SalesAnalyticsPage() {
   // Sort header helper
   const SortBtn = ({ k, label }: { k: SpSort; label: string }) => (
     <button
-      className={`sort-btn${spSort === k ? ' active' : ''}`}
+      className={`bg-transparent border-none text-[10px] cursor-pointer px-1 ${spSort === k ? 'text-red-500' : 'text-zinc-500'}`}
       onClick={() => { if (spSort === k) setSpAsc(p => !p); else { setSpSort(k); setSpAsc(false); } }}
     >
       {label} {spSort === k ? (spAsc ? 'ASC' : 'DESC') : '-'}
     </button>
   );
 
+  // ── Shared table class strings ───────────────────────────────────────────────
+
+  const thCls = 'px-3.5 py-2.5 text-[10px] font-semibold text-zinc-500 uppercase tracking-[.5px] text-left bg-[#111] border-b border-[#1e1e1e] whitespace-nowrap';
+  const tdCls = 'px-3.5 py-[11px] text-[13px] text-zinc-200 border-b border-[#181818] align-middle group-hover:bg-zinc-900';
+
   // ── Guards ──────────────────────────────────────────────────────────────────
 
   if (!roleChecked) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontFamily: 'system-ui' }}>
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-zinc-400 font-sans">
         Checking access…
       </div>
     );
@@ -335,10 +267,13 @@ export default function SalesAnalyticsPage() {
 
   if (accessDenied) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: 'system-ui' }}>
-        <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 18 }}>Access Denied</div>
-        <div style={{ color: '#9ca3af', fontSize: 14 }}>Only Admins can view Sales Analytics.</div>
-        <button onClick={() => router.back()} style={{ marginTop: 16, padding: '8px 20px', background: '#1a1a1a', border: '1px solid #333', borderRadius: 8, color: '#e5e5e5', cursor: 'pointer', fontSize: 13 }}>
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center gap-3 font-sans">
+        <div className="text-red-500 font-bold text-lg">Access Denied</div>
+        <div className="text-zinc-400 text-sm">Only Admins can view Sales Analytics.</div>
+        <button
+          onClick={() => router.back()}
+          className="mt-4 py-2 px-5 bg-zinc-900 border border-[#333] rounded-lg text-zinc-200 cursor-pointer text-[13px]"
+        >
           Go Back
         </button>
       </div>
@@ -346,72 +281,75 @@ export default function SalesAnalyticsPage() {
   }
 
   return (
-    <div className="root">
-      <style>{S}</style>
+    <div className="min-h-screen bg-zinc-950 text-zinc-200 font-sans p-[clamp(14px,4vw,28px)]">
 
       {/* ── Header ── */}
-      <div className="pg-hdr">
+      <div className="mb-6 flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <div className="pg-title">Sales Analytics</div>
-          <div className="pg-sub">Deep-dive pipeline health — every lead, every salesperson, every risk</div>
+          <div className="text-[clamp(18px,4vw,24px)] font-bold text-white">Sales Analytics</div>
+          <div className="text-zinc-400 text-[13px] mt-1">Deep-dive pipeline health — every lead, every salesperson, every risk</div>
         </div>
-        <button className="btn-refresh" onClick={load} disabled={loading}>
+        <button
+          className="bg-transparent text-zinc-400 border border-zinc-800 px-3.5 py-[7px] rounded-lg text-xs font-medium cursor-pointer transition-all duration-150 hover:border-[#555] hover:text-zinc-200 disabled:opacity-50"
+          onClick={load}
+          disabled={loading}
+        >
           {loading ? 'Loading...' : 'Refresh'}
         </button>
       </div>
 
       {loading ? (
-        <div className="loading">Loading analytics data…</div>
+        <div className="text-center py-16 px-5 text-zinc-500 text-sm">Loading analytics data…</div>
       ) : (
         <>
           {/* ══ SECTION 1: KPI Alert Bar ══ */}
-          <div className="kpi-grid">
-            <div className="kpi" style={{ borderColor: 'rgba(34,197,94,.3)' }}>
-              <div className="kpi-v" style={{ color: '#22c55e' }}>{funnelTotal}</div>
-              <div className="kpi-l">Active Pipeline</div>
-              <div className="kpi-sub" style={{ color: '#22c55e' }}>Leads in progress</div>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3 mb-6">
+            <div className="bg-zinc-900 border border-[#222] rounded-2xl px-5 py-[18px]" style={{ borderColor: 'rgba(34,197,94,.3)' }}>
+              <div className="text-[clamp(26px,5vw,34px)] font-extrabold leading-none mb-1 text-green-500">{funnelTotal}</div>
+              <div className="text-[11px] text-zinc-400 uppercase tracking-[.6px]">Active Pipeline</div>
+              <div className="text-[11px] mt-[5px] text-green-500">Leads in progress</div>
             </div>
-            <div className="kpi" style={{ borderColor: 'rgba(239,68,68,.35)' }}>
-              <div className="kpi-v" style={{ color: '#ef4444' }}>{data?.at_risk_summary?.overdue ?? 0}</div>
-              <div className="kpi-l">Overdue</div>
-              <div className="kpi-sub" style={{ color: '#ef4444' }}>Past next action date</div>
+            <div className="bg-zinc-900 border border-[#222] rounded-2xl px-5 py-[18px]" style={{ borderColor: 'rgba(239,68,68,.35)' }}>
+              <div className="text-[clamp(26px,5vw,34px)] font-extrabold leading-none mb-1 text-red-500">{data?.at_risk_summary?.overdue ?? 0}</div>
+              <div className="text-[11px] text-zinc-400 uppercase tracking-[.6px]">Overdue</div>
+              <div className="text-[11px] mt-[5px] text-red-500">Past next action date</div>
             </div>
-            <div className="kpi" style={{ borderColor: 'rgba(251,191,36,.3)' }}>
-              <div className="kpi-v" style={{ color: '#fbbf24' }}>{data?.at_risk_summary?.no_date ?? 0}</div>
-              <div className="kpi-l">No Date Set</div>
-              <div className="kpi-sub" style={{ color: '#fbbf24' }}>No follow-up scheduled</div>
+            <div className="bg-zinc-900 border border-[#222] rounded-2xl px-5 py-[18px]" style={{ borderColor: 'rgba(251,191,36,.3)' }}>
+              <div className="text-[clamp(26px,5vw,34px)] font-extrabold leading-none mb-1 text-amber-400">{data?.at_risk_summary?.no_date ?? 0}</div>
+              <div className="text-[11px] text-zinc-400 uppercase tracking-[.6px]">No Date Set</div>
+              <div className="text-[11px] mt-[5px] text-amber-400">No follow-up scheduled</div>
             </div>
-            <div className="kpi" style={{ borderColor: 'rgba(249,115,22,.3)' }}>
-              <div className="kpi-v" style={{ color: '#f97316' }}>{data?.at_risk_summary?.stale_7d ?? 0}</div>
-              <div className="kpi-l">Stale 7d+</div>
-              <div className="kpi-sub" style={{ color: '#f97316' }}>Not updated in 7+ days</div>
+            <div className="bg-zinc-900 border border-[#222] rounded-2xl px-5 py-[18px]" style={{ borderColor: 'rgba(249,115,22,.3)' }}>
+              <div className="text-[clamp(26px,5vw,34px)] font-extrabold leading-none mb-1 text-orange-500">{data?.at_risk_summary?.stale_7d ?? 0}</div>
+              <div className="text-[11px] text-zinc-400 uppercase tracking-[.6px]">Stale 7d+</div>
+              <div className="text-[11px] mt-[5px] text-orange-500">Not updated in 7+ days</div>
             </div>
           </div>
 
           {/* ══ SECTION 2: Pipeline Funnel ══ */}
-          <div className="panel">
-            <div className="panel-title">
+          <div className="bg-[#141414] border border-[#222] rounded-2xl p-5 mb-5">
+            <div className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
               Pipeline Funnel
-              <span>{funnelTotal} total active leads</span>
+              <span className="text-[11px] text-zinc-400 font-normal">{funnelTotal} total active leads</span>
             </div>
             {funnelRows.length === 0 ? (
-              <div style={{ color: '#4b5563', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>No active pipeline data</div>
+              <div className="text-zinc-600 text-[13px] text-center py-6">No active pipeline data</div>
             ) : (
               funnelRows.map(row => {
                 const pct   = funnelTotal > 0 ? Math.round((Number(row.count) / funnelTotal) * 100) : 0;
                 const color = STATUS_COLORS[row.status] || '#6b7280';
                 return (
-                  <div key={row.status} className="funnel-row">
-                    <div className="funnel-label">{row.status}</div>
-                    <div className="funnel-bar-wrap">
+                  <div key={row.status} className="flex items-center gap-2.5 mb-2">
+                    <div className="w-[180px] text-xs text-zinc-400 shrink-0 text-right">{row.status}</div>
+                    <div className="flex-1 bg-[#1e1e1e] rounded-md h-6 overflow-hidden">
                       <div
-                        className="funnel-bar"
+                        className="h-full rounded-md flex items-center pl-2 text-[11px] font-semibold text-white transition-[width] duration-500"
                         style={{ width: `${Math.max(pct, 2)}%`, background: color + 'cc' }}
                       >
                         {pct >= 8 ? `${pct}%` : ''}
                       </div>
                     </div>
-                    <div className="funnel-count">{row.count}</div>
+                    <div className="text-xs text-zinc-400 w-10 text-right shrink-0">{row.count}</div>
                   </div>
                 );
               })
@@ -420,16 +358,16 @@ export default function SalesAnalyticsPage() {
 
           {/* Lost – Not interested (structured reasons) */}
           {data?.lost_not_interested_breakdown && data.lost_not_interested_breakdown.length > 0 && (
-            <div className="panel">
-              <div className="panel-title">
+            <div className="bg-[#141414] border border-[#222] rounded-2xl p-5 mb-5">
+              <div className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
                 Lost – Not interested
-                <span>Breakdown by recorded reason</span>
+                <span className="text-[11px] text-zinc-400 font-normal">Breakdown by recorded reason</span>
               </div>
-              <div style={{ display: 'grid', gap: 8, maxWidth: 480 }}>
+              <div className="grid gap-2 max-w-[480px]">
                 {data.lost_not_interested_breakdown.map(row => (
-                  <div key={row.reason} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#d1d5db' }}>
-                    <span style={{ color: '#9ca3af' }}>{row.reason}</span>
-                    <span style={{ fontWeight: 700, color: '#f87171' }}>{row.count}</span>
+                  <div key={row.reason} className="flex justify-between text-[13px] text-[#d1d5db]">
+                    <span className="text-zinc-400">{row.reason}</span>
+                    <span className="font-bold text-[#f87171]">{row.count}</span>
                   </div>
                 ))}
               </div>
@@ -437,47 +375,47 @@ export default function SalesAnalyticsPage() {
           )}
 
           {/* ══ SECTION 3: Salesperson Scorecard ══ */}
-          <div className="panel">
-            <div className="panel-title">Salesperson Scorecard</div>
-            <div className="tbl-wrap">
-              <table className="tbl">
+          <div className="bg-[#141414] border border-[#222] rounded-2xl p-5 mb-5">
+            <div className="text-sm font-semibold text-white mb-4 flex items-center gap-2">Salesperson Scorecard</div>
+            <div className="overflow-x-auto rounded-xl border border-[#1e1e1e]">
+              <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    <th>Salesperson</th>
-                    <th><SortBtn k="total"    label="Total" /></th>
-                    <th><SortBtn k="overdue"  label="Overdue" /></th>
-                    <th><SortBtn k="no_date"  label="No Date" /></th>
-                    <th><SortBtn k="stale_7d" label="Stale 7d+" /></th>
-                    <th>Lost (month)</th>
-                    <th><SortBtn k="health"   label="Health" /></th>
+                    <th className={thCls}>Salesperson</th>
+                    <th className={thCls}><SortBtn k="total"    label="Total" /></th>
+                    <th className={thCls}><SortBtn k="overdue"  label="Overdue" /></th>
+                    <th className={thCls}><SortBtn k="no_date"  label="No Date" /></th>
+                    <th className={thCls}><SortBtn k="stale_7d" label="Stale 7d+" /></th>
+                    <th className={thCls}>Lost (month)</th>
+                    <th className={thCls}><SortBtn k="health"   label="Health" /></th>
                   </tr>
                 </thead>
                 <tbody>
                   {spRows.length === 0 ? (
-                    <tr><td className="tbl-empty" colSpan={7}>No data</td></tr>
+                    <tr><td className="text-center py-8 px-3.5 text-zinc-600 text-[13px]" colSpan={7}>No data</td></tr>
                   ) : spRows.map(sp => (
-                    <tr key={sp.name}>
-                      <td style={{ fontWeight: 600, color: '#fff' }}>{sp.name}</td>
-                      <td>{sp.total}</td>
-                      <td>
+                    <tr key={sp.name} className="group [&:last-child>td]:border-b-0">
+                      <td className={tdCls} style={{ fontWeight: 600, color: '#fff' }}>{sp.name}</td>
+                      <td className={tdCls}>{sp.total}</td>
+                      <td className={tdCls}>
                         {sp.overdue > 0
-                          ? <span className="badge badge-red">{sp.overdue}</span>
-                          : <span style={{ color: '#4b5563' }}>0</span>}
+                          ? <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[11px] font-bold border bg-red-500/[.12] text-red-500 border-red-500/30">{sp.overdue}</span>
+                          : <span className="text-zinc-600">0</span>}
                       </td>
-                      <td>
+                      <td className={tdCls}>
                         {sp.no_date > 0
-                          ? <span className="badge badge-amber">{sp.no_date}</span>
-                          : <span style={{ color: '#4b5563' }}>0</span>}
+                          ? <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[11px] font-bold border bg-amber-400/10 text-amber-400 border-amber-400/25">{sp.no_date}</span>
+                          : <span className="text-zinc-600">0</span>}
                       </td>
-                      <td>
+                      <td className={tdCls}>
                         {sp.stale_7d > 0
-                          ? <span className="badge badge-orange">{sp.stale_7d}</span>
-                          : <span style={{ color: '#4b5563' }}>0</span>}
+                          ? <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[11px] font-bold border bg-orange-500/10 text-orange-500 border-orange-500/25">{sp.stale_7d}</span>
+                          : <span className="text-zinc-600">0</span>}
                       </td>
-                      <td style={{ color: sp.lost_month > 0 ? '#ef4444' : '#4b5563' }}>{sp.lost_month}</td>
-                      <td>
+                      <td className={tdCls} style={{ color: sp.lost_month > 0 ? '#ef4444' : '#4b5563' }}>{sp.lost_month}</td>
+                      <td className={tdCls}>
                         <span
-                          className="health-pill"
+                          className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold border"
                           style={{
                             color: healthColor(sp.health),
                             borderColor: healthColor(sp.health) + '55',
@@ -492,52 +430,52 @@ export default function SalesAnalyticsPage() {
                 </tbody>
               </table>
             </div>
-            <div style={{ marginTop: 10, fontSize: 11, color: '#4b5563' }}>
+            <div className="mt-2.5 text-[11px] text-zinc-600">
               Health = (Total – Overdue – No Date – Stale) / Total. Higher is better.
             </div>
           </div>
 
           {/* ══ SECTION 4: At-Risk Lead Safety Net ══ */}
-          <div className="panel">
-            <div className="panel-title">
+          <div className="bg-[#141414] border border-[#222] rounded-2xl p-5 mb-5">
+            <div className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
               At-Risk Lead Safety Net
-              <span>No lead falls through the cracks</span>
+              <span className="text-[11px] text-zinc-400 font-normal">No lead falls through the cracks</span>
             </div>
-            <div className="tabs">
+            <div className="flex gap-1.5 mb-3.5 flex-wrap">
               <div
-                className={`tab${atRiskTab === 'overdue' ? ' active' : ''}`}
+                className={`bg-zinc-900 border rounded-lg px-3.5 py-1.5 text-xs cursor-pointer transition-all duration-150 hover:text-zinc-200 ${atRiskTab === 'overdue' ? 'bg-red-500/[.08] border-red-500/35 text-red-500 font-semibold' : 'border-zinc-800 text-zinc-400'}`}
                 onClick={() => setAtRiskTab('overdue')}
               >
                 Overdue ({overdueVisits.length})
               </div>
               <div
-                className={`tab${atRiskTab === 'no_date' ? ' active' : ''}`}
+                className={`bg-zinc-900 border rounded-lg px-3.5 py-1.5 text-xs cursor-pointer transition-all duration-150 hover:text-zinc-200 ${atRiskTab === 'no_date' ? 'bg-red-500/[.08] border-red-500/35 text-red-500 font-semibold' : 'border-zinc-800 text-zinc-400'}`}
                 onClick={() => setAtRiskTab('no_date')}
               >
                 No Date Set ({noDateVisits.length})
               </div>
               <div
-                className={`tab${atRiskTab === 'stale' ? ' active' : ''}`}
+                className={`bg-zinc-900 border rounded-lg px-3.5 py-1.5 text-xs cursor-pointer transition-all duration-150 hover:text-zinc-200 ${atRiskTab === 'stale' ? 'bg-red-500/[.08] border-red-500/35 text-red-500 font-semibold' : 'border-zinc-800 text-zinc-400'}`}
                 onClick={() => setAtRiskTab('stale')}
               >
                 Stale 7d+ ({staleVisits.length})
               </div>
             </div>
-            <div className="tbl-wrap">
-              <table className="tbl">
+            <div className="overflow-x-auto rounded-xl border border-[#1e1e1e]">
+              <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    <th>Customer</th>
-                    <th>Salesperson</th>
-                    <th>Status</th>
-                    <th>{atRiskTab === 'overdue' ? 'Days Overdue' : atRiskTab === 'stale' ? 'Days Stale' : 'Next Action'}</th>
-                    <th>Last Updated</th>
+                    <th className={thCls}>Customer</th>
+                    <th className={thCls}>Salesperson</th>
+                    <th className={thCls}>Status</th>
+                    <th className={thCls}>{atRiskTab === 'overdue' ? 'Days Overdue' : atRiskTab === 'stale' ? 'Days Stale' : 'Next Action'}</th>
+                    <th className={thCls}>Last Updated</th>
                   </tr>
                 </thead>
                 <tbody>
                   {atRiskList.length === 0 ? (
                     <tr>
-                      <td className="tbl-empty" colSpan={5}>
+                      <td className="text-center py-8 px-3.5 text-zinc-600 text-[13px]" colSpan={5}>
                         {atRiskTab === 'overdue' ? 'No overdue leads' : atRiskTab === 'no_date' ? 'All leads have a follow-up date' : 'No stale leads'}
                       </td>
                     </tr>
@@ -545,14 +483,18 @@ export default function SalesAnalyticsPage() {
                     const days = atRiskTab === 'overdue'
                       ? daysSince(v.next_action_date)
                       : daysSince(v.updated_at);
-                    const badgeCls = days >= 14 ? 'badge-red' : days >= 7 ? 'badge-orange' : 'badge-amber';
+                    const badgeCls = days >= 14
+                      ? 'bg-red-500/[.12] text-red-500 border-red-500/30'
+                      : days >= 7
+                        ? 'bg-orange-500/10 text-orange-500 border-orange-500/25'
+                        : 'bg-amber-400/10 text-amber-400 border-amber-400/25';
                     return (
-                      <tr key={v.id}>
-                        <td style={{ fontWeight: 600, color: '#fff' }}>{v.cust_name || '—'}</td>
-                        <td style={{ color: '#9ca3af' }}>{v.salesperson_name || '—'}</td>
-                        <td>
+                      <tr key={v.id} className="group [&:last-child>td]:border-b-0">
+                        <td className={tdCls} style={{ fontWeight: 600, color: '#fff' }}>{v.cust_name || '—'}</td>
+                        <td className={`${tdCls} text-zinc-400`}>{v.salesperson_name || '—'}</td>
+                        <td className={tdCls}>
                           <span
-                            className="badge"
+                            className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[11px] font-bold border"
                             style={{
                               background: (STATUS_COLORS[v.status || ''] || '#6b7280') + '22',
                               color: STATUS_COLORS[v.status || ''] || '#6b7280',
@@ -562,13 +504,13 @@ export default function SalesAnalyticsPage() {
                             {v.status || 'New Lead'}
                           </span>
                         </td>
-                        <td>
+                        <td className={tdCls}>
                           {atRiskTab === 'no_date'
-                            ? <span style={{ color: '#fbbf24', fontSize: 12 }}>{v.next_action || 'Not set'}</span>
-                            : <span className={`badge ${badgeCls}`}>{days}d</span>
+                            ? <span className="text-amber-400 text-xs">{v.next_action || 'Not set'}</span>
+                            : <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[11px] font-bold border ${badgeCls}`}>{days}d</span>
                           }
                         </td>
-                        <td style={{ color: '#6b7280', fontSize: 12 }}>
+                        <td className={`${tdCls} text-zinc-500 text-xs`}>
                           {v.updated_at ? fmtDate(v.updated_at) : 'Never'}
                         </td>
                       </tr>
@@ -578,37 +520,45 @@ export default function SalesAnalyticsPage() {
               </table>
             </div>
             {atRiskList.length > 50 && (
-              <div style={{ marginTop: 10, fontSize: 11, color: '#4b5563', textAlign: 'right' }}>
+              <div className="mt-2.5 text-[11px] text-zinc-600 text-right">
                 Showing top 50 of {atRiskList.length}
               </div>
             )}
           </div>
 
           {/* ══ SECTION 5: Stage Aging Heatmap ══ */}
-          <div className="panel">
-            <div className="panel-title">Stage Aging Heatmap <span>How long leads sit in each stage</span></div>
-            <div className="aging-grid">
-              <table className="aging-tbl">
+          <div className="bg-[#141414] border border-[#222] rounded-2xl p-5 mb-5">
+            <div className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+              Stage Aging Heatmap
+              <span className="text-[11px] text-zinc-400 font-normal">How long leads sit in each stage</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left' }}>Stage</th>
-                    {agingBuckets.map(b => <th key={b}>{agingBucketLabel[b]}</th>)}
-                    <th>Total</th>
+                    <th className="px-3 py-2 text-[10px] font-semibold text-zinc-500 uppercase tracking-[.5px] text-left bg-[#111] border border-[#1e1e1e]">Stage</th>
+                    {agingBuckets.map(b => (
+                      <th key={b} className="px-3 py-2 text-[10px] font-semibold text-zinc-500 uppercase tracking-[.5px] text-center bg-[#111] border border-[#1e1e1e]">
+                        {agingBucketLabel[b]}
+                      </th>
+                    ))}
+                    <th className="px-3 py-2 text-[10px] font-semibold text-zinc-500 uppercase tracking-[.5px] text-center bg-[#111] border border-[#1e1e1e]">Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {agingStatuses.length === 0 ? (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: '#4b5563', fontSize: 13 }}>No data</td></tr>
+                    <tr><td colSpan={6} className="text-center py-6 text-zinc-600 text-[13px] border border-[#1e1e1e]">No data</td></tr>
                   ) : agingStatuses.map(status => {
                     const rowTotal = agingBuckets.reduce((s, b) => s + agingCell(status, b), 0);
                     return (
                       <tr key={status}>
-                        <td className="row-label">{status}</td>
+                        <td className="px-3 py-2 text-xs border border-[#1e1e1e] font-semibold text-left text-zinc-400 text-[11px] font-normal whitespace-nowrap">{status}</td>
                         {agingBuckets.map(b => {
                           const val = agingCell(status, b);
                           return (
                             <td
                               key={b}
+                              className="px-3 py-2 text-xs text-center border border-[#1e1e1e] font-semibold"
                               style={{
                                 background: val > 0 ? agingBucketColor(b) : 'transparent',
                                 color: val > 0 ? agingBucketText(b) : '#2a2a2a',
@@ -618,7 +568,7 @@ export default function SalesAnalyticsPage() {
                             </td>
                           );
                         })}
-                        <td style={{ color: '#9ca3af' }}>{rowTotal}</td>
+                        <td className="px-3 py-2 text-xs text-center border border-[#1e1e1e] font-semibold text-zinc-400">{rowTotal}</td>
                       </tr>
                     );
                   })}
@@ -628,24 +578,24 @@ export default function SalesAnalyticsPage() {
           </div>
 
           {/* ══ SECTIONS 6 & 7: Vehicle + Location ══ */}
-          <div className="two-col">
+          <div className="grid grid-cols-2 gap-4 mb-5 max-[680px]:grid-cols-1">
             {/* Vehicle breakdown */}
-            <div className="panel" style={{ margin: 0 }}>
-              <div className="panel-title">Vehicle Interest</div>
+            <div className="bg-[#141414] border border-[#222] rounded-2xl p-5">
+              <div className="text-sm font-semibold text-white mb-4 flex items-center gap-2">Vehicle Interest</div>
               {vehicleRows.length === 0
-                ? <div style={{ color: '#4b5563', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>No data</div>
+                ? <div className="text-zinc-600 text-[13px] text-center py-6">No data</div>
                 : (
-                  <div className="bar-chart">
+                  <div className="flex flex-col gap-2">
                     {vehicleRows.map(r => (
-                      <div key={r.vehicle} className="bar-row">
-                        <div className="bar-lbl" title={r.vehicle}>{r.vehicle}</div>
-                        <div className="bar-wrap">
+                      <div key={r.vehicle} className="flex items-center gap-2.5">
+                        <div className="text-[11px] text-zinc-400 w-[120px] shrink-0 truncate" title={r.vehicle}>{r.vehicle}</div>
+                        <div className="flex-1 bg-[#1e1e1e] rounded-[5px] h-5 overflow-hidden">
                           <div
-                            className="bar-fill"
+                            className="h-full rounded-[5px] transition-[width] duration-[400ms]"
                             style={{ width: `${Math.round((Number(r.count) / vehicleMax) * 100)}%`, background: '#8b5cf6cc' }}
                           />
                         </div>
-                        <div className="bar-val">{r.count}</div>
+                        <div className="text-[11px] text-zinc-400 w-8 text-right shrink-0">{r.count}</div>
                       </div>
                     ))}
                   </div>
@@ -653,22 +603,22 @@ export default function SalesAnalyticsPage() {
             </div>
 
             {/* Location breakdown */}
-            <div className="panel" style={{ margin: 0 }}>
-              <div className="panel-title">Territory / Location</div>
+            <div className="bg-[#141414] border border-[#222] rounded-2xl p-5">
+              <div className="text-sm font-semibold text-white mb-4 flex items-center gap-2">Territory / Location</div>
               {locationRows.length === 0
-                ? <div style={{ color: '#4b5563', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>No data</div>
+                ? <div className="text-zinc-600 text-[13px] text-center py-6">No data</div>
                 : (
-                  <div className="bar-chart">
+                  <div className="flex flex-col gap-2">
                     {locationRows.map(r => (
-                      <div key={r.location} className="bar-row">
-                        <div className="bar-lbl" title={r.location}>{r.location}</div>
-                        <div className="bar-wrap">
+                      <div key={r.location} className="flex items-center gap-2.5">
+                        <div className="text-[11px] text-zinc-400 w-[120px] shrink-0 truncate" title={r.location}>{r.location}</div>
+                        <div className="flex-1 bg-[#1e1e1e] rounded-[5px] h-5 overflow-hidden">
                           <div
-                            className="bar-fill"
+                            className="h-full rounded-[5px] transition-[width] duration-[400ms]"
                             style={{ width: `${Math.round((Number(r.count) / locationMax) * 100)}%`, background: '#0ea5e9cc' }}
                           />
                         </div>
-                        <div className="bar-val">{r.count}</div>
+                        <div className="text-[11px] text-zinc-400 w-8 text-right shrink-0">{r.count}</div>
                       </div>
                     ))}
                   </div>
@@ -677,14 +627,17 @@ export default function SalesAnalyticsPage() {
           </div>
 
           {/* ══ SECTION 8: 30-day Activity Trend ══ */}
-          <div className="panel">
-            <div className="panel-title">30-Day Visit Activity Trend <span>New visits per day</span></div>
+          <div className="bg-[#141414] border border-[#222] rounded-2xl p-5 mb-5">
+            <div className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+              30-Day Visit Activity Trend
+              <span className="text-[11px] text-zinc-400 font-normal">New visits per day</span>
+            </div>
             {trendRows.length === 0
-              ? <div style={{ color: '#4b5563', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>No visit data in last 30 days</div>
+              ? <div className="text-zinc-600 text-[13px] text-center py-6">No visit data in last 30 days</div>
               : (
-                <div className="trend-wrap">
+                <div className="overflow-x-auto">
                   <svg
-                    className="trend-svg"
+                    className="block"
                     width={trendW}
                     height={trendH + 20}
                     viewBox={`0 0 ${trendW} ${trendH + 20}`}

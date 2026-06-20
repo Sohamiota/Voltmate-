@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import type { Visit } from '@/types/api';
 import SearchableSelect from '@/components/SearchableSelect';
 import {
   CRM_CONTACT_OPTIONS,
@@ -27,37 +28,6 @@ interface Lead {
 interface Employee {
   id: string | number;
   name: string;
-}
-
-interface Visit {
-  id?: string | number;
-  lead_id?: number;
-  lead_cust_code?: string;
-  cust_name?: string;
-  connect_date?: string;
-  salesperson_id?: number;
-  salesperson_name?: string;
-  vehicle?: string;
-  status?: string;
-  visit_date?: string;
-  next_action?: string;
-  next_action_date?: string;
-  note?: string;
-  lost_not_interested_reason?: string | null;
-  lost_reason_notes?: string | null;
-  is_hot_lead?: boolean;
-  // audit fields
-  created_by_name?: string;
-  updated_by_name?: string;
-  created_at?: string;
-  updated_at?: string;
-  deferral_bucket?: string | null;
-  deferral_notes?: string | null;
-  follow_up_after_date?: string | null;
-  earliest_purchase_intent_date?: string | null;
-  contact_disposition?: string | null;
-  callback_requested_at?: string | null;
-  customer_promised_callback?: boolean;
 }
 
 interface FormState {
@@ -299,296 +269,30 @@ async function captureVisitGpsPing(visitId: number): Promise<boolean> {
   }
 }
 
-// ─── Page Styles ──────────────────────────────────────────────────────────────
-const PAGE_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
-  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-  :root {
-    --bg: #0b0d14;
-    --surface: #131620;
-    --surface2: #1a1e2e;
-    --border: #222638;
-    --border-hover: #2e3450;
-    --teal: #00c9b1;
-    --teal-dim: rgba(0,201,177,0.10);
-    --teal-glow: rgba(0,201,177,0.22);
-    --blue: #3b82f6;
-    --amber: #f59e0b;
-    --red: #ef4444;
-    --green: #10b981;
-    --text: #e2e8f0;
-    --text2: #94a3b8;
-    --text3: #64748b;
-    --mono: 'JetBrains Mono', monospace;
-  }
-
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    font-size: 13.5px;
-    -webkit-font-smoothing: antialiased;
-  }
-
-  /* ── Layout ── */
-  .vm-root { display: flex; flex-direction: column; min-height: 100vh; }
-
-  /* ── Topbar ── */
-  .vm-topbar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 28px; height: 56px;
-    border-bottom: 1px solid var(--border);
-    background: rgba(11,13,20,0.92);
-    backdrop-filter: blur(12px);
-    position: sticky; top: 0; z-index: 50;
-  }
-  .vm-logo { display: flex; align-items: center; gap: 10px; }
-  .vm-logo-mark {
-    width: 30px; height: 30px;
-    background: linear-gradient(135deg, #00c9b1 0%, #0891b2 100%);
-    border-radius: 7px;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 13px; color: #0b0d14; flex-shrink: 0;
-  }
-  .vm-logo-name { font-weight: 700; font-size: 14px; line-height: 1; }
-  .vm-logo-tag { font-size: 9px; color: var(--text3); letter-spacing: 1.5px; text-transform: uppercase; margin-top: 2px; }
-
-  .vm-search {
-    display: flex; align-items: center; gap: 8px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 8px; padding: 7px 13px; width: 260px;
-    transition: border-color .15s;
-  }
-  .vm-search:focus-within { border-color: var(--teal); }
-  .vm-search input {
-    background: transparent; border: none; outline: none;
-    color: var(--text); font-size: 12.5px; font-family: inherit; width: 100%;
-  }
-  .vm-search input::placeholder { color: var(--text3); }
-  .vm-topbar-right { display: flex; align-items: center; gap: 12px; }
-  .vm-avatar {
-    width: 30px; height: 30px; border-radius: 50%;
-    background: linear-gradient(135deg, var(--teal), #0891b2);
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 12px; color: #0b0d14; cursor: pointer;
-  }
-
-  /* ── Content ── */
-  .vm-content { padding: 28px; flex: 1; }
-  .vm-page-header { margin-bottom: 24px; }
-  .vm-page-title { font-size: 20px; font-weight: 700; }
-  .vm-page-sub { color: var(--text2); font-size: 12.5px; margin-top: 4px; }
-
-  /* ── Stat Cards ── */
-  .vm-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 24px; }
-  @media (max-width: 900px) { .vm-stats { grid-template-columns: repeat(2,1fr); } }
-  .vm-stat {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: 18px 20px;
-    transition: border-color .15s;
-  }
-  .vm-stat:hover { border-color: var(--border-hover); }
-  .vm-stat-label { font-size: 11px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 8px; }
-  .vm-stat-value { font-size: 26px; font-weight: 700; font-family: var(--mono); }
-  .vm-stat-value.teal { color: var(--teal); }
-  .vm-stat-value.blue { color: var(--blue); }
-  .vm-stat-value.green { color: var(--green); }
-  .vm-stat-value.amber { color: var(--amber); }
-
-  /* ── Table Section ── */
-  .vm-table-wrap {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; overflow: hidden;
-  }
-  .vm-table-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 20px; border-bottom: 1px solid var(--border);
-    flex-wrap: wrap; gap: 12px;
-  }
-  .vm-table-title { font-size: 14px; font-weight: 600; }
-  .vm-table-sub { font-size: 12px; color: var(--text3); margin-top: 2px; }
-  .vm-table-actions { display: flex; gap: 8px; align-items: center; }
-  .vm-table-outer { overflow-x: auto; }
-
-  table { width: 100%; border-collapse: collapse; min-width: 860px; }
-  thead tr { border-bottom: 1px solid var(--border); }
-  th {
-    padding: 11px 16px; text-align: left;
-    font-size: 10.5px; font-weight: 600; color: var(--text3);
-    text-transform: uppercase; letter-spacing: .8px;
-    background: var(--surface2); white-space: nowrap;
-  }
-  td {
-    padding: 12px 16px; font-size: 13px; color: var(--text);
-    border-bottom: 1px solid var(--border); vertical-align: middle;
-  }
-  tbody tr:last-child td { border-bottom: none; }
-  tbody tr { transition: background .1s; }
-  tbody tr:hover { background: rgba(255,255,255,0.025); }
-
-  .vm-num { font-family: var(--mono); font-size: 11.5px; color: var(--text3); }
-  .vm-code { font-family: var(--mono); font-size: 12px; color: var(--teal); }
-  .vm-date { font-family: var(--mono); font-size: 12px; color: var(--text2); }
-
-  /* ── Badge ── */
-  .vm-badge {
-    display: inline-flex; align-items: center;
-    padding: 3px 9px; border-radius: 20px;
-    font-size: 11px; font-weight: 500; white-space: nowrap;
-  }
-  .vm-badge.teal   { background: var(--teal-dim);              color: var(--teal); border: 1px solid var(--teal-glow); }
-  .vm-badge.green  { background: rgba(16,185,129,.1);  color: var(--green);  border: 1px solid rgba(16,185,129,.25); }
-  .vm-badge.amber  { background: rgba(245,158,11,.1);  color: var(--amber);  border: 1px solid rgba(245,158,11,.25); }
-  .vm-badge.red    { background: rgba(239,68,68,.1);   color: var(--red);    border: 1px solid rgba(239,68,68,.25); }
-  .vm-badge.blue   { background: rgba(59,130,246,.1);  color: var(--blue);   border: 1px solid rgba(59,130,246,.25); }
-  .vm-badge.muted  { background: rgba(100,116,139,.1); color: var(--text3);  border: 1px solid rgba(100,116,139,.2); }
-
-  /* ── Buttons ── */
-  .vm-btn {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12.5px; font-weight: 600;
-    padding: 8px 16px; border-radius: 7px;
-    border: none; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 6px;
-    transition: opacity .15s, transform .1s, box-shadow .15s;
-    white-space: nowrap;
-  }
-  .vm-btn:active { transform: scale(0.97); }
-  .vm-btn-teal { background: var(--teal); color: #0b0d14; }
-  .vm-btn-teal:hover { box-shadow: 0 0 16px var(--teal-glow); }
-  .vm-btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
-  .vm-btn-ghost:hover { border-color: var(--border-hover); color: var(--text); }
-  .vm-btn-amber { background: rgba(245,158,11,.08); color: #f59e0b; border: 1px solid rgba(245,158,11,.22); }
-  .vm-btn-amber:hover { background: rgba(245,158,11,.16); }
-  .vm-btn-red { background: rgba(239,68,68,.08); color: #ef4444; border: 1px solid rgba(239,68,68,.22); }
-  .vm-btn-red:hover { background: rgba(239,68,68,.16); }
-  /* ── Audit / Logged-By cell ── */
-  .vm-audit-cell { display: flex; flex-direction: column; gap: 3px; min-width: 130px; }
-  .vm-audit-row  { display: flex; align-items: center; gap: 4px; font-size: 11px; line-height: 1.3; white-space: nowrap; }
-  .vm-audit-icon { font-size: 10px; opacity: .7; }
-  .vm-audit-create { color: #4ade80; }
-  .vm-audit-edit   { color: #fbbf24; }
-  .vm-audit-time   { opacity: .55; font-size: 10px; }
-  .vm-btn:disabled { opacity: .5; cursor: not-allowed; }
-
-  /* ── Empty State ── */
-  .vm-empty {
-    text-align: center; padding: 52px 20px;
-    color: var(--text3);
-  }
-  .vm-empty-icon { font-size: 36px; margin-bottom: 12px; opacity: .5; }
-  .vm-empty-text { font-size: 13.5px; }
-  .vm-empty-text strong { color: var(--text2); }
-
-  /* ── Loading rows ── */
-  .vm-skeleton td { padding: 14px 16px; }
-  .vm-skel {
-    height: 14px; border-radius: 4px;
-    background: linear-gradient(90deg, var(--surface2) 0%, var(--border) 50%, var(--surface2) 100%);
-    background-size: 200% 100%;
-    animation: skel-shine 1.4s infinite;
-  }
-  @keyframes skel-shine { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-
-  /* ── Modal Overlay ── */
-  .vm-overlay {
-    position: fixed; inset: 0; z-index: 200;
-    background: rgba(0,0,0,0.68);
-    backdrop-filter: blur(5px);
-    display: flex; align-items: center; justify-content: center;
-    padding: 20px;
-    animation: fade-in .18s ease;
-  }
-  @keyframes fade-in { from{opacity:0} to{opacity:1} }
-
-  .vm-modal {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 14px; width: 100%; max-width: 680px;
-    box-shadow: 0 28px 72px rgba(0,0,0,.75);
-    animation: slide-up .2s ease;
-    max-height: 92vh; overflow-y: auto;
-  }
-  @keyframes slide-up { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
-
-  .vm-modal-head {
-    display: flex; align-items: flex-start; justify-content: space-between;
-    padding: 22px 24px 18px;
-    border-bottom: 1px solid var(--border);
-    position: sticky; top: 0; background: var(--surface); z-index: 1;
-  }
-  .vm-modal-title { font-size: 16px; font-weight: 700; }
-  .vm-modal-sub { font-size: 12px; color: var(--text3); margin-top: 3px; }
-  .vm-close {
-    background: none; border: none; cursor: pointer;
-    color: var(--text3); font-size: 18px; line-height: 1;
-    padding: 4px; border-radius: 5px; transition: color .15s;
-  }
-  .vm-close:hover { color: var(--text); }
-
-  .vm-form-body { padding: 22px 24px; }
-  .vm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  @media (max-width: 540px) { .vm-form-grid { grid-template-columns: 1fr; } }
-  .vm-fg { display: flex; flex-direction: column; }
-  .vm-fg.full { grid-column: 1 / -1; }
-
-  label.vm-label {
-    font-size: 10.5px; font-weight: 600; color: var(--text3);
-    text-transform: uppercase; letter-spacing: .8px;
-    margin-bottom: 6px; display: block;
-  }
-  .vm-field {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg); border: 1px solid var(--border);
-    color: var(--text); padding: 9px 12px;
-    border-radius: 7px; font-size: 13px; width: 100%;
-    transition: border-color .15s;
-    appearance: none; -webkit-appearance: none;
-  }
-  .vm-field:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-dim); }
-  .vm-field::placeholder { color: var(--text3); }
-  textarea.vm-field { resize: vertical; min-height: 80px; }
-  select.vm-field { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
-  button.vm-field { border: 1px solid var(--border); }
-
-  .vm-modal-foot {
-    display: flex; justify-content: flex-end; gap: 8px;
-    padding: 16px 24px;
-    border-top: 1px solid var(--border);
-    position: sticky; bottom: 0;
-    background: var(--surface);
-  }
-
-  /* ── Toast ── */
-  .vm-toast-wrap {
-    position: fixed; bottom: 24px; right: 24px;
-    display: flex; flex-direction: column; gap: 8px;
-    z-index: 500; pointer-events: none;
-  }
-  .vm-toast {
-    padding: 11px 18px; border-radius: 9px;
-    font-size: 13px; font-weight: 500;
-    border: 1px solid; pointer-events: auto;
-    animation: toast-in .2s ease;
-    max-width: 320px;
-  }
-  @keyframes toast-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-  .vm-toast.success { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.3); color: var(--green); }
-  .vm-toast.error   { background: rgba(239,68,68,.12);  border-color: rgba(239,68,68,.3);  color: var(--red); }
-  .vm-toast.info    { background: var(--teal-dim);       border-color: var(--teal-glow);     color: var(--teal); }
-`;
+// ─── Tailwind class constants ─────────────────────────────────────────────────
+const BTN_BASE = 'font-sans text-[12.5px] font-semibold py-2 px-4 rounded-[7px] cursor-pointer inline-flex items-center gap-1.5 transition-all whitespace-nowrap active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed';
+const BTN_TEAL   = `${BTN_BASE} bg-[#00c9b1] text-[#0b0d14] border-0 hover:shadow-[0_0_16px_rgba(0,201,177,0.22)]`;
+const BTN_GHOST  = `${BTN_BASE} bg-transparent text-[#94a3b8] border border-[#222638] hover:border-[#2e3450] hover:text-[#e2e8f0]`;
+const BTN_AMBER  = `${BTN_BASE} bg-[rgba(245,158,11,.08)] text-[#f59e0b] border border-[rgba(245,158,11,.22)] hover:bg-[rgba(245,158,11,.16)]`;
+const BTN_RED    = `${BTN_BASE} bg-[rgba(239,68,68,.08)] text-red-500 border border-[rgba(239,68,68,.22)] hover:bg-[rgba(239,68,68,.16)]`;
+const FIELD      = 'font-sans bg-[#0b0d14] border border-[#222638] text-[#e2e8f0] py-[9px] px-3 rounded-[7px] text-[13px] w-full transition-colors focus:outline-none focus:border-[#00c9b1] focus:ring-[3px] focus:ring-[rgba(0,201,177,0.10)] placeholder:text-zinc-500 appearance-none';
+const LABEL      = 'text-[10.5px] font-semibold text-zinc-500 uppercase tracking-[.8px] mb-1.5 block';
+const BADGE_BASE = 'inline-flex items-center px-[9px] py-[3px] rounded-full text-[11px] font-medium whitespace-nowrap border';
 
 // ─── Badge colour helper ──────────────────────────────────────────────────────
-function badgeClass(status?: string | null): string {
+function badgeVariant(status?: string | null): string {
   const s = (status || '').toLowerCase();
-  if (s.includes('delivered') || s.includes('closed')) return 'green';
-  if (s.includes('lost')) return 'red';
-  if (s.includes('test drive') || s.includes('quotation') || s.includes('catalogue') || s.includes('demo')) return 'blue';
-  if (s.includes('negotiation') || s.includes('follow-up')) return 'amber';
-  if (s.includes('new') || s.includes('attempted')) return 'muted';
-  return 'teal';
+  if (s.includes('delivered') || s.includes('closed'))
+    return 'bg-[rgba(16,185,129,.1)] text-[#10b981] border-[rgba(16,185,129,.25)]';
+  if (s.includes('lost'))
+    return 'bg-[rgba(239,68,68,.1)] text-red-500 border-[rgba(239,68,68,.25)]';
+  if (s.includes('test drive') || s.includes('quotation') || s.includes('catalogue') || s.includes('demo'))
+    return 'bg-[rgba(59,130,246,.1)] text-blue-500 border-[rgba(59,130,246,.25)]';
+  if (s.includes('negotiation') || s.includes('follow-up'))
+    return 'bg-[rgba(245,158,11,.1)] text-[#f59e0b] border-[rgba(245,158,11,.25)]';
+  if (s.includes('new') || s.includes('attempted'))
+    return 'bg-[rgba(100,116,139,.1)] text-zinc-500 border-[rgba(100,116,139,.2)]';
+  return 'bg-[rgba(0,201,177,0.10)] text-[#00c9b1] border-[rgba(0,201,177,0.22)]';
 }
 
 // ─── Skeleton rows ────────────────────────────────────────────────────────────
@@ -596,9 +300,14 @@ function SkeletonRows() {
   return (
     <>
       {[1, 2, 3, 4].map(n => (
-        <tr key={n} className="vm-skeleton">
+        <tr key={n}>
           {[40, 80, 130, 110, 140, 120, 52, 130, 90, 100, 95, 110, 110, 72].map((w, i) => (
-            <td key={i}><div className="vm-skel" style={{ width: w }} /></td>
+            <td key={i} className="py-3.5 px-4">
+              <div
+                className="h-[14px] rounded animate-skel-shine bg-gradient-to-r from-[#1a1e2e] via-[#222638] to-[#1a1e2e] bg-[length:200%_100%]"
+                style={{ width: w }}
+              />
+            </td>
           ))}
         </tr>
       ))}
@@ -778,7 +487,7 @@ export default function CreateVisitReportPage() {
         showToast((err as { error?: string }).error || 'Failed to delete visit', 'error');
         return;
       }
-      if (editTarget && String((editTarget as Visit).id) === String(id)) {
+      if (editTarget && String(editTarget.id) === String(id)) {
         setEditTarget(null);
         setOpen(false);
       }
@@ -792,32 +501,31 @@ export default function CreateVisitReportPage() {
 
   function openEditModal(visit: Visit) {
     setEditTarget(visit);
-    const v = visit as any;
     setForm({
-      lead_id:          String(v.lead_id || ''),
-      connect_date:     v.connect_date      ? v.connect_date.slice(0, 10) : '',
-      salesperson_id:   String(v.salesperson_id || ''),
-      vehicle:          v.vehicle          || '',
-      status:           v.status           || '',
-      visit_date:       v.visit_date       ? v.visit_date.slice(0, 10) : '',
-      next_action:      v.next_action      || '',
-      next_action_date: v.next_action_date ? v.next_action_date.slice(0, 10) : '',
-      phone_no:         v.phone_no         || '',
-      phone_no_2:       v.phone_no_2       || '',
-      note:             v.note             || '',
-      lost_not_interested_reason: v.lost_not_interested_reason || '',
-      lost_reason_notes: v.lost_reason_notes || '',
-      is_hot_lead:      !!v.is_hot_lead,
+      lead_id:          String(visit.lead_id || ''),
+      connect_date:     visit.connect_date      ? visit.connect_date.slice(0, 10) : '',
+      salesperson_id:   String(visit.salesperson_id || ''),
+      vehicle:          visit.vehicle          || '',
+      status:           visit.status           || '',
+      visit_date:       visit.visit_date       ? visit.visit_date.slice(0, 10) : '',
+      next_action:      visit.next_action      || '',
+      next_action_date: visit.next_action_date ? visit.next_action_date.slice(0, 10) : '',
+      phone_no:         visit.phone_no         || '',
+      phone_no_2:       visit.phone_no_2       || '',
+      note:             visit.note             || '',
+      lost_not_interested_reason: visit.lost_not_interested_reason || '',
+      lost_reason_notes: visit.lost_reason_notes || '',
+      is_hot_lead:      !!visit.is_hot_lead,
       capture_visit_gps: false,
-      deferral_bucket:           (v as any).deferral_bucket ?? '',
-      deferral_notes:            (v as any).deferral_notes ?? '',
-      follow_up_after_date:      (v as any).follow_up_after_date ? String((v as any).follow_up_after_date).slice(0, 10) : '',
-      earliest_purchase_intent_date: (v as any).earliest_purchase_intent_date
-        ? String((v as any).earliest_purchase_intent_date).slice(0, 10)
+      deferral_bucket:           visit.deferral_bucket ?? '',
+      deferral_notes:            visit.deferral_notes ?? '',
+      follow_up_after_date:      visit.follow_up_after_date ? String(visit.follow_up_after_date).slice(0, 10) : '',
+      earliest_purchase_intent_date: visit.earliest_purchase_intent_date
+        ? String(visit.earliest_purchase_intent_date).slice(0, 10)
         : '',
-      contact_disposition:       (v as any).contact_disposition ?? '',
-      callback_requested_at:     isoToDatetimeLocal((v as any).callback_requested_at),
-      customer_promised_callback: !!(v as any).customer_promised_callback,
+      contact_disposition:       visit.contact_disposition ?? '',
+      callback_requested_at:     isoToDatetimeLocal(visit.callback_requested_at),
+      customer_promised_callback: !!visit.customer_promised_callback,
     });
     setHasUnsaved(false);
     setOpen(true);
@@ -949,7 +657,7 @@ export default function CreateVisitReportPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
   if (!roleChecked) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0b0d14', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontFamily: 'system-ui, sans-serif' }}>
+      <div className="min-h-screen bg-[#0b0d14] flex items-center justify-center text-zinc-400 font-sans">
         Checking access…
       </div>
     );
@@ -957,10 +665,13 @@ export default function CreateVisitReportPage() {
 
   if (accessDenied) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0b0d14', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: 'system-ui, sans-serif' }}>
-        <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 18 }}>Access Denied</div>
-        <div style={{ color: '#9ca3af', fontSize: 14 }}>Only Admin and Sales Admin can access this page.</div>
-        <button onClick={() => router.back()} style={{ marginTop: 16, padding: '8px 20px', background: '#131620', border: '1px solid #333', borderRadius: 8, color: '#e5e5e5', cursor: 'pointer', fontSize: 13 }}>
+      <div className="min-h-screen bg-[#0b0d14] flex flex-col items-center justify-center gap-3 font-sans">
+        <div className="text-red-500 font-bold text-lg">Access Denied</div>
+        <div className="text-zinc-400 text-sm">Only Admin and Sales Admin can access this page.</div>
+        <button
+          onClick={() => router.back()}
+          className="mt-4 py-2 px-5 bg-[#131620] border border-[#333] rounded-lg text-zinc-200 cursor-pointer text-[13px]"
+        >
           Go Back
         </button>
       </div>
@@ -968,97 +679,99 @@ export default function CreateVisitReportPage() {
   }
 
   return (
-    <div className="vm-root">
-      <style>{PAGE_STYLES}</style>
+    <div className="flex flex-col min-h-screen bg-[#0b0d14] text-[#e2e8f0] text-[13.5px] antialiased">
 
       {/* Topbar */}
-      <header className="vm-topbar">
-        <div className="vm-logo">
-          <div className="vm-logo-mark">V</div>
+      <header className="flex items-center justify-between px-7 h-14 border-b border-[#222638] bg-[rgba(11,13,20,0.92)] backdrop-blur-md sticky top-0 z-50">
+        <div className="flex items-center gap-2.5">
+          <div className="w-[30px] h-[30px] bg-gradient-to-br from-[#00c9b1] to-[#0891b2] rounded-[7px] flex items-center justify-center font-bold text-[13px] text-[#0b0d14] shrink-0">
+            V
+          </div>
           <div>
-            <div className="vm-logo-name">Voltmate</div>
-            <div className="vm-logo-tag">EMS</div>
+            <div className="font-bold text-sm leading-none">Voltmate</div>
+            <div className="text-[9px] text-zinc-500 tracking-[1.5px] uppercase mt-0.5">EMS</div>
           </div>
         </div>
-        <div className="vm-topbar-right">
-          <div className="vm-search">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--text3)', flexShrink: 0 }}>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-[#131620] border border-[#222638] rounded-lg py-[7px] px-3.5 w-[260px] transition-colors focus-within:border-[#00c9b1]">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-zinc-500 shrink-0">
               <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
             </svg>
             <input
+              className="bg-transparent border-none outline-none text-[#e2e8f0] text-[12.5px] font-sans w-full placeholder:text-zinc-500"
               placeholder="Search visits, customers..."
               onChange={handleSearchChange}
               aria-label="Search visits"
             />
           </div>
-          <div className="vm-avatar" title="Profile">M</div>
+          <div
+            className="w-[30px] h-[30px] rounded-full bg-gradient-to-br from-[#00c9b1] to-[#0891b2] flex items-center justify-center font-bold text-xs text-[#0b0d14] cursor-pointer"
+            title="Profile"
+          >
+            M
+          </div>
         </div>
       </header>
 
       {/* Content */}
-      <main className="vm-content">
-        <div className="vm-page-header">
-          <div className="vm-page-title">Visit Management</div>
-          <div className="vm-page-sub">Record and track customer visits &amp; actions</div>
+      <main className="p-7 flex-1">
+        <div className="mb-6">
+          <div className="text-xl font-bold">Visit Management</div>
+          <div className="text-[#94a3b8] text-[12.5px] mt-1">Record and track customer visits &amp; actions</div>
         </div>
 
         {/* Stats */}
-        <div className="vm-stats">
-          <div className="vm-stat">
-            <div className="vm-stat-label">Total Visits</div>
-            <div className="vm-stat-value teal">{stats.total}</div>
+        <div className="grid grid-cols-4 max-[900px]:grid-cols-2 gap-3.5 mb-6">
+          <div className="bg-[#131620] border border-[#222638] rounded-[10px] p-[18px_20px] transition-colors hover:border-[#2e3450]">
+            <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[.8px] mb-2">Total Visits</div>
+            <div className="text-[26px] font-bold font-mono text-[#00c9b1]">{stats.total}</div>
           </div>
-          <div className="vm-stat">
-            <div className="vm-stat-label">Demos</div>
-            <div className="vm-stat-value blue">{stats.testDrives}</div>
+          <div className="bg-[#131620] border border-[#222638] rounded-[10px] p-[18px_20px] transition-colors hover:border-[#2e3450]">
+            <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[.8px] mb-2">Demos</div>
+            <div className="text-[26px] font-bold font-mono text-blue-500">{stats.testDrives}</div>
           </div>
-          <div className="vm-stat">
-            <div className="vm-stat-label">Connected</div>
-            <div className="vm-stat-value green">{stats.connected}</div>
+          <div className="bg-[#131620] border border-[#222638] rounded-[10px] p-[18px_20px] transition-colors hover:border-[#2e3450]">
+            <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[.8px] mb-2">Connected</div>
+            <div className="text-[26px] font-bold font-mono text-[#10b981]">{stats.connected}</div>
           </div>
-          <div className="vm-stat">
-            <div className="vm-stat-label">This Month</div>
-            <div className="vm-stat-value amber">{stats.thisMonth}</div>
+          <div className="bg-[#131620] border border-[#222638] rounded-[10px] p-[18px_20px] transition-colors hover:border-[#2e3450]">
+            <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[.8px] mb-2">This Month</div>
+            <div className="text-[26px] font-bold font-mono text-[#f59e0b]">{stats.thisMonth}</div>
           </div>
         </div>
 
         {/* Table */}
-        <div className="vm-table-wrap">
-          <div className="vm-table-header">
+        <div className="bg-[#131620] border border-[#222638] rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#222638] flex-wrap gap-3">
             <div>
-              <div className="vm-table-title">All Visits</div>
-              <div className="vm-table-sub">
+              <div className="text-sm font-semibold">All Visits</div>
+              <div className="text-xs text-zinc-500 mt-0.5">
                 {searchQuery ? `Showing ${visits.length} of ${allVisits.length} records` : `${allVisits.length} total records`}
               </div>
             </div>
-            <div className="vm-table-actions">
-              <button className="vm-btn vm-btn-ghost" onClick={handleExport}>
+            <div className="flex gap-2 items-center">
+              <button className={BTN_GHOST} onClick={handleExport}>
                 ↓ Export CSV
               </button>
-              <button className="vm-btn vm-btn-teal" onClick={openModal}>
+              <button className={BTN_TEAL} onClick={openModal}>
                 + Add Visit
               </button>
             </div>
           </div>
 
-          <div className="vm-table-outer">
-            <table>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[860px]">
               <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Cust. Code</th>
-                  <th>Customer Name</th>
-                  <th>Salesperson</th>
-                  <th>Vehicle</th>
-                  <th>Status</th>
-                  <th>Hot</th>
-                  <th>Lost – NI</th>
-                  <th>Visit Date</th>
-                  <th>Next Action</th>
-                  <th title="Buying timeframe">Buy window</th>
-                  <th title="Call outcome / stall">Callback</th>
-                  <th>Logged By</th>
-                  <th>Action</th>
+                <tr className="border-b border-[#222638]">
+                  {['#', 'Cust. Code', 'Customer Name', 'Salesperson', 'Vehicle', 'Status', 'Hot', 'Lost – NI', 'Visit Date', 'Next Action', 'Buy window', 'Callback', 'Logged By', 'Action'].map((h, i) => (
+                    <th
+                      key={i}
+                      className="py-[11px] px-4 text-left text-[10.5px] font-semibold text-zinc-500 uppercase tracking-[.8px] bg-[#1a1e2e] whitespace-nowrap"
+                      title={h === 'Buy window' ? 'Buying timeframe' : h === 'Callback' ? 'Call outcome / stall' : undefined}
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -1067,90 +780,93 @@ export default function CreateVisitReportPage() {
                 ) : visits.length === 0 ? (
                   <tr>
                     <td colSpan={14}>
-                      <div className="vm-empty">
-                        <div className="vm-empty-icon"></div>
-                        <div className="vm-empty-text">
+                      <div className="text-center py-[52px] px-5 text-zinc-500">
+                        <div className="text-[36px] mb-3 opacity-50"></div>
+                        <div className="text-[13.5px]">
                           {searchQuery
-                            ? <>No visits match <strong>"{searchQuery}"</strong></>
-                            : <>No visits yet. Click <strong>Add Visit</strong> to get started.</>}
+                            ? <>No visits match <strong className="text-[#94a3b8]">&ldquo;{searchQuery}&rdquo;</strong></>
+                            : <>No visits yet. Click <strong className="text-[#94a3b8]">Add Visit</strong> to get started.</>}
                         </div>
                       </div>
                     </td>
                   </tr>
                 ) : (
                   visits.map((v, i) => (
-                    <tr key={v.id ?? i}>
-                      <td className="vm-num">{String(i + 1).padStart(2, '0')}</td>
-                      <td className="vm-code">{v.lead_cust_code || '—'}</td>
-                      <td>{v.cust_name || '—'}</td>
-                      <td>{v.salesperson_name || '—'}</td>
-                      <td style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.vehicle || '—'}</td>
-                      <td>
-                        <span className={`vm-badge ${badgeClass(v.status)}`}>{v.status || '—'}</span>
+                    <tr key={v.id ?? i} className="border-b border-[#222638] last:border-b-0 hover:bg-white/[.025] transition-colors">
+                      <td className="py-3 px-4 font-mono text-[11.5px] text-zinc-500">{String(i + 1).padStart(2, '0')}</td>
+                      <td className="py-3 px-4 font-mono text-xs text-[#00c9b1]">{v.lead_cust_code || '—'}</td>
+                      <td className="py-3 px-4 text-[13px] text-[#e2e8f0]">{v.cust_name || '—'}</td>
+                      <td className="py-3 px-4 text-[13px] text-[#e2e8f0]">{v.salesperson_name || '—'}</td>
+                      <td className="py-3 px-4 text-[13px] text-[#e2e8f0] max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap">{v.vehicle || '—'}</td>
+                      <td className="py-3 px-4">
+                        <span className={`${BADGE_BASE} ${badgeVariant(v.status)}`}>{v.status || '—'}</span>
                       </td>
-                      <td style={{ textAlign: 'center' }}>
-                        {v.is_hot_lead ? <span className="vm-badge" style={{ background: 'rgba(245,158,11,.15)', color: 'var(--amber)', border: '1px solid rgba(245,158,11,.35)' }}>Hot</span> : '—'}
+                      <td className="py-3 px-4 text-center">
+                        {v.is_hot_lead
+                          ? <span className={`${BADGE_BASE} bg-[rgba(245,158,11,.15)] text-[#f59e0b] border-[rgba(245,158,11,.35)]`}>Hot</span>
+                          : '—'}
                       </td>
-                      <td style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text2)' }} title={formatLostNiSummary(v)}>
+                      <td
+                        className="py-3 px-4 max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap text-xs text-[#94a3b8]"
+                        title={formatLostNiSummary(v)}
+                      >
                         {formatLostNiSummary(v)}
                       </td>
-                      <td className="vm-date">
+                      <td className="py-3 px-4 font-mono text-xs text-[#94a3b8]">
                         {v.visit_date ? new Date(v.visit_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                       </td>
-                      <td style={{ color: 'var(--text2)' }}>{v.next_action || '—'}</td>
+                      <td className="py-3 px-4 text-[13px] text-[#94a3b8]">{v.next_action || '—'}</td>
                       <td
-                        style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 96, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        className="py-3 px-4 text-[11px] text-[#94a3b8] max-w-[96px] overflow-hidden text-ellipsis whitespace-nowrap"
                         title={labelForDeferral(v.deferral_bucket ?? undefined)}
                       >
                         {labelForDeferral(v.deferral_bucket ?? undefined)}
                       </td>
                       <td
-                        style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        className="py-3 px-4 text-[11px] text-[#94a3b8] max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
                         title={labelForContact(v.contact_disposition ?? undefined)}
                       >
                         {labelForContact(v.contact_disposition ?? undefined)}
                       </td>
-                      <td>
-                        <div className="vm-audit-cell">
+                      <td className="py-3 px-4">
+                        <div className="flex flex-col gap-[3px] min-w-[130px]">
                           {v.created_by_name && (
-                            <span className="vm-audit-row vm-audit-create">
-                              <span className="vm-audit-icon">＋</span>
+                            <span className="flex items-center gap-1 text-[11px] leading-[1.3] whitespace-nowrap text-green-400">
+                              <span className="text-[10px] opacity-70">＋</span>
                               <span>{v.created_by_name}</span>
                               {v.created_at && (
-                                <span className="vm-audit-time">
+                                <span className="opacity-[.55] text-[10px]">
                                   {new Date(v.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'2-digit' })}
                                 </span>
                               )}
                             </span>
                           )}
                           {v.updated_by_name && (
-                            <span className="vm-audit-row vm-audit-edit">
-                              <span className="vm-audit-icon">Edit</span>
+                            <span className="flex items-center gap-1 text-[11px] leading-[1.3] whitespace-nowrap text-amber-400">
+                              <span className="text-[10px] opacity-70">Edit</span>
                               <span>{v.updated_by_name}</span>
                               {v.updated_at && (
-                                <span className="vm-audit-time">
+                                <span className="opacity-[.55] text-[10px]">
                                   {new Date(v.updated_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'2-digit' })}
                                 </span>
                               )}
                             </span>
                           )}
-                          {!v.created_by_name && !v.updated_by_name && <span style={{ color: 'var(--text3)' }}>—</span>}
+                          {!v.created_by_name && !v.updated_by_name && <span className="text-zinc-500">—</span>}
                         </div>
                       </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <td className="py-3 px-4">
+                        <div className="flex gap-2 flex-wrap">
                           <button
                             type="button"
-                            className="vm-btn vm-btn-amber"
-                            style={{ fontSize: 12, padding: '5px 12px' }}
+                            className={`${BTN_AMBER} text-xs py-[5px] px-3`}
                             onClick={() => openEditModal(v)}
                           >
                             Edit
                           </button>
                           <button
                             type="button"
-                            className="vm-btn vm-btn-red"
-                            style={{ fontSize: 12, padding: '5px 12px' }}
+                            className={`${BTN_RED} text-xs py-[5px] px-3`}
                             onClick={() => handleDeleteVisit(v)}
                           >
                             Delete
@@ -1168,23 +884,32 @@ export default function CreateVisitReportPage() {
 
       {/* Modal */}
       {open && (
-        <div className="vm-overlay" onClick={handleOverlayClick} role="presentation">
-          <div className="vm-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-            <div className="vm-modal-head">
+        <div
+          className="fixed inset-0 z-[200] bg-black/[.68] backdrop-blur-[5px] flex items-center justify-center p-5 animate-fade-in"
+          onClick={handleOverlayClick}
+          role="presentation"
+        >
+          <div
+            className="bg-[#131620] border border-[#222638] rounded-2xl w-full max-w-[680px] shadow-[0_28px_72px_rgba(0,0,0,.75)] animate-slide-up max-h-[92vh] overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+          >
+            <div className="flex items-start justify-between px-6 pt-[22px] pb-[18px] border-b border-[#222638] sticky top-0 bg-[#131620] z-[1]">
               <div>
-                <div className="vm-modal-title" id="modal-title">{editTarget ? 'Edit Visit' : 'Add Visit'}</div>
-                <div className="vm-modal-sub">
+                <div className="text-base font-bold" id="modal-title">{editTarget ? 'Edit Visit' : 'Add Visit'}</div>
+                <div className="text-xs text-zinc-500 mt-[3px]">
                   {editTarget ? (
                     <span>
-                      Editing visit <strong>#{(editTarget as any).id}</strong>
+                      Editing visit <strong>#{editTarget.id}</strong>
                       {editTarget.created_by_name && (
-                        <span style={{ marginLeft: 8, fontSize: 11, color: '#4ade80' }}>
+                        <span className="ml-2 text-[11px] text-green-400">
                           ＋ Added by {editTarget.created_by_name}
                           {editTarget.created_at && ` on ${new Date(editTarget.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
                         </span>
                       )}
                       {editTarget.updated_by_name && (
-                        <span style={{ marginLeft: 8, fontSize: 11, color: '#fbbf24' }}>
+                        <span className="ml-2 text-[11px] text-amber-400">
                           · Last edited by {editTarget.updated_by_name}
                           {editTarget.updated_at && ` on ${new Date(editTarget.updated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
                         </span>
@@ -1193,18 +918,24 @@ export default function CreateVisitReportPage() {
                   ) : 'Create a new customer visit record'}
                 </div>
               </div>
-              <button className="vm-close" onClick={closeModal} aria-label="Close modal">Close</button>
+              <button
+                className="bg-transparent border-0 cursor-pointer text-zinc-500 text-lg leading-none p-1 rounded-[5px] transition-colors hover:text-[#e2e8f0]"
+                onClick={closeModal}
+                aria-label="Close modal"
+              >
+                Close
+              </button>
             </div>
 
             <form onSubmit={submitForm}>
-              <div className="vm-form-body">
-                <div className="vm-form-grid">
+              <div className="px-6 py-[22px]">
+                <div className="grid grid-cols-2 max-[540px]:grid-cols-1 gap-3.5">
 
-                  <div className="vm-fg">
-                    <label className="vm-label" htmlFor="f-lead">Customer</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL} htmlFor="f-lead">Customer</label>
                     <SearchableSelect
                       id="f-lead"
-                      fieldClass="vm-field"
+                      fieldClass={FIELD}
                       options={leads.map(l => ({ value: String(l.id), label: `${l.cust_code} — ${l.cust_name}` }))}
                       value={form.lead_id}
                       onChange={v => handleFormChange('lead_id', v)}
@@ -1216,35 +947,40 @@ export default function CreateVisitReportPage() {
                       const selected = leads.find(l => String(l.id) === form.lead_id);
                       if (!selected?.lead_type) return null;
                       return (
-                        <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text2)' }}>
-                          Lead type: <span style={{ fontWeight: 600, color: selected.lead_type === 'Digital Lead' ? 'var(--accent)' : 'var(--teal)' }}>{selected.lead_type}</span>
+                        <div className="mt-1.5 text-xs text-[#94a3b8]">
+                          Lead type:{' '}
+                          <span
+                            className="font-semibold"
+                            style={{ color: selected.lead_type === 'Digital Lead' ? 'var(--accent)' : '#00c9b1' }}
+                          >
+                            {selected.lead_type}
+                          </span>
                         </div>
                       );
                     })()}
                   </div>
 
-                  <div className="vm-fg">
-                    <label className="vm-label" htmlFor="f-connect-date">Connect Date</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL} htmlFor="f-connect-date">Connect Date</label>
                     <input
                       id="f-connect-date"
                       type="date"
-                      className="vm-field"
+                      className={`${FIELD}${!!form.lead_id && editTarget === null ? ' opacity-90 cursor-default' : ''}`}
                       value={form.connect_date}
                       onChange={e => handleFormChange('connect_date', e.target.value)}
                       readOnly={!!form.lead_id && editTarget === null}
-                      style={!!form.lead_id && editTarget === null ? { opacity: 0.9, cursor: 'default' } : undefined}
                       title={form.lead_id && editTarget === null ? 'Fetched from lead — change lead to update' : undefined}
                     />
                     {form.lead_id && !form.connect_date && (
-                      <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text3)' }}>No connect date on lead</div>
+                      <div className="mt-1 text-[11px] text-zinc-500">No connect date on lead</div>
                     )}
                   </div>
 
-                  <div className="vm-fg">
-                    <label className="vm-label" htmlFor="f-sp">Salesperson</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL} htmlFor="f-sp">Salesperson</label>
                     <SearchableSelect
                       id="f-sp"
-                      fieldClass="vm-field"
+                      fieldClass={FIELD}
                       options={employees.map(e => ({ value: String(e.id), label: e.name }))}
                       value={form.salesperson_id}
                       onChange={v => handleFormChange('salesperson_id', v)}
@@ -1253,11 +989,11 @@ export default function CreateVisitReportPage() {
                     />
                   </div>
 
-                  <div className="vm-fg">
-                    <label className="vm-label" htmlFor="f-vehicle">Vehicle</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL} htmlFor="f-vehicle">Vehicle</label>
                     <SearchableSelect
                       id="f-vehicle"
-                      fieldClass="vm-field"
+                      fieldClass={FIELD}
                       options={VEHICLES}
                       value={form.vehicle}
                       onChange={v => handleFormChange('vehicle', v)}
@@ -1267,11 +1003,11 @@ export default function CreateVisitReportPage() {
                     />
                   </div>
 
-                  <div className="vm-fg">
-                    <label className="vm-label" htmlFor="f-status">Status</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL} htmlFor="f-status">Status</label>
                     <SearchableSelect
                       id="f-status"
-                      fieldClass="vm-field"
+                      fieldClass={FIELD}
                       options={STATUSES}
                       value={form.status}
                       onChange={v => handleFormChange('status', v)}
@@ -1283,11 +1019,11 @@ export default function CreateVisitReportPage() {
 
                   {form.status === LOST_NOT_INTERESTED_STATUS && (
                     <>
-                      <div className="vm-fg full">
-                        <label className="vm-label" htmlFor="f-lost-reason">Lost – Not interested: reason</label>
+                      <div className="col-span-2 flex flex-col">
+                        <label className={LABEL} htmlFor="f-lost-reason">Lost – Not interested: reason</label>
                         <SearchableSelect
                           id="f-lost-reason"
-                          fieldClass="vm-field"
+                          fieldClass={FIELD}
                           options={LOST_NOT_INTEREST_REASON_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
                           value={form.lost_not_interested_reason}
                           onChange={v => handleFormChange('lost_not_interested_reason', v)}
@@ -1296,13 +1032,13 @@ export default function CreateVisitReportPage() {
                           accentColor="var(--red)"
                         />
                       </div>
-                      <div className="vm-fg full">
-                        <label className="vm-label" htmlFor="f-lost-notes">
+                      <div className="col-span-2 flex flex-col">
+                        <label className={LABEL} htmlFor="f-lost-notes">
                           Details {form.lost_not_interested_reason === 'other' ? '(required)' : '(optional)'}
                         </label>
                         <textarea
                           id="f-lost-notes"
-                          className="vm-field"
+                          className={`${FIELD} resize-y min-h-[80px]`}
                           rows={2}
                           placeholder={form.lost_not_interested_reason === 'other' ? 'Explain why (required for Other)…' : 'Optional context…'}
                           value={form.lost_reason_notes}
@@ -1312,48 +1048,48 @@ export default function CreateVisitReportPage() {
                     </>
                   )}
 
-                  <div className="vm-fg full" style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                  <div className="col-span-2 flex items-center gap-2.5 mt-1">
                     <input
                       id="f-hot"
                       type="checkbox"
                       checked={form.is_hot_lead}
                       onChange={e => handleFormChange('is_hot_lead', e.target.checked)}
-                      style={{ width: 18, height: 18, accentColor: 'var(--amber)', cursor: 'pointer' }}
+                      className="w-[18px] h-[18px] accent-[#f59e0b] cursor-pointer"
                     />
-                    <label htmlFor="f-hot" style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text)', userSelect: 'none' }}>
-                      Mark as <strong style={{ color: 'var(--amber)' }}>hot lead</strong> (saved on this customer&apos;s record)
+                    <label htmlFor="f-hot" className="cursor-pointer text-[13px] text-[#e2e8f0] select-none">
+                      Mark as <strong className="text-[#f59e0b]">hot lead</strong> (saved on this customer&apos;s record)
                     </label>
                   </div>
 
-                  <div className="vm-fg full" style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                  <div className="col-span-2 flex items-center gap-2.5 mt-1">
                     <input
                       id="f-visit-gps"
                       type="checkbox"
                       checked={form.capture_visit_gps}
                       onChange={e => handleFormChange('capture_visit_gps', e.target.checked)}
-                      style={{ width: 18, height: 18, accentColor: 'var(--teal)', cursor: 'pointer' }}
+                      className="w-[18px] h-[18px] accent-[#00c9b1] cursor-pointer"
                     />
-                    <label htmlFor="f-visit-gps" style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text)', userSelect: 'none' }}>
-                      After save, <strong style={{ color: 'var(--teal)' }}>capture my GPS</strong> for this visit (browser will ask for location)
+                    <label htmlFor="f-visit-gps" className="cursor-pointer text-[13px] text-[#e2e8f0] select-none">
+                      After save, <strong className="text-[#00c9b1]">capture my GPS</strong> for this visit (browser will ask for location)
                     </label>
                   </div>
 
-                  <div className="vm-fg">
-                    <label className="vm-label" htmlFor="f-vdate">Visit Date</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL} htmlFor="f-vdate">Visit Date</label>
                     <input
                       id="f-vdate"
                       type="date"
-                      className="vm-field"
+                      className={FIELD}
                       value={form.visit_date}
                       onChange={e => handleFormChange('visit_date', e.target.value)}
                     />
                   </div>
 
-                  <div className="vm-fg">
-                    <label className="vm-label" htmlFor="f-na">Next Action</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL} htmlFor="f-na">Next Action</label>
                     <SearchableSelect
                       id="f-na"
-                      fieldClass="vm-field"
+                      fieldClass={FIELD}
                       options={NEXT_ACTIONS}
                       value={form.next_action}
                       onChange={v => handleFormChange('next_action', v)}
@@ -1364,66 +1100,68 @@ export default function CreateVisitReportPage() {
                   </div>
 
                   {/* FIX: next_action_date field now rendered (was in state but missing from UI) */}
-                  <div className="vm-fg">
-                    <label className="vm-label" htmlFor="f-nadate">Next Action Date</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL} htmlFor="f-nadate">Next Action Date</label>
                     <input
                       id="f-nadate"
                       type="date"
-                      className="vm-field"
+                      className={FIELD}
                       value={form.next_action_date}
                       onChange={e => handleFormChange('next_action_date', e.target.value)}
                     />
                   </div>
 
-                  <div className="vm-fg">
-                    <label className="vm-label" htmlFor="f-phone">Phone No. 1 <span style={{ color: 'var(--red)', fontWeight: 700 }}>*</span></label>
+                  <div className="flex flex-col">
+                    <label className={LABEL} htmlFor="f-phone">
+                      Phone No. 1 <span className="text-red-500 font-bold">*</span>
+                    </label>
                     <input
                       id="f-phone"
                       type="tel"
-                      className="vm-field"
+                      className={`${FIELD}${form.phone_no && !isValidPhone(form.phone_no) ? ' border-red-500' : ''}`}
                       placeholder="10-digit mobile number"
                       maxLength={10}
                       required
                       value={form.phone_no}
                       onChange={e => handleFormChange('phone_no', e.target.value.replace(/\D/g, ''))}
-                      style={form.phone_no && !isValidPhone(form.phone_no) ? { borderColor: 'var(--red)' } : {}}
                     />
                     {form.phone_no && !isValidPhone(form.phone_no) && (
-                      <span style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>Enter a valid 10-digit number starting with 6–9</span>
+                      <span className="text-[11px] text-red-500 mt-1">Enter a valid 10-digit number starting with 6–9</span>
                     )}
                   </div>
 
-                  <div className="vm-fg">
-                    <label className="vm-label" htmlFor="f-phone2">Phone No. 2 <span style={{ color: 'var(--text3)', fontWeight: 400 }}>(optional)</span></label>
+                  <div className="flex flex-col">
+                    <label className={LABEL} htmlFor="f-phone2">
+                      Phone No. 2 <span className="text-zinc-500 font-normal">(optional)</span>
+                    </label>
                     <input
                       id="f-phone2"
                       type="tel"
-                      className="vm-field"
+                      className={`${FIELD}${form.phone_no_2 && !isValidPhoneOptional(form.phone_no_2) ? ' border-red-500' : ''}`}
                       placeholder="Alternate 10-digit number"
                       maxLength={10}
                       value={form.phone_no_2}
                       onChange={e => handleFormChange('phone_no_2', e.target.value.replace(/\D/g, ''))}
-                      style={form.phone_no_2 && !isValidPhoneOptional(form.phone_no_2) ? { borderColor: 'var(--red)' } : {}}
                     />
                     {form.phone_no_2 && !isValidPhoneOptional(form.phone_no_2) && (
-                      <span style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>Enter a valid 10-digit number starting with 6–9</span>
+                      <span className="text-[11px] text-red-500 mt-1">Enter a valid 10-digit number starting with 6–9</span>
                     )}
                   </div>
 
-                  <div className="vm-fg full" style={{ gridColumn: '1 / -1', marginTop: 8, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 12 }}>
+                  <div className="col-span-2 flex flex-col mt-2 pt-3.5 border-t border-[#222638]">
+                    <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-[.06em] mb-3">
                       Buying timeframe &amp; call outcome
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 12, lineHeight: 1.45 }}>
+                    <div className="text-[11px] text-zinc-500 mb-3 leading-[1.45]">
                       If you set a buying window (except &quot;Unknown&quot;) or choose a busy/callback outcome, provide either <strong>Follow-up from</strong> date or <strong>Callback time</strong>.
                     </div>
                   </div>
 
-                  <div className="vm-fg">
-                    <label className="vm-label" htmlFor="f-deferral">Buying timeframe</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL} htmlFor="f-deferral">Buying timeframe</label>
                     <SearchableSelect
                       id="f-deferral"
-                      fieldClass="vm-field"
+                      fieldClass={FIELD}
                       options={CRM_DEFERRAL_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
                       value={form.deferral_bucket}
                       onChange={v => handleFormChange('deferral_bucket', v)}
@@ -1433,11 +1171,11 @@ export default function CreateVisitReportPage() {
                     />
                   </div>
 
-                  <div className="vm-fg">
-                    <label className="vm-label" htmlFor="f-contact-dispo">Call outcome / stall</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL} htmlFor="f-contact-dispo">Call outcome / stall</label>
                     <SearchableSelect
                       id="f-contact-dispo"
-                      fieldClass="vm-field"
+                      fieldClass={FIELD}
                       options={CRM_CONTACT_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
                       value={form.contact_disposition}
                       onChange={v => handleFormChange('contact_disposition', v)}
@@ -1447,57 +1185,57 @@ export default function CreateVisitReportPage() {
                     />
                   </div>
 
-                  <div className="vm-fg">
-                    <label className="vm-label" htmlFor="f-followup-after">Follow-up from (CRM)</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL} htmlFor="f-followup-after">Follow-up from (CRM)</label>
                     <input
                       id="f-followup-after"
                       type="date"
-                      className="vm-field"
+                      className={FIELD}
                       value={form.follow_up_after_date}
                       onChange={e => handleFormChange('follow_up_after_date', e.target.value)}
                     />
                   </div>
 
-                  <div className="vm-fg">
-                    <label className="vm-label" htmlFor="f-earliest-buy">Earliest likely purchase date</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL} htmlFor="f-earliest-buy">Earliest likely purchase date</label>
                     <input
                       id="f-earliest-buy"
                       type="date"
-                      className="vm-field"
+                      className={FIELD}
                       value={form.earliest_purchase_intent_date}
                       onChange={e => handleFormChange('earliest_purchase_intent_date', e.target.value)}
                     />
                   </div>
 
-                  <div className="vm-fg">
-                    <label className="vm-label" htmlFor="f-callback-at">They asked to call after</label>
+                  <div className="flex flex-col">
+                    <label className={LABEL} htmlFor="f-callback-at">They asked to call after</label>
                     <input
                       id="f-callback-at"
                       type="datetime-local"
-                      className="vm-field"
+                      className={FIELD}
                       value={form.callback_requested_at}
                       onChange={e => handleFormChange('callback_requested_at', e.target.value)}
                     />
                   </div>
 
-                  <div className="vm-fg full" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div className="col-span-2 flex items-center gap-2.5">
                     <input
                       id="f-promised-cb"
                       type="checkbox"
                       checked={form.customer_promised_callback}
                       onChange={e => handleFormChange('customer_promised_callback', e.target.checked)}
-                      style={{ width: 18, height: 18, accentColor: 'var(--blue)', cursor: 'pointer' }}
+                      className="w-[18px] h-[18px] accent-blue-500 cursor-pointer"
                     />
-                    <label htmlFor="f-promised-cb" style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text)', userSelect: 'none' }}>
+                    <label htmlFor="f-promised-cb" className="cursor-pointer text-[13px] text-[#e2e8f0] select-none">
                       Customer promised they will call back
                     </label>
                   </div>
 
-                  <div className="vm-fg full">
-                    <label className="vm-label" htmlFor="f-deferral-notes">Notes on timing / callback</label>
+                  <div className="col-span-2 flex flex-col">
+                    <label className={LABEL} htmlFor="f-deferral-notes">Notes on timing / callback</label>
                     <textarea
                       id="f-deferral-notes"
-                      className="vm-field"
+                      className={`${FIELD} resize-y min-h-[80px]`}
                       rows={2}
                       placeholder="e.g. After Diwali, EMI ends March…"
                       value={form.deferral_notes}
@@ -1505,11 +1243,11 @@ export default function CreateVisitReportPage() {
                     />
                   </div>
 
-                  <div className="vm-fg full">
-                    <label className="vm-label" htmlFor="f-note">Note</label>
+                  <div className="col-span-2 flex flex-col">
+                    <label className={LABEL} htmlFor="f-note">Note</label>
                     <textarea
                       id="f-note"
-                      className="vm-field"
+                      className={`${FIELD} resize-y min-h-[80px]`}
                       rows={3}
                       placeholder="Add any relevant notes..."
                       value={form.note}
@@ -1520,11 +1258,11 @@ export default function CreateVisitReportPage() {
                 </div>
               </div>
 
-              <div className="vm-modal-foot">
-                <button type="button" className="vm-btn vm-btn-ghost" onClick={closeModal}>
+              <div className="flex justify-end gap-2 px-6 py-4 border-t border-[#222638] sticky bottom-0 bg-[#131620]">
+                <button type="button" className={BTN_GHOST} onClick={closeModal}>
                   Cancel
                 </button>
-                <button type="submit" className="vm-btn vm-btn-teal" disabled={submitting}>
+                <button type="submit" className={BTN_TEAL} disabled={submitting}>
                   {submitting ? (editTarget ? 'Updating…' : 'Saving…') : (editTarget ? 'Update Visit' : 'Save Visit')}
                 </button>
               </div>
@@ -1534,9 +1272,18 @@ export default function CreateVisitReportPage() {
       )}
 
       {/* Toasts — replaces alert() */}
-      <div className="vm-toast-wrap" aria-live="polite">
+      <div className="fixed bottom-6 right-6 flex flex-col gap-2 z-[500] pointer-events-none" aria-live="polite">
         {toasts.map(t => (
-          <div key={t.id} className={`vm-toast ${t.type}`}>{t.message}</div>
+          <div
+            key={t.id}
+            className={`py-[11px] px-[18px] rounded-[9px] text-[13px] font-medium border pointer-events-auto animate-toast-in max-w-[320px] ${
+              t.type === 'success' ? 'bg-[rgba(16,185,129,.12)] border-[rgba(16,185,129,.3)] text-[#10b981]'
+              : t.type === 'error' ? 'bg-[rgba(239,68,68,.12)] border-[rgba(239,68,68,.3)] text-red-500'
+              : 'bg-[rgba(0,201,177,0.10)] border-[rgba(0,201,177,0.22)] text-[#00c9b1]'
+            }`}
+          >
+            {t.message}
+          </div>
         ))}
       </div>
     </div>
