@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SearchableSelect from '@/components/SearchableSelect';
 import { labelForContact, labelForDeferral } from '@/lib/crmDeferral';
+import { downloadXlsx, xlsDate, xlsDateTime, parseLocalDate, parseRecordDate } from '@/lib/exportXlsx';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Lead {
@@ -59,6 +60,30 @@ const BUSINESS_CATEGORIES = [
   'Construction & Hardware',
   'Specialty & Others',
 ];
+
+/** Maps each parent category to all its sub-types stored in the DB.
+ *  Must stay in sync with the BUSINESS_OPTIONS in create-lead-report. */
+const BUSINESS_SUBTYPES: Record<string, string[]> = {
+  'Distribution & Logistics': [
+    'Market Load', 'Super Stockist', 'Transport Business', 'Delivery Service',
+    'Multipurpose Transport (Fruit / Veg / Ice Cream)', 'Neo Hi-Range (1.5–1.8 MT, Asansol–Kolkata)',
+  ],
+  'Water & Beverages': [
+    'Mineral Water Distribution', 'Packaged Water Distribution',
+    'Water Distribution – FMCG', 'Market Load – Water',
+  ],
+  'FMCG & Grocery': [
+    'Chemical Distribution – FMCG', 'Flipkart Grocery',
+    'Dairy Products', 'Egg Distributor / Poultry', 'Bakery',
+  ],
+  'E-commerce': [
+    'Online retail / D2C', 'Marketplace seller (Amazon, Flipkart, etc.)',
+    'Quick commerce / grocery delivery', 'Aggregator or logistics partner', 'Other e-commerce',
+  ],
+  'Passenger & Vehicles': ['Passenger Auto', 'Hi Capacity Passenger', 'Passenger Vehicles'],
+  'Construction & Hardware': ['Construction', 'Hardware'],
+  'Specialty & Others': ['Foreign Liquor', 'Neo Hi-Range'],
+};
 
 function getToken(): string {
   if (typeof window === 'undefined') return '';
@@ -153,7 +178,8 @@ export default function LeadReportPage() {
   const [history, setHistory] = useState<ActivityLog[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchLeads = useCallback(async () => {
@@ -227,12 +253,14 @@ export default function LeadReportPage() {
 
   // ── Clear filters ──────────────────────────────────────────────────────────
   function clearFilters() {
+    if (searchTimer.current) { clearTimeout(searchTimer.current); searchTimer.current = null; }
     setSearchQuery('');
     setFilterType('');
     setFilterBusiness('');
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterHot('all');
+    if (searchInputRef.current) searchInputRef.current.value = '';
     const inputs = document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('.lr-field');
     inputs.forEach(inp => { inp.value = ''; });
   }
@@ -250,15 +278,22 @@ export default function LeadReportPage() {
         (l.phone_no || '').toLowerCase().includes(q)
       );
     }
-    if (filterType)     filtered = filtered.filter(l => l.lead_type === filterType);
-    if (filterBusiness) filtered = filtered.filter(l => (l.business || '').toLowerCase().includes(filterBusiness.toLowerCase()));
+    if (filterType) filtered = filtered.filter(l => l.lead_type === filterType);
+    if (filterBusiness) {
+      // Filter by parent category: check if the stored sub-type belongs to this category
+      const subs = BUSINESS_SUBTYPES[filterBusiness] ?? [];
+      filtered = filtered.filter(l =>
+        subs.includes(l.business ?? '') ||
+        (l.business ?? '').toLowerCase().includes(filterBusiness.toLowerCase()),
+      );
+    }
     if (filterDateFrom) {
-      const from = new Date(filterDateFrom).getTime();
-      filtered = filtered.filter(l => l.connect_date && new Date(l.connect_date).getTime() >= from);
+      const from = parseLocalDate(filterDateFrom);
+      filtered = filtered.filter(l => l.connect_date && parseRecordDate(l.connect_date) >= from);
     }
     if (filterDateTo) {
-      const to = new Date(filterDateTo).getTime();
-      filtered = filtered.filter(l => l.connect_date && new Date(l.connect_date).getTime() <= to);
+      const to = parseLocalDate(filterDateTo);
+      filtered = filtered.filter(l => l.connect_date && parseRecordDate(l.connect_date) <= to);
     }
     if (filterHot === 'hot') filtered = filtered.filter(l => !!l.is_hot_lead);
     if (filterHot === 'not_hot') filtered = filtered.filter(l => !l.is_hot_lead);
@@ -301,25 +336,37 @@ export default function LeadReportPage() {
     else { setSortField(field); setSortDir('asc'); }
   }
 
-  async function exportCSV() {
-    try {
-      const token = getToken();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE}/api/v1/leads/export/csv`, { headers });
-      if (!res.ok) { alert('Export failed'); return; }
-      const text = await res.text();
-      const blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = `lead-report_${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 150);
-    } catch (err) { console.error('export error:', err); alert('Export failed'); }
+  function exportCSV() {
+    if (leads.length === 0) { alert('No rows to export for the current filters.'); return; }
+    const rows = leads.map(l => ({
+      'ID':                   l.id,
+      'Cust Code':            l.cust_code ?? '',
+      'Customer Name':        l.cust_name ?? '',
+      'Business Type':        l.business ?? '',
+      'Phone':                l.phone_no ?? '',
+      'Phone 2':              l.phone_no_2 ?? '',
+      'Lead Type':            l.lead_type ?? '',
+      'Location':             l.location ?? '',
+      'Connect Date':         xlsDate(l.connect_date),
+      'Hot Lead':             l.is_hot_lead ? 'Yes' : 'No',
+      'Note':                 l.note ?? '',
+      'Deferral Bucket':      l.deferral_bucket ?? '',
+      'Deferral Notes':       l.deferral_notes ?? '',
+      'Follow Up After':      xlsDate(l.follow_up_after_date),
+      'Earliest Purchase':    xlsDate(l.earliest_purchase_intent_date),
+      'Contact Disposition':  l.contact_disposition ?? '',
+      'Callback At':          xlsDateTime(l.callback_requested_at),
+      'Promised Callback':    l.customer_promised_callback ? 'Yes' : 'No',
+      'Created By':           l.created_by_name ?? '',
+      'Created At':           xlsDateTime(l.created_at),
+      'Updated By':           l.updated_by_name ?? '',
+      'Updated At':           xlsDateTime(l.updated_at),
+    }));
+    const hasActiveFilters =
+      !!searchQuery.trim() || !!filterType || !!filterBusiness ||
+      !!filterDateFrom || !!filterDateTo || filterHot !== 'all';
+    const suffix = hasActiveFilters ? '_filtered' : '';
+    downloadXlsx(rows, `lead-report_${new Date().toISOString().slice(0, 10)}${suffix}`, 'Lead Report');
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -366,7 +413,7 @@ export default function LeadReportPage() {
           <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 items-end">
             <div className="flex flex-col">
               <label className="text-[10.5px] font-semibold text-[#4f5463] uppercase tracking-wide mb-1.5">Search</label>
-              <input className={FIELD_CLS} placeholder="Name, code, business, phone..." onChange={handleSearch} />
+              <input ref={searchInputRef} className={FIELD_CLS} placeholder="Name, code, business, phone..." onChange={handleSearch} />
             </div>
             <div className="flex flex-col">
               <label className="text-[10.5px] font-semibold text-[#4f5463] uppercase tracking-wide mb-1.5">Lead Type</label>

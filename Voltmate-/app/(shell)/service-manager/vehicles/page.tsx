@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { downloadXlsx, xlsDate } from '@/lib/exportXlsx';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
@@ -364,27 +365,44 @@ export default function ServiceManagerVehiclesPage() {
     }
   }
 
-  async function handleExportCSV() {
-    try {
-      const token = getToken();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE}/api/v1/vehicles/export/csv`, { headers });
-      if (!res.ok) throw new Error(await res.text());
-      const text = await res.text();
-      const blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = `vehicles-services_${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 150);
-    } catch (err: any) {
-      alert(err?.message || 'Export failed');
-    }
+  function handleExportCSV() {
+    if (vehicles.length === 0) { alert('No vehicles to export.'); return; }
+    const rows = vehicles.map(v => ({
+      'Vehicle Number':   v.vehicle_number ?? '',
+      'Chassis Number':   v.chassis_number ?? '',
+      'Vehicle Type':     v.vehicle_type ?? '',
+      'Owner Name':       v.owner_name ?? '',
+      'Owner Phone':      v.owner_phone ?? '',
+      'Driver Name':      v.driver_name ?? '',
+      'Driver Phone':     v.driver_phone ?? '',
+      'Location':         v.location ?? '',
+      'Purchase Date':    xlsDate(v.purchase_date),
+      'Current KM':       v.current_km ?? '',
+      'PDI':              v.pdi ?? '',
+      '1st Svc Due KM':   v.s1_due_km ?? '',
+      '1st Svc Due Date': xlsDate(v.s1_due_date),
+      '1st Svc Done KM':  v.s1_actual_km ?? '',
+      '1st Svc Done Date':xlsDate(v.s1_completion_date),
+      '1st Svc Status':   v.s1_status ?? '',
+      '1st Svc Cost':     v.s1_cost ?? '',
+      '2nd Svc Due KM':   v.s2_due_km ?? '',
+      '2nd Svc Due Date': xlsDate(v.s2_due_date),
+      '2nd Svc Done KM':  v.s2_actual_km ?? '',
+      '2nd Svc Done Date':xlsDate(v.s2_completion_date),
+      '2nd Svc Status':   v.s2_status ?? '',
+      '2nd Svc Cost':     v.s2_cost ?? '',
+      '3rd Svc Due KM':   v.s3_due_km ?? '',
+      '3rd Svc Due Date': xlsDate(v.s3_due_date),
+      '3rd Svc Done KM':  v.s3_actual_km ?? '',
+      '3rd Svc Done Date':xlsDate(v.s3_completion_date),
+      '3rd Svc Status':   v.s3_status ?? '',
+      '3rd Svc Cost':     v.s3_cost ?? '',
+      'Next Svc No':      v.next_service_no ?? '',
+      'Next Due KM':      v.next_due_km ?? '',
+      'Next Due Date':    xlsDate(v.next_due_date),
+      'Urgency':          v.urgency ?? '',
+    }));
+    downloadXlsx(rows, `vehicles-services_${new Date().toISOString().slice(0, 10)}`, 'Vehicles');
   }
 
   function ServiceCell({ v, n }: { v: Vehicle; n: 1 | 2 | 3 }) {

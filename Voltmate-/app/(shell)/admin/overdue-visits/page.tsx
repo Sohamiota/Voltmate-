@@ -62,8 +62,10 @@ const STATUS_COLORS: Record<string, string> = {
   'Negotiation':               '#f59e0b',
   'Booking Date Confirmed':    '#14b8a6',
   'Booking Amount Received':   '#22c55e',
-  'Lost — Not Interested':     '#ef4444',
-  'Lost — Bought Competitor':  '#ef4444',
+  'Lost \u2013 Not Interested':    '#ef4444',
+  'Lost \u2013 Competitor':        '#ef4444',
+  'Lost \u2013 Price Issue':       '#ef4444',
+  'Lost \u2013 No Response':       '#ef4444',
 };
 function statusColor(s?: string): string {
   return STATUS_COLORS[s || ''] || '#6b7280';

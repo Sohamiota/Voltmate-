@@ -12,6 +12,7 @@ import {
   labelForContact,
   labelForDeferral,
 } from '@/lib/crmDeferral';
+import { downloadXlsx, xlsDate, xlsDateTime } from '@/lib/exportXlsx';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FormState {
@@ -463,32 +464,36 @@ export default function CreateLeadReportPage() {
     }
   }
 
-  // ── Export CSV ─────────────────────────────────────────────────────────────
-  async function exportCSV() {
-    try {
-      const res = await fetch(`${API_BASE}/api/v1/leads/export/csv`, {
-        headers: buildHeaders(),
-      });
-      if (!res.ok) {
-        showToast('Export failed', 'error');
-        return;
-      }
-      const text = await res.text();
-      const blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = `leads_${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 150);
-      showToast('Export started', 'success');
-    } catch (err) {
-      console.error('export error:', err);
-      showToast('Network error — export failed', 'error');
-    }
+  // ── XLSX export (exports the currently visible/filtered rows) ─────────────
+  function exportCSV() {
+    if (leads.length === 0) { showToast('No rows to export', 'error'); return; }
+    const rows = leads.map(l => ({
+      'ID':                   l.id,
+      'Cust Code':            l.cust_code ?? '',
+      'Customer Name':        l.cust_name ?? '',
+      'Business Type':        l.business ?? '',
+      'Phone':                l.phone_no ?? '',
+      'Phone 2':              l.phone_no_2 ?? '',
+      'Lead Type':            l.lead_type ?? '',
+      'Location':             l.location ?? '',
+      'Connect Date':         xlsDate(l.connect_date),
+      'Hot Lead':             l.is_hot_lead ? 'Yes' : 'No',
+      'Note':                 l.note ?? '',
+      'Deferral Bucket':      l.deferral_bucket ?? '',
+      'Deferral Notes':       l.deferral_notes ?? '',
+      'Follow Up After':      xlsDate(l.follow_up_after_date),
+      'Earliest Purchase':    xlsDate(l.earliest_purchase_intent_date),
+      'Contact Disposition':  l.contact_disposition ?? '',
+      'Callback At':          xlsDateTime(l.callback_requested_at),
+      'Promised Callback':    l.customer_promised_callback ? 'Yes' : 'No',
+      'Created By':           l.created_by_name ?? '',
+      'Created At':           xlsDateTime(l.created_at),
+      'Updated By':           l.updated_by_name ?? '',
+      'Updated At':           xlsDateTime(l.updated_at),
+    }));
+    const suffix = searchQuery ? '_filtered' : '';
+    downloadXlsx(rows, `leads_${new Date().toISOString().slice(0, 10)}${suffix}`, 'Leads');
+    showToast('Export started', 'success');
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -516,49 +521,10 @@ export default function CreateLeadReportPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#080a10] text-[#dde3f0] font-sans antialiased text-[13.5px]">
-
-      {/* ── Topbar ── */}
-      <header className="sticky top-0 z-40 flex items-center justify-between px-7 h-[54px] bg-[#080a10]/90 backdrop-blur-sm border-b border-[#1e2236]">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-[6px] shrink-0 bg-gradient-to-br from-[#00c9b1] to-[#0891b2] flex items-center justify-center font-extrabold text-xs text-[#080a10]">
-            V
-          </div>
-          <div>
-            {/* title only appears once — topbar OR page-header, not both */}
-            <div className="text-[13px] font-bold tracking-[0.3px]">Voltmate EMS</div>
-            <div className="text-[9px] text-[#4b5268] tracking-[1.6px] uppercase mt-px">Lead Management</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-2 bg-[#0e1118] border border-[#1e2236] rounded-lg px-[13px] py-[7px] w-64 transition-[border-color] focus-within:border-[#00c9b1] focus-within:shadow-[0_0_0_3px_rgba(0,201,177,0.09)]">
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              className="shrink-0 text-[#4b5268]"
-            >
-              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-            </svg>
-            {/* onChange sets searchQuery string, never mutates allLeads */}
-            <input
-              className="bg-transparent border-none outline-none text-[#dde3f0] text-[12.5px] font-sans w-full placeholder:text-[#4b5268]"
-              placeholder="Search leads, customers..."
-              onChange={handleSearch}
-              aria-label="Search leads"
-            />
-          </div>
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#00c9b1] to-[#0891b2] flex items-center justify-center font-bold text-[11px] text-[#080a10] cursor-pointer shrink-0">
-            M
-          </div>
-        </div>
-      </header>
+    <div className="bg-[#080a10] text-[#dde3f0] font-sans antialiased text-[13.5px]">
 
       {/* ── Content ── */}
-      <main className="p-7 flex-1">
+      <main className="p-7">
         {/* single page header, not duplicated */}
         <div className="mb-[22px]">
           <div className="text-[21px] font-extrabold tracking-[-0.3px]">Lead Management</div>
@@ -596,7 +562,18 @@ export default function CreateLeadReportPage() {
                   : `${allLeads.length} leads total`}
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap items-center">
+              <div className="flex items-center gap-2 bg-[#080a10] border border-[#1e2236] rounded-lg px-[13px] py-[7px] w-56 transition-[border-color] focus-within:border-[#00c9b1]">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0 text-[#4b5268]">
+                  <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+                </svg>
+                <input
+                  className="bg-transparent border-none outline-none text-[#dde3f0] text-[12.5px] font-sans w-full placeholder:text-[#4b5268]"
+                  placeholder="Search leads, customers..."
+                  onChange={handleSearch}
+                  aria-label="Search leads"
+                />
+              </div>
               <button className={BTN_GHOST} onClick={exportCSV}>↓ Export CSV</button>
               <button className={BTN_TEAL} onClick={openModal}>+ Add Lead</button>
             </div>

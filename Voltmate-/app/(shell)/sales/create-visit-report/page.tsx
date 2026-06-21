@@ -12,6 +12,7 @@ import {
   labelForContact,
   labelForDeferral,
 } from '@/lib/crmDeferral';
+import { downloadXlsx, xlsDate, xlsDateTime } from '@/lib/exportXlsx';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Lead {
@@ -378,7 +379,7 @@ export default function CreateVisitReportPage() {
     return {
       total: allVisits.length,
       testDrives: allVisits.filter(v => (v.status || '').toLowerCase().includes('demo')).length,
-      connected: allVisits.filter(v => v.status === 'Connected').length,
+      connected: allVisits.filter(v => (v.status || '').toLowerCase().includes('connected')).length,
       thisMonth: allVisits.filter(v => {
         if (!v.visit_date) return false;
         const d = new Date(v.visit_date);
@@ -632,26 +633,44 @@ export default function CreateVisitReportPage() {
     }
   }
 
-  // ── CSV export ─────────────────────────────────────────────────────────────
-  async function handleExport() {
-    try {
-      const res = await fetch(`${API_BASE}/api/v1/visits/export/csv`, { headers: authHeaders() });
-      if (!res.ok) { showToast('Export failed', 'error'); return; }
-      const text = await res.text();
-      const blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = `visits_${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 150);
-      showToast('Export started', 'success');
-    } catch {
-      showToast('Export failed', 'error');
-    }
+  // ── XLSX export (exports the currently visible/filtered rows) ─────────────
+  function handleExport() {
+    if (visits.length === 0) { showToast('No rows to export', 'error'); return; }
+    const rows = visits.map(v => ({
+      'ID':                    v.id,
+      'Cust Code':             v.lead_cust_code ?? '',
+      'Customer Name':         v.cust_name ?? '',
+      'Lead Type':             v.lead_type ?? '',
+      'Connect Date':          xlsDate(v.connect_date),
+      'Location':              v.lead_location ?? '',
+      'Phone':                 v.phone_no ?? '',
+      'Phone 2':               v.phone_no_2 ?? '',
+      'Salesperson':           v.salesperson_name ?? '',
+      'Vehicle':               v.vehicle ?? '',
+      'Status':                v.status ?? '',
+      'Visit Date':            xlsDate(v.visit_date),
+      'Next Action':           v.next_action ?? '',
+      'Next Action Date':      xlsDate(v.next_action_date),
+      'Note':                  v.note ?? '',
+      'Lost Reason':           v.lost_not_interested_reason ?? '',
+      'Lost Notes':            v.lost_reason_notes ?? '',
+      'Deferral Bucket':       v.deferral_bucket ?? '',
+      'Deferral Notes':        v.deferral_notes ?? '',
+      'Follow Up After':       xlsDate(v.follow_up_after_date),
+      'Earliest Purchase':     xlsDate(v.earliest_purchase_intent_date),
+      'Contact Disposition':   v.contact_disposition ?? '',
+      'Callback At':           xlsDateTime(v.callback_requested_at),
+      'Promised Callback':     v.customer_promised_callback ? 'Yes' : 'No',
+      'Hot Lead':              v.is_hot_lead ? 'Yes' : 'No',
+      'GPS Captured At':       xlsDateTime(v.visit_location_captured_at),
+      'Created By':            v.created_by_name ?? '',
+      'Created At':            xlsDateTime(v.created_at),
+      'Updated By':            v.updated_by_name ?? '',
+      'Updated At':            xlsDateTime(v.updated_at),
+    }));
+    const suffix = searchQuery ? '_filtered' : '';
+    downloadXlsx(rows, `visits_${new Date().toISOString().slice(0, 10)}${suffix}`, 'Visits');
+    showToast('Export started', 'success');
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -679,42 +698,10 @@ export default function CreateVisitReportPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#0b0d14] text-[#e2e8f0] text-[13.5px] antialiased">
-
-      {/* Topbar */}
-      <header className="flex items-center justify-between px-7 h-14 border-b border-[#222638] bg-[rgba(11,13,20,0.92)] backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center gap-2.5">
-          <div className="w-[30px] h-[30px] bg-gradient-to-br from-[#00c9b1] to-[#0891b2] rounded-[7px] flex items-center justify-center font-bold text-[13px] text-[#0b0d14] shrink-0">
-            V
-          </div>
-          <div>
-            <div className="font-bold text-sm leading-none">Voltmate</div>
-            <div className="text-[9px] text-zinc-500 tracking-[1.5px] uppercase mt-0.5">EMS</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-[#131620] border border-[#222638] rounded-lg py-[7px] px-3.5 w-[260px] transition-colors focus-within:border-[#00c9b1]">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-zinc-500 shrink-0">
-              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-            </svg>
-            <input
-              className="bg-transparent border-none outline-none text-[#e2e8f0] text-[12.5px] font-sans w-full placeholder:text-zinc-500"
-              placeholder="Search visits, customers..."
-              onChange={handleSearchChange}
-              aria-label="Search visits"
-            />
-          </div>
-          <div
-            className="w-[30px] h-[30px] rounded-full bg-gradient-to-br from-[#00c9b1] to-[#0891b2] flex items-center justify-center font-bold text-xs text-[#0b0d14] cursor-pointer"
-            title="Profile"
-          >
-            M
-          </div>
-        </div>
-      </header>
+    <div className="bg-[#0b0d14] text-[#e2e8f0] text-[13.5px] antialiased">
 
       {/* Content */}
-      <main className="p-7 flex-1">
+      <main className="p-7">
         <div className="mb-6">
           <div className="text-xl font-bold">Visit Management</div>
           <div className="text-[#94a3b8] text-[12.5px] mt-1">Record and track customer visits &amp; actions</div>
@@ -749,7 +736,18 @@ export default function CreateVisitReportPage() {
                 {searchQuery ? `Showing ${visits.length} of ${allVisits.length} records` : `${allVisits.length} total records`}
               </div>
             </div>
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center flex-wrap">
+              <div className="flex items-center gap-2 bg-[#0b0d14] border border-[#222638] rounded-lg py-[7px] px-3.5 w-[220px] transition-colors focus-within:border-[#00c9b1]">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-zinc-500 shrink-0">
+                  <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+                </svg>
+                <input
+                  className="bg-transparent border-none outline-none text-[#e2e8f0] text-[12.5px] font-sans w-full placeholder:text-zinc-500"
+                  placeholder="Search visits, customers..."
+                  onChange={handleSearchChange}
+                  aria-label="Search visits"
+                />
+              </div>
               <button className={BTN_GHOST} onClick={handleExport}>
                 ↓ Export CSV
               </button>

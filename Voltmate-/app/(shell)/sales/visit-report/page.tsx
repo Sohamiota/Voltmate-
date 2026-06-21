@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SearchableSelect from '@/components/SearchableSelect';
 import { labelForContact, labelForDeferral } from '@/lib/crmDeferral';
+import { downloadXlsx, xlsDate, xlsDateTime, parseLocalDate, parseRecordDate } from '@/lib/exportXlsx';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Visit {
@@ -345,6 +346,7 @@ export default function VisitReportPage() {
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterHot('all');
+    setIncludeLost(false);
     if (searchInputRef.current) searchInputRef.current.value = '';
   }
 
@@ -366,12 +368,12 @@ export default function VisitReportPage() {
     if (filterHot === 'hot') filtered = filtered.filter(v => !!v.is_hot_lead);
     if (filterHot === 'not_hot') filtered = filtered.filter(v => !v.is_hot_lead);
     if (filterDateFrom) {
-      const from = new Date(filterDateFrom).getTime();
-      filtered = filtered.filter(v => v.visit_date && new Date(v.visit_date).getTime() >= from);
+      const from = parseLocalDate(filterDateFrom);
+      filtered = filtered.filter(v => v.visit_date && parseRecordDate(v.visit_date) >= from);
     }
     if (filterDateTo) {
-      const to = new Date(filterDateTo).getTime();
-      filtered = filtered.filter(v => v.visit_date && new Date(v.visit_date).getTime() <= to);
+      const to = parseLocalDate(filterDateTo);
+      filtered = filtered.filter(v => v.visit_date && parseRecordDate(v.visit_date) <= to);
     }
 
     filtered.sort((a, b) => {
@@ -404,43 +406,48 @@ export default function VisitReportPage() {
     else { setSortField(field); setSortDir('asc'); }
   }
 
-  function csvVisitReportCell(val: unknown): string {
-    const s = val === null || val === undefined ? '' : String(val);
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-
   function exportCSV() {
     if (visits.length === 0) {
       alert('No rows to export for the current filters.');
       return;
     }
-
-    const headerLine = VISIT_REPORT_CSV_COLUMNS.join(',');
-    const bodyLines = visits.map(v =>
-      VISIT_REPORT_CSV_COLUMNS.map(col =>
-        csvVisitReportCell((v as unknown as Record<string, unknown>)[col]),
-      ).join(','),
-    );
-    const out = [headerLine, ...bodyLines].join('\n');
-
+    const rows = visits.map(v => ({
+      'ID':                    v.id,
+      'Cust Code':             v.lead_cust_code ?? '',
+      'Customer Name':         v.cust_name ?? '',
+      'Lead Type':             v.lead_type ?? '',
+      'Connect Date':          xlsDate(v.connect_date),
+      'Location':              v.lead_location ?? '',
+      'Phone':                 v.phone_no ?? '',
+      'Phone 2':               v.phone_no_2 ?? '',
+      'Salesperson':           v.salesperson_name ?? '',
+      'Vehicle':               v.vehicle ?? '',
+      'Status':                v.status ?? '',
+      'Visit Date':            xlsDate(v.visit_date),
+      'Next Action':           v.next_action ?? '',
+      'Next Action Date':      xlsDate(v.next_action_date),
+      'Note':                  v.note ?? '',
+      'Lost Reason':           v.lost_not_interested_reason ?? '',
+      'Lost Notes':            v.lost_reason_notes ?? '',
+      'Deferral Bucket':       v.deferral_bucket ?? '',
+      'Deferral Notes':        v.deferral_notes ?? '',
+      'Follow Up After':       xlsDate(v.follow_up_after_date),
+      'Earliest Purchase':     xlsDate(v.earliest_purchase_intent_date),
+      'Contact Disposition':   v.contact_disposition ?? '',
+      'Callback At':           xlsDateTime(v.callback_requested_at),
+      'Promised Callback':     v.customer_promised_callback ? 'Yes' : 'No',
+      'Hot Lead':              v.is_hot_lead ? 'Yes' : 'No',
+      'GPS Captured At':       xlsDateTime(v.visit_location_captured_at),
+      'Created By':            v.created_by_name ?? '',
+      'Created At':            xlsDateTime(v.created_at),
+      'Updated By':            v.updated_by_name ?? '',
+      'Updated At':            xlsDateTime(v.updated_at),
+    }));
     const hasActiveFilters =
-      !!searchQuery.trim() ||
-      !!filterStatus ||
-      filterHot !== 'all' ||
-      !!filterDateFrom ||
-      !!filterDateTo;
-
-    const blob = new Blob(['\uFEFF' + out], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
+      !!searchQuery.trim() || !!filterStatus || filterHot !== 'all' ||
+      !!filterDateFrom || !!filterDateTo || includeLost;
     const suffix = hasActiveFilters ? '_filtered' : '';
-    a.download = `visit-report_${new Date().toISOString().slice(0, 10)}${suffix}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 150);
+    downloadXlsx(rows, `visit-report_${new Date().toISOString().slice(0, 10)}${suffix}`, 'Visit Report');
   }
 
   // ── Sort th helper ─────────────────────────────────────────────────────────
