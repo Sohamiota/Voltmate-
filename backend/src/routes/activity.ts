@@ -4,7 +4,7 @@ import { authMiddleware } from '../middlewares/auth';
 
 const router = Router();
 
-router.get('/activity', authMiddleware, getActivity);
+router.get('/', authMiddleware, getActivity);
 
 export default router;
 
