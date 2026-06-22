@@ -19,6 +19,15 @@ export default function ShellLayout({ children }: Props) {
   const currentSection = resolveSectionFromPathname(pathname ?? '/')
   const sections = getNavItemsForRole(userRole)
 
+  // Open sidebar by default on desktop; stay closed on mobile
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    setSidebarOpen(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setSidebarOpen(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
   useEffect(() => {
     const token = getStoredToken()
     if (!token) return

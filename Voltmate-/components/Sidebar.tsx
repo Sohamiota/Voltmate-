@@ -31,7 +31,7 @@ export default function Sidebar({
 
   return (
     <>
-      {/* Overlay — mobile drawer only */}
+      {/* Overlay on mobile only — tap outside to close */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/60 z-40 lg:hidden"
@@ -40,12 +40,11 @@ export default function Sidebar({
         />
       )}
 
-      {/* Sidebar panel — pinned on desktop, drawer on mobile */}
+      {/* Sidebar panel — slide-over drawer; collapsible on all screen sizes */}
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-50 w-64 bg-sidebar border-r border-sidebar-border flex flex-col transition-transform duration-300 ease-in-out',
-          'lg:static lg:translate-x-0 lg:flex-shrink-0 lg:z-auto',
-          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+          isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
         <div className="px-4 py-5 border-b border-sidebar-border flex items-center justify-between gap-2 flex-shrink-0">
@@ -58,7 +57,7 @@ export default function Sidebar({
           </Link>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-sidebar-accent-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors flex-shrink-0 lg:hidden"
+            className="p-2 rounded-lg text-sidebar-accent-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors flex-shrink-0"
             aria-label="Close sidebar"
           >
             <X className="w-5 h-5" />
