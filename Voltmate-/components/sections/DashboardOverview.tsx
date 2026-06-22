@@ -1,38 +1,27 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Users, TrendingUp, Clock, CheckCircle, CalendarDays, WifiOff } from 'lucide-react'
 import StatCard from '@/components/StatCard'
-import RecentActivityCard from '@/components/RecentActivityCard'
 import ChartCard from '@/components/ChartCard'
+import { API_BASE, getStoredToken } from '@/src/api/client'
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
-  (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? 'https://voltmate.onrender.com'
-    : 'http://localhost:8081')).replace(/\/api\/v1\/?$/, '')
-
-// Timeout for each individual request. 20 s covers a Render cold-start.
-const FETCH_TIMEOUT_MS = 20_000
-
-function tok() {
-  if (typeof window === 'undefined') return ''
-  return localStorage.getItem('auth_token') || ''
-}
+const FETCH_TIMEOUT_MS = 12_000
 
 function authHdr(): Record<string, string> {
-  return { Authorization: `Bearer ${tok()}` }
+  const token = getStoredToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-/** fetch() wrapper that aborts after FETCH_TIMEOUT_MS */
-function apiFetch(url: string) {
-  return fetch(url, {
-    headers: authHdr(),
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  })
+/** fetch() with timeout — works in all browsers */
+function apiFetch(path: string) {
+  const ctrl = new AbortController()
+  const id = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
+  return fetch(`${API_BASE}${path}`, { headers: authHdr(), signal: ctrl.signal })
+    .finally(() => clearTimeout(id))
 }
 
-// Build an array of {name, sales} for each day in the last N days
-function buildDailySales(visits: any[], days = 30) {
+function buildDailySales(visits: { visit_date?: string }[], days = 30) {
   const now = new Date()
   const result: { name: string; sales: number }[] = []
   for (let i = days - 1; i >= 0; i--) {
@@ -47,21 +36,38 @@ function buildDailySales(visits: any[], days = 30) {
 }
 
 export default function DashboardOverview() {
-  const [userName,      setUserName]      = useState('Manager')
-  const [empCount,      setEmpCount]      = useState<number | null>(null)
-  const [visitsMonth,   setVisitsMonth]   = useState<number | null>(null)
-  const [pendingCount,  setPendingCount]  = useState<number | null>(null)
-  const [attendRate,    setAttendRate]    = useState<number | null>(null)
-  const [leaveCl,       setLeaveCl]       = useState<number | null>(null)
-  const [leaveSl,       setLeaveSl]       = useState<number | null>(null)
-  const [leaveFy,       setLeaveFy]       = useState<string | null>(null)
-  const [chartData,     setChartData]     = useState<any[]>([])
-  const [loading,       setLoading]       = useState(true)
-  const [backendError,  setBackendError]  = useState<string | null>(null)
+  const [userName,     setUserName]     = useState('Manager')
+  const [empCount,     setEmpCount]     = useState<number | null>(null)
+  const [visitsMonth,  setVisitsMonth]  = useState<number | null>(null)
+  const [pendingCount, setPendingCount] = useState<number | null>(null)
+  const [attendRate,   setAttendRate]   = useState<number | null>(null)
+  const [leaveCl,      setLeaveCl]      = useState<number | null>(null)
+  const [leaveSl,      setLeaveSl]      = useState<number | null>(null)
+  const [leaveFy,      setLeaveFy]      = useState<string | null>(null)
+  const [chartData,    setChartData]    = useState(() => buildDailySales([], 30))
+  const [refreshing,   setRefreshing]   = useState(true)
+  const [backendError, setBackendError] = useState<string | null>(null)
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true)
-    setBackendError(null)
+  const retryCountRef = useRef(0)
+  const mountedRef    = useRef(true)
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
+
+  const fetchAll = useCallback(async (isAutoRetry = false) => {
+    if (!getStoredToken()) {
+      setRefreshing(false)
+      setBackendError('Not signed in. Please log in again.')
+      return
+    }
+
+    setRefreshing(true)
+    if (!isAutoRetry) {
+      setBackendError(null)
+      retryCountRef.current = 0
+    }
 
     const now = new Date()
     const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
@@ -69,94 +75,100 @@ export default function DashboardOverview() {
     since30.setDate(now.getDate() - 30)
     const since30Str = since30.toISOString().slice(0, 10)
 
-    // Fire all 5 requests in parallel — a slow/cold backend won't block
-    // individual cards from rendering as soon as their own data arrives.
-    const [meResult, empResult, visitsResult, statsResult, leaveResult] =
-      await Promise.allSettled([
-        apiFetch(`${API_BASE}/api/v1/auth/me`),
-        apiFetch(`${API_BASE}/api/v1/auth/employees`),
-        apiFetch(`${API_BASE}/api/v1/visits?limit=1000&visit_date_from=${since30Str}`),
-        apiFetch(`${API_BASE}/api/v1/attendance/stats`),
-        apiFetch(`${API_BASE}/api/v1/leave/balance`),
-      ])
-
-    // Track how many endpoints actually responded so we can show an error
-    // banner if the backend is completely unreachable.
     let successCount = 0
 
-    // 1. Who's logged in
-    if (meResult.status === 'fulfilled' && meResult.value.ok) {
-      successCount++
-      const mj = await meResult.value.json()
-      const n = mj.user?.name || mj.user?.email || 'Manager'
-      setUserName(n.split(' ')[0])
+    async function loadMe() {
+      try {
+        const r = await apiFetch('/auth/me')
+        if (!r.ok) return
+        successCount++
+        const j = await r.json()
+        if (!mountedRef.current) return
+        setUserName(((j.user?.name || j.user?.email || 'Manager') as string).split(' ')[0])
+      } catch { /* timeout */ }
     }
 
-    // 2. Employee count
-    if (empResult.status === 'fulfilled' && empResult.value.ok) {
-      successCount++
-      const ej = await empResult.value.json()
-      setEmpCount((ej.employees || []).length)
+    async function loadEmployees() {
+      try {
+        const r = await apiFetch('/auth/employees')
+        if (!r.ok) return
+        successCount++
+        const j = await r.json()
+        if (!mountedRef.current) return
+        setEmpCount((j.employees || []).length)
+      } catch { /* timeout */ }
     }
 
-    // 3. Visits this month + chart
-    let allVisits: any[] = []
-    if (visitsResult.status === 'fulfilled' && visitsResult.value.ok) {
-      successCount++
-      const vj = await visitsResult.value.json()
-      allVisits = vj.visits || []
-      const monthVisits = allVisits.filter(v =>
-        (v.visit_date || '').slice(0, 10) >= monthStart
-      )
-      setVisitsMonth(monthVisits.length)
-    }
-    setChartData(buildDailySales(allVisits, 30))
-
-    // 4. Attendance stats
-    if (statsResult.status === 'fulfilled' && statsResult.value.ok) {
-      successCount++
-      const sj = await statsResult.value.json()
-      setPendingCount(sj.pending_count ?? null)
-      setAttendRate(sj.attendance_rate ?? null)
+    async function loadVisits() {
+      try {
+        const r = await apiFetch(`/visits?limit=1000&visit_date_from=${since30Str}`)
+        if (!r.ok) return
+        successCount++
+        const j = await r.json()
+        const all: { visit_date?: string }[] = j.visits || []
+        if (!mountedRef.current) return
+        setVisitsMonth(all.filter(v => (v.visit_date || '').slice(0, 10) >= monthStart).length)
+        setChartData(buildDailySales(all, 30))
+      } catch { /* timeout */ }
     }
 
-    // 5. Leave balance
-    if (leaveResult.status === 'fulfilled' && leaveResult.value.ok) {
-      successCount++
-      const lj = await leaveResult.value.json()
-      const b = lj.balance
-      if (b) {
+    async function loadStats() {
+      try {
+        const r = await apiFetch('/attendance/stats')
+        if (!r.ok) return
+        successCount++
+        const j = await r.json()
+        if (!mountedRef.current) return
+        setPendingCount(j.pending_count ?? null)
+        setAttendRate(j.attendance_rate ?? null)
+      } catch { /* timeout */ }
+    }
+
+    async function loadLeave() {
+      try {
+        const r = await apiFetch('/leave/balance')
+        if (!r.ok) return
+        successCount++
+        const j = await r.json()
+        const b = j.balance
+        if (!mountedRef.current || !b) return
         setLeaveCl(b.cl_available ?? null)
         setLeaveSl(b.sl_available ?? null)
         setLeaveFy(b.fy_label ?? null)
+      } catch { /* timeout */ }
+    }
+
+    try {
+      // Cap spinner at FETCH_TIMEOUT_MS even if a fetch misbehaves
+      await Promise.race([
+        Promise.allSettled([loadMe(), loadEmployees(), loadVisits(), loadStats(), loadLeave()]),
+        new Promise<void>(resolve => setTimeout(resolve, FETCH_TIMEOUT_MS + 500)),
+      ])
+    } finally {
+      if (mountedRef.current) setRefreshing(false)
+    }
+
+    if (!mountedRef.current) return
+
+    if (successCount === 0) {
+      if (retryCountRef.current < 1) {
+        retryCountRef.current += 1
+        setBackendError('Backend is waking up (cold start). Retrying in 15 s…')
+        setTimeout(() => { if (mountedRef.current) fetchAll(true) }, 15_000)
+      } else {
+        setBackendError('Unable to reach the backend. Check your connection and try Refresh.')
       }
     }
-
-    // Show a banner if every request failed (backend down / cold-starting)
-    if (successCount === 0) {
-      const isTimeout = [meResult, empResult, visitsResult, statsResult, leaveResult]
-        .some(r => r.status === 'rejected' && (r.reason as Error)?.name === 'TimeoutError')
-      setBackendError(
-        isTimeout
-          ? 'Backend is waking up (cold start). Retrying in 15 s…'
-          : 'Unable to reach the backend. Check your connection and try again.'
-      )
-      // Auto-retry once after 15 s for cold-start scenario
-      if (isTimeout) setTimeout(fetchAll, 15_000)
-    }
-
-    setLoading(false)
   }, [])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
   const fmt = (v: number | null, suffix = '') =>
-    loading ? '…' : v === null ? '—' : `${v}${suffix}`
+    v === null ? '—' : `${v}${suffix}`
 
   return (
     <div className="space-y-8">
 
-      {/* Backend unreachable / cold-start banner */}
       {backendError && (
         <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 text-sm text-amber-400">
           <WifiOff className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -164,25 +176,23 @@ export default function DashboardOverview() {
         </div>
       )}
 
-      {/* Welcome Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-            Welcome back, {loading ? '…' : userName}
+            Welcome back, {userName}
           </h1>
           <p className="text-muted-foreground text-sm">Here's your dealership overview for today</p>
         </div>
         <button
-          onClick={fetchAll}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
+          onClick={() => fetchAll()}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm text-muted-foreground hover:text-foreground hover:border-foreground transition-colors disabled:opacity-50"
         >
-          <CheckCircle className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Refreshing…' : 'Refresh'}
+          <CheckCircle className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           label="Total Employees"
@@ -214,7 +224,6 @@ export default function DashboardOverview() {
         />
       </div>
 
-      {/* Leave balance */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <StatCard
           label={`Casual leave available${leaveFy ? ` · FY ${leaveFy}` : ''}`}
@@ -232,19 +241,11 @@ export default function DashboardOverview() {
         />
       </div>
 
-      {/* Chart + Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <ChartCard
-            title="Visit Activity (Last 30 Days)"
-            subtitle="Daily visit count from visit reports"
-            data={chartData}
-          />
-        </div>
-        <div>
-          <RecentActivityCard />
-        </div>
-      </div>
+      <ChartCard
+        title="Visit Activity (Last 30 Days)"
+        subtitle="Daily visit count from visit reports"
+        data={chartData}
+      />
 
     </div>
   )

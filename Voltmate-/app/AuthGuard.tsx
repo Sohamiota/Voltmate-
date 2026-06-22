@@ -28,21 +28,25 @@ export default function AuthGuard({ children }: Props) {
     }
 
     // Validate the token against the backend
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(() => ctrl.abort(), 15_000);
+
     fetch(`${API_BASE}/auth/me`, {
       method:  'GET',
       headers: { Authorization: `Bearer ${token}` },
+      signal:  ctrl.signal,
     })
       .then(res => {
-        if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
           clearToken();
           router.replace('/login');
         }
+        // Other errors (5xx, timeout) — keep the token; backend may be cold-starting
       })
       .catch(() => {
-        // Network error — clear and redirect to be safe
-        clearToken();
-        router.replace('/login');
-      });
+        // Network / timeout — do not clear token; user can retry once backend wakes up
+      })
+      .finally(() => clearTimeout(timeoutId));
   }, [pathname, router]);
 
   return <>{children}</>;
