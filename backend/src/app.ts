@@ -23,10 +23,9 @@ import { listEmployees } from './controllers/authController';
 
 const app = express();
 
-// Trust the first proxy hop (Render / Cloudflare) so req.ip is the real client
-// IP rather than the load-balancer address. Required for per-IP rate limiting
-// to work correctly in production.
-app.set('trust proxy', 1);
+// Render sits behind Cloudflare + its own load balancer (2 hops). Without this,
+// req.ip is a proxy address and office-network attendance checks always fail.
+app.set('trust proxy', 2);
 
 // ─── [M-1] Security headers via helmet ───────────────────────────────────────
 app.use(helmet({

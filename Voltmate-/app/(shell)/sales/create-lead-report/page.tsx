@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation';
 import type { Lead } from '@/types/api';
 import SearchableSelect from '@/components/SearchableSelect';
+import PageHeader from '@/components/PageHeader';
+import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 import {
   CRM_CONTACT_OPTIONS,
   CRM_DEFERRAL_OPTIONS,
@@ -525,11 +527,14 @@ export default function CreateLeadReportPage() {
 
       {/* ── Content ── */}
       <main className="p-7">
-        {/* single page header, not duplicated */}
-        <div className="mb-[22px]">
-          <div className="text-[21px] font-extrabold tracking-[-0.3px]">Lead Management</div>
-          <div className="text-[#8b93a8] text-[12.5px] mt-1">Track and manage your dealership leads</div>
-        </div>
+        <PageHeader
+          variant="dark"
+          title="Lead Management"
+          description="Track and manage your dealership leads"
+          backHref={getBackNavigation('/sales/create-lead-report')?.href}
+          backLabel={`Back to ${getBackNavigation('/sales/create-lead-report')?.label ?? 'Sales'}`}
+          breadcrumbs={getBreadcrumbsForPath('/sales/create-lead-report')}
+        />
 
         {/* ── Stats ── */}
         <div className="grid grid-cols-4 gap-[14px] mb-[22px] max-[860px]:grid-cols-2">

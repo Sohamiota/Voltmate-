@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { query } from '../db';
-import { getClientIp, isIpAllowed } from '../utils/network';
+import { getClientIp, isIpAllowed, isPrivateOrLocalIp } from '../utils/network';
 import { collectErrors, optDate, optId, optStr, parsePagination } from '../utils/validate';
 
 export async function clockIn(req: Request, res: Response) {
@@ -13,6 +13,9 @@ export async function clockIn(req: Request, res: Response) {
     // table not yet created in production) degrades gracefully to "open mode"
     // instead of blocking all clock-ins with a 500.
     const clientIp = getClientIp(req);
+    if (isPrivateOrLocalIp(clientIp)) {
+      console.warn('[clockIn] client IP looks private/local — proxy headers may be misconfigured:', clientIp);
+    }
     let networkVerified = false;
     let networkLabel: string | null = null;
     let networkColumnsExist = true; // assume migration 009 has been applied

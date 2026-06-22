@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LatLngExpression, Map as LeafletMap } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { LocationPing } from '@/types/api';
+import PageHeader from '@/components/PageHeader';
+import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
@@ -357,10 +359,14 @@ export default function SalesLocationPage() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-200 font-sans p-[clamp(14px,4vw,28px)]">
 
-      <div className="mb-6">
-        <div className="text-[clamp(20px,5vw,26px)] font-bold text-white mb-1.5">Sales Rep Location</div>
-        <div className="text-zinc-400 text-[13px]">{subtitle}</div>
-      </div>
+      <PageHeader
+        variant="dark"
+        title="Sales Rep Location"
+        description={subtitle}
+        backHref={getBackNavigation('/admin/sales-location')?.href}
+        backLabel={`Back to ${getBackNavigation('/admin/sales-location')?.label ?? 'Admin Attendance'}`}
+        breadcrumbs={getBreadcrumbsForPath('/admin/sales-location')}
+      />
 
       <div className="flex gap-2 mb-5 flex-wrap">
         <button

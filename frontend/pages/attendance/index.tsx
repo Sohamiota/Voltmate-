@@ -7,7 +7,14 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
-  const [network, setNetwork] = useState<{ allowed: boolean; label: string | null; checked: boolean }>({ allowed: false, label: null, checked: false });
+  const [network, setNetwork] = useState<{
+    allowed: boolean;
+    label: string | null;
+    checked: boolean;
+    ip?: string | null;
+    no_network_rules?: boolean;
+    hint?: string | null;
+  }>({ allowed: false, label: null, checked: false });
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
@@ -26,12 +33,19 @@ export default function AttendancePage() {
       });
       if (res.ok) {
         const j = await res.json();
-        setNetwork({ allowed: !!j.allowed, label: j.label || null, checked: true });
+        setNetwork({
+          allowed: !!j.allowed,
+          label: j.label || null,
+          checked: true,
+          ip: typeof j.ip === 'string' ? j.ip : null,
+          no_network_rules: !!j.no_network_rules,
+          hint: typeof j.hint === 'string' ? j.hint : null,
+        });
       } else {
-        setNetwork({ allowed: false, label: null, checked: true });
+        setNetwork({ allowed: true, label: null, checked: true, no_network_rules: true });
       }
     } catch {
-      setNetwork({ allowed: false, label: null, checked: true });
+      setNetwork({ allowed: true, label: null, checked: true, no_network_rules: true });
     }
   }
 
@@ -59,10 +73,6 @@ export default function AttendancePage() {
   }
 
   async function clockIn() {
-    if (!network.allowed && network.checked) {
-      alert('You must be connected to the office network to clock in.');
-      return;
-    }
     setBusy(true);
     const res = await fetch(`${API}/api/v1/attendance/clockin`, {
       method: 'POST',
@@ -77,8 +87,7 @@ export default function AttendancePage() {
       try {
         const j = await res.json();
         if (j.error === 'not_on_office_network') {
-          msg = 'Not on office network — connect to the office WiFi and try again.';
-          setNetwork(prev => ({ ...prev, allowed: false }));
+          msg = 'Not on office network — attendance saved as pending for admin approval.';
         } else {
           msg = j.message || j.error || msg;
         }
@@ -105,7 +114,7 @@ export default function AttendancePage() {
     setBusy(false);
   }
 
-  const netColor = network.allowed ? '#22c55e' : '#ef4444';
+  const netColor = network.allowed || network.no_network_rules ? '#22c55e' : '#f59e0b';
 
   return (
     <div style={{ padding: 24 }}>
@@ -121,10 +130,15 @@ export default function AttendancePage() {
           marginBottom: 16,
         }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: netColor, display: 'inline-block' }} />
-          {network.allowed
-            ? `On office network${network.label ? ` · ${network.label}` : ''} — ready to clock in`
-            : 'Not on office network — connect to office WiFi to clock in'}
+          {network.no_network_rules
+            ? 'No office network restriction — attendance will be auto-approved'
+            : network.allowed
+              ? `On office network${network.label ? ` · ${network.label}` : ''} — ready to clock in`
+              : `Outside office network${network.ip ? ` (${network.ip})` : ''} — you can still clock in; attendance will need admin approval`}
         </div>
+      )}
+      {!network.allowed && network.hint && (
+        <p style={{ fontSize: 12, color: '#fbbf24', marginBottom: 12, maxWidth: 480 }}>{network.hint}</p>
       )}
 
       {loading ? <div>Loading...</div> : (
@@ -138,10 +152,9 @@ export default function AttendancePage() {
             ) : (
               <button
                 onClick={clockIn}
-                disabled={busy || (network.checked && !network.allowed)}
-                title={network.checked && !network.allowed ? 'Connect to the office network first' : undefined}
+                disabled={busy}
               >
-                Clock In
+                {busy ? 'Clocking in…' : network.checked && !network.allowed && !network.no_network_rules ? 'Clock In (needs approval)' : 'Clock In'}
               </button>
             )}
           </div>

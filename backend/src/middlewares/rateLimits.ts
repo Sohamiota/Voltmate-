@@ -1,22 +1,13 @@
 import rateLimit from 'express-rate-limit';
 import { Request } from 'express';
+import { getClientIp } from '../utils/network';
 
 // Prefer authenticated user ID as the rate-limit key so office networks sharing
-// one IP are not collectively penalised. Falls back to raw socket IP for
-// unauthenticated requests (login / register handled separately in routes/auth.ts).
-//
-// We read the IP directly from the socket / X-Forwarded-For header instead
-// of req.ip to avoid the ERR_ERL_KEY_GEN_IPV6 warning that fires when a
-// custom keyGenerator touches req.ip without going through ipKeyGenerator().
-function clientIp(req: Request): string {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string') return fwd.split(',')[0].trim();
-  return req.socket?.remoteAddress ?? 'unknown';
-}
-
+// one IP are not collectively penalised. Falls back to client IP for unauthenticated
+// requests (login / register handled separately in routes/auth.ts).
 const userOrIpKey = (req: Request): string => {
   const uid = (req as any).user?.sub;
-  return uid ? `uid:${uid}` : `ip:${clientIp(req)}`;
+  return uid ? `uid:${uid}` : `ip:${getClientIp(req) || 'unknown'}`;
 };
 
 // ── Tier 1 – Global authenticated API ────────────────────────────────────────

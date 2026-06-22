@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
+import PageHeader from '@/components/PageHeader';
+import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 import { downloadXlsx, xlsDate } from '@/lib/exportXlsx';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
@@ -435,11 +436,15 @@ export default function ServiceManagerVehiclesPage() {
     <div className="min-h-screen bg-[#0a0c12] text-[#e8edf5] font-sans">
       <div className="px-7 py-8 max-w-full mx-auto">
         <div className="mb-7 flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <Link href="/service-manager" className={`${baseBtn} mb-2 inline-block`}>← Dashboard</Link>
-            <div className="text-[28px] font-extrabold tracking-tight mb-1.5">Vehicle Management</div>
-            <div className="text-[13.5px] text-[#8e97ad]">Full service tracking: 1st, 2nd, and 3rd service status per vehicle</div>
-          </div>
+          <PageHeader
+            variant="dark"
+            className="mb-0"
+            title="Vehicle Management"
+            description="Full service tracking: 1st, 2nd, and 3rd service status per vehicle"
+            backHref={getBackNavigation('/service-manager/vehicles')?.href}
+            backLabel={`Back to ${getBackNavigation('/service-manager/vehicles')?.label ?? 'Service Manager'}`}
+            breadcrumbs={getBreadcrumbsForPath('/service-manager/vehicles')}
+          />
           <button type="button" className={primaryBtnLg} onClick={openAdd}>+ Add Vehicle</button>
         </div>
 

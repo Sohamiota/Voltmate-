@@ -83,6 +83,7 @@ export default function AttendancePage() {
     checked: boolean;
     ip?: string | null;
     no_network_rules?: boolean;
+    hint?: string | null;
   }>({ allowed: false, label: null, checked: false });
 
   const today = new Date();
@@ -167,6 +168,7 @@ export default function AttendancePage() {
           checked:          true,
           ip:               typeof j.ip === 'string' ? j.ip : null,
           no_network_rules: !!j.no_network_rules,
+          hint:             typeof j.hint === 'string' ? j.hint : null,
         });
       } else {
         // Non-OK response — treat as "status unknown, allow clock-in anyway"
@@ -612,18 +614,23 @@ export default function AttendancePage() {
 
         {/* ── Network status badge ── */}
         {network.checked && (
-          <div
-            className="inline-flex items-center gap-1.5 px-3 py-[5px] rounded-[20px] text-xs font-medium border mb-2.5"
-            style={network.allowed
-              ? { color: '#22c55e', background: 'rgba(34,197,94,.1)', borderColor: 'rgba(34,197,94,.3)' }
-              : { color: '#f59e0b', background: 'rgba(245,158,11,.1)', borderColor: 'rgba(245,158,11,.3)' }}
-          >
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: network.allowed ? '#22c55e' : '#f59e0b' }} />
-            {network.no_network_rules
-              ? 'No office network restriction — attendance will be auto-approved'
-              : network.allowed
-                ? `On office network${network.label ? ` · ${network.label}` : ''} — attendance will be auto-approved`
-                : `Outside office network${network.ip ? ` (${network.ip})` : ''} — you can still clock in, attendance will be sent for admin approval`}
+          <div className="mb-2.5">
+            <div
+              className="inline-flex items-center gap-1.5 px-3 py-[5px] rounded-[20px] text-xs font-medium border"
+              style={network.allowed
+                ? { color: '#22c55e', background: 'rgba(34,197,94,.1)', borderColor: 'rgba(34,197,94,.3)' }
+                : { color: '#f59e0b', background: 'rgba(245,158,11,.1)', borderColor: 'rgba(245,158,11,.3)' }}
+            >
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: network.allowed ? '#22c55e' : '#f59e0b' }} />
+              {network.no_network_rules
+                ? 'No office network restriction — attendance will be auto-approved'
+                : network.allowed
+                  ? `On office network${network.label ? ` · ${network.label}` : ''} — attendance will be auto-approved`
+                  : `Outside office network${network.ip ? ` (${network.ip})` : ''} — you can still clock in, attendance will be sent for admin approval`}
+            </div>
+            {!network.allowed && network.hint && (
+              <p className="mt-2 text-xs text-amber-400/90 max-w-xl">{network.hint}</p>
+            )}
           </div>
         )}
 

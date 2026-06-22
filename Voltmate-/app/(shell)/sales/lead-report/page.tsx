@@ -2,6 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SearchableSelect from '@/components/SearchableSelect';
+import PageHeader from '@/components/PageHeader';
+import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 import { labelForContact, labelForDeferral } from '@/lib/crmDeferral';
 import { downloadXlsx, xlsDate, xlsDateTime, parseLocalDate, parseRecordDate } from '@/lib/exportXlsx';
 
@@ -376,12 +378,17 @@ export default function LeadReportPage() {
       <div className="px-7 py-8 flex-1 max-w-[1680px] mx-auto w-full">
 
         {/* Header */}
-        <div className="mb-7 flex items-center justify-between gap-3">
-          <div>
-            <div className="text-[28px] font-extrabold tracking-tight mb-1.5">Lead Report</div>
-            <div className="text-[13.5px] text-[#8b92a8]">Complete overview of all leads recorded in the system</div>
-          </div>
-          <div className="flex gap-3 items-center">
+        <div className="mb-7 flex items-start justify-between gap-3">
+          <PageHeader
+            variant="dark"
+            className="mb-0 flex-1"
+            title="Lead Report"
+            description="Complete overview of all leads recorded in the system"
+            backHref={getBackNavigation('/sales/lead-report')?.href}
+            backLabel={`Back to ${getBackNavigation('/sales/lead-report')?.label ?? 'Sales'}`}
+            breadcrumbs={getBreadcrumbsForPath('/sales/lead-report')}
+          />
+          <div className="flex gap-3 items-center shrink-0">
             {connected === null ? (
               <div className="text-[#4f5463] text-[13px]">Checking backend...</div>
             ) : connected ? (

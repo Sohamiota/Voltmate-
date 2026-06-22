@@ -1,6 +1,7 @@
 'use client'
 
-import { Menu, X, Bell, User } from 'lucide-react'
+import Link from 'next/link'
+import { Menu, Bell, User } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { clearToken } from '@/src/api/client'
 
@@ -25,22 +26,15 @@ export default function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
         <div className="flex items-center gap-3">
           <button
             onClick={onMenuClick}
-            className="p-2 hover:bg-secondary rounded-lg transition-colors"
+            className="p-2 hover:bg-secondary rounded-lg transition-colors lg:hidden"
             aria-label={isSidebarOpen ? 'Close menu' : 'Open menu'}
           >
-            {isSidebarOpen ? (
-              <X className="w-5 h-5 text-primary" />
-            ) : (
-              <Menu className="w-5 h-5 text-primary" />
-            )}
+            <Menu className="w-5 h-5 text-primary" />
           </button>
 
-          {/* Logo shown when sidebar is closed */}
-          {!isSidebarOpen && (
-            <div className="hidden sm:flex items-center gap-2 min-w-0">
-              <img src="/voltmate-logo.svg" alt="Voltmate" className="h-8 w-auto max-w-[120px] object-contain" />
-            </div>
-          )}
+          <Link href="/" className="hidden sm:flex items-center gap-2 min-w-0">
+            <img src="/voltmate-logo.svg" alt="Voltmate home" className="h-8 w-auto max-w-[120px] object-contain" />
+          </Link>
         </div>
 
         {/* Right: search + actions */}

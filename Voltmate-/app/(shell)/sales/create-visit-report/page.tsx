@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation';
 import type { Visit } from '@/types/api';
 import SearchableSelect from '@/components/SearchableSelect';
+import PageHeader from '@/components/PageHeader';
+import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 import {
   CRM_CONTACT_OPTIONS,
   CRM_DEFERRAL_OPTIONS,
@@ -702,10 +704,14 @@ export default function CreateVisitReportPage() {
 
       {/* Content */}
       <main className="p-7">
-        <div className="mb-6">
-          <div className="text-xl font-bold">Visit Management</div>
-          <div className="text-[#94a3b8] text-[12.5px] mt-1">Record and track customer visits &amp; actions</div>
-        </div>
+        <PageHeader
+          variant="dark"
+          title="Visit Management"
+          description="Record and track customer visits and actions"
+          backHref={getBackNavigation('/sales/create-visit-report')?.href}
+          backLabel={`Back to ${getBackNavigation('/sales/create-visit-report')?.label ?? 'Sales'}`}
+          breadcrumbs={getBreadcrumbsForPath('/sales/create-visit-report')}
+        />
 
         {/* Stats */}
         <div className="grid grid-cols-4 max-[900px]:grid-cols-2 gap-3.5 mb-6">

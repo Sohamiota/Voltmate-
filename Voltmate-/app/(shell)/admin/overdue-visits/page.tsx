@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import PageHeader from '@/components/PageHeader';
+import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
@@ -246,14 +248,21 @@ export default function OverdueVisitsPage() {
 
       {/* ── Header ── */}
       <div className="mb-5 flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <div className="text-[clamp(18px,4vw,24px)] font-bold text-white">Overdue Visits</div>
-          <div className="text-[13px] text-red-500 font-semibold mt-[3px]">As of {fmtDate(today)}</div>
-          <div className="text-zinc-400 text-[13px] mt-[3px]">
-            {selected
-              ? `${selected.name} — visits that crossed next action date without an update`
-              : 'Visits whose next action date has passed without the salesperson updating the report'}
-          </div>
+        <div className="flex-1">
+          <PageHeader
+            variant="dark"
+            className="mb-0"
+            title="Overdue Visits"
+            description={
+              selected
+                ? `${selected.name} — visits that crossed next action date without an update`
+                : 'Visits whose next action date has passed without the salesperson updating the report'
+            }
+            backHref={getBackNavigation('/admin/overdue-visits')?.href}
+            backLabel={`Back to ${getBackNavigation('/admin/overdue-visits')?.label ?? 'Sales Analytics'}`}
+            breadcrumbs={getBreadcrumbsForPath('/admin/overdue-visits')}
+          />
+          <div className="text-[13px] text-red-500 font-semibold mt-1">As of {fmtDate(today)}</div>
         </div>
         <button
           className="bg-transparent text-zinc-400 border border-zinc-800 px-3.5 py-[7px] rounded-lg text-xs font-medium cursor-pointer transition-all duration-150 hover:border-[#555] hover:text-zinc-200"

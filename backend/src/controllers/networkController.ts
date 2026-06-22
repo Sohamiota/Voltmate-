@@ -1,6 +1,13 @@
 import { Request, Response } from 'express';
 import { query } from '../db';
-import { getClientIp, isIpAllowed, isValidCidr } from '../utils/network';
+import {
+  getClientIp,
+  isIpAllowed,
+  isPrivateOrLocalIp,
+  isValidCidr,
+  normalizeCidr,
+  officeNetworkHint,
+} from '../utils/network';
 import { optStr } from '../utils/validate';
 
 function isAdmin(req: Request): boolean {
@@ -34,11 +41,12 @@ export async function checkNetworkStatus(req: Request, res: Response) {
 
     if (rows.length === 0) {
       // No active networks configured — open mode, all IPs allowed
-      return res.json({ allowed: true, label: 'No restriction', ip, no_network_rules: true });
+      return res.json({ allowed: true, label: 'No restriction', ip, no_network_rules: true, hint: null });
     }
 
     const { allowed, label } = isIpAllowed(ip, rows);
-    return res.json({ allowed, label, ip, no_network_rules: false });
+    const hint = officeNetworkHint(ip, allowed, true);
+    return res.json({ allowed, label, ip, no_network_rules: false, hint });
   } catch (e) {
     console.error('[checkNetworkStatus]', e);
     res.status(500).json({ error: 'failed' });
@@ -83,9 +91,23 @@ export async function addNetwork(req: Request, res: Response) {
     if (!isValidCidr(vCidr.value))
       return res.status(400).json({ error: `ip_cidr "${vCidr.value}" is not a valid CIDR address` });
 
+    const normalizedCidr = normalizeCidr(vCidr.value);
+
+    // Private LAN ranges (192.168.x.x etc.) are never sent to the server from a
+    // browser — whitelist the office's public internet IP instead.
+    const probeIp = normalizedCidr.split('/')[0];
+    if (isPrivateOrLocalIp(probeIp)) {
+      return res.status(400).json({
+        error: 'private_ip_not_usable',
+        message:
+          'Private LAN IPs (192.168.x.x, 10.x.x.x) cannot be detected from the web app. ' +
+          'Add your office public internet IP instead (check Attendance page while on office WiFi).',
+      });
+    }
+
     const r = await query(
       'INSERT INTO allowed_networks (label, ip_cidr) VALUES ($1, $2) RETURNING *',
-      [vLabel.value, vCidr.value],
+      [vLabel.value, normalizedCidr],
     );
     res.status(201).json((r as any).rows[0]);
   } catch (e) {

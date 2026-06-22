@@ -2,6 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SearchableSelect from '@/components/SearchableSelect';
+import PageHeader from '@/components/PageHeader';
+import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 import { labelForContact, labelForDeferral } from '@/lib/crmDeferral';
 import { downloadXlsx, xlsDate, xlsDateTime, parseLocalDate, parseRecordDate } from '@/lib/exportXlsx';
 
@@ -461,12 +463,15 @@ export default function VisitReportPage() {
 
       <div className="px-7 py-8 flex-1 max-w-[1680px] mx-auto w-full">
         {/* Header */}
-        <div className="mb-7">
-          <div>
-            <div className="text-[28px] font-extrabold tracking-tight mb-1.5 text-zinc-100">Visit Report</div>
-            <div className="text-[13.5px] text-zinc-400">Track and analyze customer visits recorded via Create Visit Report</div>
-          </div>
-          <div className="mt-2 flex gap-3 items-center">
+        <PageHeader
+          variant="dark"
+          title="Visit Report"
+          description="Track and analyze customer visits recorded via Create Visit Report"
+          backHref={getBackNavigation('/sales/visit-report')?.href}
+          backLabel={`Back to ${getBackNavigation('/sales/visit-report')?.label ?? 'Sales'}`}
+          breadcrumbs={getBreadcrumbsForPath('/sales/visit-report')}
+        />
+        <div className="mb-7 flex gap-3 items-center">
             {connected === null ? (
               <div className="text-zinc-500 text-[13px]">Checking backend...</div>
             ) : connected ? (
@@ -480,7 +485,6 @@ export default function VisitReportPage() {
               onClick={() => { fetchVisits(); (async () => { try { const r = await fetch(`${API_BASE}/api/v1/health`); setConnected(r.ok); } catch { setConnected(false); } })(); }}>
               Retry
             </button>
-          </div>
         </div>
 
         {error && (

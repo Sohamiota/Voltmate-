@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import PageHeader from '@/components/PageHeader';
+import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
@@ -285,15 +287,20 @@ export default function WeeklyTargetPage() {
 
       {/* ── Header ── */}
       <div className="mb-5 flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <div className="text-[clamp(18px,4vw,24px)] font-bold text-white">Weekly Team Report</div>
-          <div className="text-zinc-400 text-[13px] mt-[3px]">
-            {selected
+        <PageHeader
+          variant="dark"
+          className="mb-0 flex-1"
+          title="Weekly Team Report"
+          description={
+            selected
               ? `Viewing ${selected.name}'s targets for the week`
-              : 'Team-wide visit targets — grouped by salesperson across the full week'}
-          </div>
-        </div>
-        <div className="flex gap-2 items-center">
+              : 'Team-wide visit targets — grouped by salesperson across the full week'
+          }
+          backHref={getBackNavigation('/admin/daily-target')?.href}
+          backLabel={`Back to ${getBackNavigation('/admin/daily-target')?.label ?? 'Sales Analytics'}`}
+          breadcrumbs={getBreadcrumbsForPath('/admin/daily-target')}
+        />
+        <div className="flex gap-2 items-center shrink-0">
           <button
             className="bg-transparent text-zinc-400 border border-zinc-800 px-[14px] py-[7px] rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150 hover:border-[#555] hover:text-zinc-200"
             onClick={load}

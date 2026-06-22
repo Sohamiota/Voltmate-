@@ -55,6 +55,16 @@ export default function SalesPerformance() {
   const [visits,  setVisits]  = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    fetch(`${API_BASE}/api/v1/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setUserRole(d?.user?.role ?? null))
+      .catch(() => {});
+  }, []);
 
   const fetchAll = useCallback(async () => {
     const token = getToken();
@@ -136,11 +146,13 @@ export default function SalesPerformance() {
           className="px-4 py-2 rounded-lg bg-secondary text-white font-medium text-sm hover:opacity-90 transition-opacity">
           View Visit Report
         </Link>
-        <Link href="/admin/daily-target"
-          className="px-4 py-2 rounded-lg font-medium text-sm transition-opacity hover:opacity-90"
-          style={{ background: 'linear-gradient(135deg,#0891b2,#0e7490)', color: '#fff' }}>
-          Daily Target
-        </Link>
+        {userRole === 'admin' && (
+          <Link href="/admin/daily-target"
+            className="px-4 py-2 rounded-lg font-medium text-sm transition-opacity hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg,#0891b2,#0e7490)', color: '#fff' }}>
+            Daily Target
+          </Link>
+        )}
         <Link href="/sales/create-lead-report"
           className="px-4 py-2 rounded-lg border border-border text-foreground font-medium text-sm hover:bg-secondary transition-colors">
           Create New Lead Report

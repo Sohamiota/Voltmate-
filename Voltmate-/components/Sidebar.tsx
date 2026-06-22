@@ -1,18 +1,20 @@
 'use client'
 
+import Link from 'next/link'
 import { LucideIcon, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isMobileViewport } from '@/lib/navigation'
 
-interface Section {
+export interface SidebarSection {
   id: string
   label: string
   icon: LucideIcon
+  route: string
 }
 
 interface SidebarProps {
-  sections: Section[]
+  sections: SidebarSection[]
   currentSection: string
-  setCurrentSection: (section: string) => void
   isOpen: boolean
   onClose: () => void
 }
@@ -20,78 +22,72 @@ interface SidebarProps {
 export default function Sidebar({
   sections,
   currentSection,
-  setCurrentSection,
   isOpen,
   onClose,
 }: SidebarProps) {
-  function handleNavClick(id: string) {
-    setCurrentSection(id)
-    // Always close sidebar after selection (on mobile it collapses, on desktop user can re-open)
-    onClose()
+  function handleNavClick() {
+    if (isMobileViewport()) onClose()
   }
 
   return (
     <>
-      {/* Overlay — covers content when sidebar is open */}
+      {/* Overlay — mobile drawer only */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/60 z-40"
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
       )}
 
-      {/* Sidebar panel */}
+      {/* Sidebar panel — pinned on desktop, drawer on mobile */}
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-50 w-64 bg-sidebar border-r border-sidebar-border flex flex-col transition-transform duration-300 ease-in-out',
-          isOpen ? 'translate-x-0' : '-translate-x-full'
+          'lg:static lg:translate-x-0 lg:flex-shrink-0 lg:z-auto',
+          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
       >
-        {/* Logo + close button */}
         <div className="px-4 py-5 border-b border-sidebar-border flex items-center justify-between gap-2 flex-shrink-0">
-          <div className="flex items-center gap-2 min-w-0">
+          <Link href="/" className="flex items-center gap-2 min-w-0" onClick={handleNavClick}>
             <img
               src="/voltmate-logo.svg"
               alt="Voltmate"
               className="h-9 w-auto max-w-[140px] object-contain flex-shrink-0"
             />
-          </div>
+          </Link>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-sidebar-accent-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors flex-shrink-0"
+            className="p-2 rounded-lg text-sidebar-accent-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors flex-shrink-0 lg:hidden"
             aria-label="Close sidebar"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {sections.map((section) => {
             const Icon = section.icon
+            const isActive = currentSection === section.id
             return (
-              <button
+              <Link
                 key={section.id}
-                onClick={() => handleNavClick(section.id)}
+                href={section.route}
+                onClick={handleNavClick}
                 className={cn(
                   'w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 text-left',
-                  currentSection === section.id
+                  isActive
                     ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-lg shadow-primary/20'
-                    : 'text-sidebar-foreground hover:bg-sidebar-accent active:bg-sidebar-accent'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                 )}
+                aria-current={isActive ? 'page' : undefined}
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
                 <span className="font-medium text-sm">{section.label}</span>
-              </button>
+              </Link>
             )
           })}
         </nav>
-
-        {/* Footer */}
-        <div className="px-4 py-4 border-t border-sidebar-border flex-shrink-0">
-          <p className="text-xs text-sidebar-accent-foreground text-center">Voltmate v1.0</p>
-        </div>
       </aside>
     </>
   )
