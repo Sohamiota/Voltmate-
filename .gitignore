@@ -9,18 +9,29 @@ __v0_jsx-dev-runtime.ts
 
 # Node
 node_modules/
+**/node_modules/
 npm-debug.log*
 yarn-error.log
+pnpm-debug.log*
+.pnpm-store/
 
-# Environment
+# Environment — never commit secrets
 .env
 .env.local
+.env.development
+.env.production
+.env.test
 .env.*.local
 /*.env
+**/.env
+!**/.env.example
+!**/.env.*.example
 
-# Next.js / build
+# Next.js / build output
 .next/
+**/.next/
 dist/
+**/dist/
 build/
 out/
 
@@ -30,6 +41,8 @@ out/
 # Tooling caches
 .eslintcache
 .turbo/
+.cache/
+eslint-report.json
 
 # Uploaded leave proof documents
 backend/uploads/
@@ -45,9 +58,12 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# Editor
+# Editor (local only — share rules via .cursor/rules if needed)
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # Cursor — keep `.cursor/rules/` shareable; ignore other local Cursor metadata
 .cursor/*
@@ -58,9 +74,13 @@ Desktop.ini
 docker-compose.override.yml
 /voltmate-db-data/
 
-# Misc
-.cache/
+# Test / E2E output (not source)
 coverage/
+**/coverage/
+**/test-results/
+**/playwright-report/
+**/cypress/videos/
+**/cypress/screenshots/
 
 # ── Sample / demo code (not the production Voltmate app) ─────────────────────
 frontend-samples/
@@ -99,25 +119,21 @@ backend/seed_admin.sql
 backend-node/scripts/generate_hash.js
 backend-node/scripts/insert_user.js
 
-# ── Test runner output (no source)
-**/test-results/
-**/playwright-report/
-**/cypress/videos/
-**/cypress/screenshots/
-
-# Additional ignores
-tmp/
-*.sqlite
-*.pem
-*.key
-/.vercel
-
 # Credential / test-payload files — must never be committed
+tmp/
 tmp_login.json
 tmp_register.json
 **/tmp_login.json
 **/tmp_register.json
-backend/node_modules/
-frontend/node_modules/
-Voltmate-/node_modules/
+
+# Keys / local DB files
+*.sqlite
+*.pem
+*.key
+
+# Deploy platform local config
+/.vercel
+**/.vercel
+
+# Legacy / unused local folders
 voltmate-back/

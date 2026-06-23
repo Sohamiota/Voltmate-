@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AttendanceRecord, LeaveBalance, LeaveRequest } from '@/types/api';
+import DatePickerField from '@/components/DatePickerField';
 
 /** Returns an AbortSignal that fires after `ms` milliseconds. */
 function timeoutSignal(ms: number): AbortSignal {
@@ -792,23 +793,25 @@ export default function AttendancePage() {
             </div>
             <div>
               <label className="block text-[10px] text-zinc-500 uppercase tracking-[0.4px] mb-1 font-semibold">From</label>
-              <input
-                className={fieldInputCls}
-                type="date"
+              <DatePickerField
                 value={leaveStart}
+                onChange={setLeaveStart}
                 min={leaveType === 'CL' ? (minClStart || minClStartLocal()) : undefined}
-                onChange={e => setLeaveStart(e.target.value)}
+                max={leaveEnd || undefined}
                 disabled={!leaveBalance?.can_apply}
+                className={fieldInputCls}
+                clearable={false}
               />
             </div>
             <div>
               <label className="block text-[10px] text-zinc-500 uppercase tracking-[0.4px] mb-1 font-semibold">To</label>
-              <input
-                className={fieldInputCls}
-                type="date"
+              <DatePickerField
                 value={leaveEnd}
-                onChange={e => setLeaveEnd(e.target.value)}
+                onChange={setLeaveEnd}
+                min={leaveStart || undefined}
                 disabled={!leaveBalance?.can_apply}
+                className={fieldInputCls}
+                clearable={false}
               />
             </div>
             <div className="col-span-full">

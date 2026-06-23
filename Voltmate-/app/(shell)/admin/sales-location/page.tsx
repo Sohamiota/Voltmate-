@@ -6,6 +6,8 @@ import 'leaflet/dist/leaflet.css';
 import type { LocationPing } from '@/types/api';
 import PageHeader from '@/components/PageHeader';
 import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
+import DatePickerField from '@/components/DatePickerField';
+import { todayIso } from '@/lib/dates';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
@@ -30,7 +32,7 @@ function fmtCoords(lat: number, lng: number): string {
   return `${la},  ${lo}`;
 }
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayIso();
 }
 
 function initialTrailParams(): { userId: string; dateStr: string } {
@@ -404,12 +406,11 @@ export default function SalesLocationPage() {
           </div>
           <div className="flex flex-col gap-1">
             <label className={FIELD_LABEL}>Date</label>
-            <input
-              className="bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-zinc-200 text-[13px] outline-none focus:border-indigo-500"
-              type="date"
+            <DatePickerField
               value={date}
+              onChange={setDate}
               max={todayStr()}
-              onChange={e => setDate(e.target.value)}
+              className="bg-[#111] border-[#333] rounded-lg text-[13px]"
             />
           </div>
           <button className={BTN_LOAD} onClick={loadTrail} disabled={!selectedUser || !date || loading}>

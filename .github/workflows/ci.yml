@@ -28,8 +28,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
-      - name: Install and build
+      - name: Install, typecheck, and build
         working-directory: Voltmate-
         run: |
           npm ci
+          npm run typecheck
           npm run build

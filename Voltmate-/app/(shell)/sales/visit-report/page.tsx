@@ -7,6 +7,7 @@ import { useEffectiveSearch } from '@/components/SearchContext';
 import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 import { labelForContact, labelForDeferral } from '@/lib/crmDeferral';
 import { downloadXlsx, xlsDate, xlsDateTime, parseLocalDate, parseRecordDate } from '@/lib/exportXlsx';
+import DatePickerField from '@/components/DatePickerField';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Visit {
@@ -522,11 +523,11 @@ export default function VisitReportPage() {
             </div>
             <div className="flex flex-col">
               <label className="text-[10.5px] font-semibold text-zinc-500 uppercase tracking-[0.9px] mb-1.5">Date From</label>
-              <input type="date" className={FIELD_CLS} value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
+              <DatePickerField value={filterDateFrom} onChange={setFilterDateFrom} max={filterDateTo || undefined} />
             </div>
             <div className="flex flex-col">
               <label className="text-[10.5px] font-semibold text-zinc-500 uppercase tracking-[0.9px] mb-1.5">Date To</label>
-              <input type="date" className={FIELD_CLS} value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
+              <DatePickerField value={filterDateTo} onChange={setFilterDateTo} min={filterDateFrom || undefined} />
             </div>
             <div className="flex flex-col">
               <label className="text-[10.5px] font-semibold text-zinc-500 uppercase tracking-[0.9px] mb-1.5">Hot lead</label>

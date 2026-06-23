@@ -5,16 +5,14 @@ import Link from 'next/link';
 import PageHeader from '@/components/PageHeader';
 import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 import { AnalyticsData, fetchAnalytics, fmtDate } from '@/lib/serviceManagerApi';
+import DatePickerField from '@/components/DatePickerField';
+import { monthsAgoIso, todayIso } from '@/lib/dates';
 
 export default function ServiceAnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [from, setFrom] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 3);
-    return d.toISOString().slice(0, 10);
-  });
-  const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [from, setFrom] = useState(() => monthsAgoIso(3));
+  const [to, setTo] = useState(() => todayIso());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,13 +40,23 @@ export default function ServiceAnalyticsPage() {
         />
 
         <div className="flex flex-wrap gap-2 mb-6 items-end">
-          <div>
+          <div className="min-w-[160px]">
             <label className="text-[10px] uppercase text-[#545968] font-bold">From</label>
-            <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="block mt-1 px-3 py-2 bg-[#0f1117] border border-[#1e2236] rounded-lg text-sm" />
+            <DatePickerField
+              value={from}
+              onChange={setFrom}
+              max={to}
+              className="mt-1 bg-[#0f1117] border-[#1e2236] rounded-lg text-sm"
+            />
           </div>
-          <div>
+          <div className="min-w-[160px]">
             <label className="text-[10px] uppercase text-[#545968] font-bold">To</label>
-            <input type="date" value={to} onChange={e => setTo(e.target.value)} className="block mt-1 px-3 py-2 bg-[#0f1117] border border-[#1e2236] rounded-lg text-sm" />
+            <DatePickerField
+              value={to}
+              onChange={setTo}
+              min={from}
+              className="mt-1 bg-[#0f1117] border-[#1e2236] rounded-lg text-sm"
+            />
           </div>
           <button type="button" onClick={load} className="text-xs font-semibold px-3 py-2 rounded-lg bg-cyan-400 text-[#0a0c12]">Apply</button>
           <Link href="/service-manager/vehicles" className="text-xs font-semibold px-3 py-2 rounded-lg border border-[#1e2236] text-[#8e97ad]">Vehicles</Link>

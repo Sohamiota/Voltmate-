@@ -8,6 +8,8 @@ import {
 } from 'recharts'
 import { Calendar, Filter, Download, RefreshCw, X } from 'lucide-react'
 import { get } from '../../src/api/client'
+import DatePickerField from '@/components/DatePickerField'
+import { daysAgoIso, formatDateDisplay, todayIso } from '@/lib/dates'
 
 const ROLE_COLORS: Record<string, string> = {
   admin:    '#00d9ff',
@@ -94,8 +96,8 @@ export default function Analytics() {
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState('')
 
-  const today     = new Date().toISOString().slice(0, 10)
-  const thirtyAgo = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10)
+  const today     = todayIso()
+  const thirtyAgo = daysAgoIso(30)
   const [startDate,      setStartDate]      = useState(thirtyAgo)
   const [endDate,        setEndDate]        = useState(today)
   const [showDatePicker, setShowDatePicker] = useState(false)
@@ -204,7 +206,7 @@ export default function Analytics() {
               className="flex items-center gap-1.5 px-3 py-2 bg-secondary border border-border rounded-lg hover:bg-border transition-colors text-foreground text-sm"
             >
               <Calendar className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">{startDate} → {endDate}</span>
+              <span className="hidden sm:inline">{formatDateDisplay(startDate)} → {formatDateDisplay(endDate)}</span>
               <span className="sm:hidden">Dates</span>
             </button>
             {showDatePicker && (
@@ -213,17 +215,29 @@ export default function Analytics() {
                   <p className="text-sm font-semibold text-foreground">Date Range</p>
                   <button onClick={() => setShowDatePicker(false)}><X className="w-4 h-4 text-muted-foreground" /></button>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground">From</label>
-                  <input type="date" value={startDate} max={endDate} onChange={e => setStartDate(e.target.value)}
-                    className="w-full bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary" />
-                  <label className="text-xs text-muted-foreground">To</label>
-                  <input type="date" value={endDate} min={startDate} onChange={e => setEndDate(e.target.value)}
-                    className="w-full bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary" />
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">From</label>
+                    <DatePickerField
+                      value={startDate}
+                      onChange={setStartDate}
+                      max={endDate}
+                      className="bg-secondary border-border text-foreground rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">To</label>
+                    <DatePickerField
+                      value={endDate}
+                      onChange={setEndDate}
+                      min={startDate}
+                      className="bg-secondary border-border text-foreground rounded-lg"
+                    />
+                  </div>
                   <div className="flex gap-2 mt-3">
                     {[{ label: '7d', days: 7 }, { label: '30d', days: 30 }, { label: '90d', days: 90 }].map(({ label, days }) => (
                       <button key={label}
-                        onClick={() => { setStartDate(new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10)); setEndDate(today) }}
+                        onClick={() => { setStartDate(daysAgoIso(days)); setEndDate(today) }}
                         className="flex-1 text-xs py-1.5 bg-secondary border border-border rounded-lg hover:bg-border text-foreground transition-colors"
                       >{label}</button>
                     ))}

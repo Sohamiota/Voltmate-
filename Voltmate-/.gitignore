@@ -3,14 +3,38 @@ __v0_runtime_loader.js
 __v0_devtools.tsx
 __v0_jsx-dev-runtime.ts
 
-# Common ignores
+# Dependencies & build
 node_modules/
 .next/
-.env*.local
-.DS_Store
-.vercel
+out/
+dist/
+*.tsbuildinfo
 
-# Test / E2E output (not source)
+# Environment
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.env.*.local
+!.env.example
+!.env.*.example
+
+# Tooling
+.eslintcache
+.turbo/
+.cache/
+
+# Test / E2E output
 coverage/
 test-results/
 playwright-report/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Deploy
+.vercel
