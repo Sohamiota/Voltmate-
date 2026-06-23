@@ -26,10 +26,12 @@ import {
 import { getServiceAnalytics } from '../controllers/serviceAnalyticsController';
 import { authMiddleware } from '../middlewares/auth';
 import { requireServiceRead, requireServiceWrite } from '../middlewares/serviceRole';
+import { ensureServiceManagerMiddleware } from '../utils/ensureServiceManagerSchema';
 
 const router = Router();
 
 router.use(authMiddleware);
+router.use(ensureServiceManagerMiddleware);
 router.use(requireServiceRead);
 
 router.get('/monitoring/summary', getMonitoringSummary);

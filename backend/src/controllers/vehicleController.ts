@@ -385,7 +385,8 @@ export async function serviceDashboard(req: Request, res: Response) {
     const r = await query(`
       SELECT v.id, v.vehicle_number, v.chassis_number, v.vehicle_type,
              v.owner_name, v.owner_phone, v.driver_name, v.driver_phone,
-             v.location, v.current_km, v.km_updated_at,
+             v.location, v.current_km,
+             COALESCE(v.km_updated_at, v.updated_at) AS km_updated_at,
              vs.id AS service_id, vs.service_no, vs.due_km, vs.due_date, vs.status
       FROM vehicles v
       INNER JOIN vehicle_services vs ON vs.vehicle_id = v.id AND vs.status = 'pending'
@@ -413,12 +414,17 @@ export async function serviceDashboard(req: Request, res: Response) {
     const dueThisWeek = items.filter((i: any) => i.due_this_week && !i.due_today).length;
     const staleKm = items.filter((i: any) => i.stale_km).length;
 
-    const alertsR = await query(`SELECT COUNT(*) AS c FROM service_alerts WHERE status = 'open'`);
-    const openAlerts = parseInt((alertsR as any).rows[0]?.c || '0', 10);
-
-    const today = new Date().toISOString().slice(0, 10);
-    const snapR = await query(`SELECT * FROM service_snapshots WHERE snapshot_date = $1`, [today]);
-    const snapshot = (snapR as any).rows[0] ?? null;
+    let openAlerts = 0;
+    let snapshot: Record<string, unknown> | null = null;
+    try {
+      const alertsR = await query(`SELECT COUNT(*) AS c FROM service_alerts WHERE status = 'open'`);
+      openAlerts = parseInt((alertsR as any).rows[0]?.c || '0', 10);
+      const today = new Date().toISOString().slice(0, 10);
+      const snapR = await query(`SELECT * FROM service_snapshots WHERE snapshot_date = $1`, [today]);
+      snapshot = (snapR as any).rows[0] ?? null;
+    } catch (alertErr) {
+      console.warn('serviceDashboard monitoring tables unavailable', alertErr);
+    }
 
     const order: Record<string, number> = { overdue: 0, due_soon: 1, ok: 2 };
     const sorted = [...items].sort((a: any, b: any) => (order[a.urgency] ?? 2) - (order[b.urgency] ?? 2));
