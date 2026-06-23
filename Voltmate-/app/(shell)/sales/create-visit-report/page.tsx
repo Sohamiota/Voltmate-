@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { Visit } from '@/types/api';
 import SearchableSelect from '@/components/SearchableSelect';
 import PageHeader from '@/components/PageHeader';
+import { useEffectiveSearch } from '@/components/SearchContext';
 import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 import {
   CRM_CONTACT_OPTIONS,
@@ -355,6 +356,7 @@ export default function CreateVisitReportPage() {
   const [hasUnsaved, setHasUnsaved] = useState(false);
   const toastCounter = useRef(0);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const effectiveSearch = useEffectiveSearch(searchQuery);
 
   // ── Toast helper ───────────────────────────────────────────────────────────
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
@@ -365,15 +367,15 @@ export default function CreateVisitReportPage() {
 
   // ── Derived: filtered visits (no mutation of source state) ─────────────────
   const visits = useMemo(() => {
-    if (!searchQuery.trim()) return allVisits;
-    const q = searchQuery.toLowerCase();
+    if (!effectiveSearch) return allVisits;
+    const q = effectiveSearch.toLowerCase();
     return allVisits.filter(v =>
       (v.lead_cust_code || '').toLowerCase().includes(q) ||
       (v.cust_name || '').toLowerCase().includes(q) ||
       (v.salesperson_name || '').toLowerCase().includes(q) ||
       (v.status || '').toLowerCase().includes(q)
     );
-  }, [allVisits, searchQuery]);
+  }, [allVisits, effectiveSearch]);
 
   // ── Stats ──────────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -750,6 +752,7 @@ export default function CreateVisitReportPage() {
                 <input
                   className="bg-transparent border-none outline-none text-[#e2e8f0] text-[12.5px] font-sans w-full placeholder:text-zinc-500"
                   placeholder="Search visits, customers..."
+                  value={searchQuery}
                   onChange={handleSearchChange}
                   aria-label="Search visits"
                 />

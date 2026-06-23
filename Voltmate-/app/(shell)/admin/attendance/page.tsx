@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import 'react-day-picker/dist/style.css';
 import type { AttendanceRecord, Employee } from '@/types/api';
+import { useEffectiveSearch } from '@/components/SearchContext';
 
 import {
   Dialog,
@@ -248,10 +249,11 @@ export default function AdminAttendancePage() {
 
   const allEmployees = [...enriched, ...extras].sort((a, b) => b.pending - a.pending);
 
-  const filteredEmployees = search.trim()
+  const effectiveSearch = useEffectiveSearch(search);
+  const filteredEmployees = effectiveSearch
     ? allEmployees.filter(e =>
-        e.name.toLowerCase().includes(search.toLowerCase()) ||
-        e.email.toLowerCase().includes(search.toLowerCase()),
+        e.name.toLowerCase().includes(effectiveSearch.toLowerCase()) ||
+        e.email.toLowerCase().includes(effectiveSearch.toLowerCase()),
       )
     : allEmployees;
 

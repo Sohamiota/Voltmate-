@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Task } from '@/types/api';
+import { useEffectiveSearch } from '@/components/SearchContext';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
@@ -164,10 +165,11 @@ export default function TaskManagerPage() {
   }
 
   // ── Filtered list ──────────────────────────────────────────────────────────
+  const effectiveSearch = useEffectiveSearch(search);
   const filtered = tasks.filter(t => {
     if (filterStatus !== 'all' && t.status !== filterStatus) return false;
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
+    if (!effectiveSearch) return true;
+    const q = effectiveSearch.toLowerCase();
     return (t.description || '').toLowerCase().includes(q) ||
            (t.task_date   || '').includes(q) ||
            (t.employee_name || '').toLowerCase().includes(q);

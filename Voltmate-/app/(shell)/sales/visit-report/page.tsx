@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SearchableSelect from '@/components/SearchableSelect';
 import PageHeader from '@/components/PageHeader';
+import { useEffectiveSearch } from '@/components/SearchContext';
 import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 import { labelForContact, labelForDeferral } from '@/lib/crmDeferral';
 import { downloadXlsx, xlsDate, xlsDateTime, parseLocalDate, parseRecordDate } from '@/lib/exportXlsx';
@@ -262,6 +263,7 @@ export default function VisitReportPage() {
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const effectiveSearch = useEffectiveSearch(searchQuery);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchVisits = useCallback(async () => {
@@ -356,8 +358,8 @@ export default function VisitReportPage() {
   const visits = useMemo(() => {
     let filtered = [...allVisits];
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    if (effectiveSearch) {
+      const q = effectiveSearch.toLowerCase();
       filtered = filtered.filter(v =>
         (v.cust_name || '').toLowerCase().includes(q) ||
         (v.lead_cust_code || '').toLowerCase().includes(q) ||
@@ -393,7 +395,7 @@ export default function VisitReportPage() {
       return 0;
     });
     return filtered;
-  }, [allVisits, searchQuery, filterStatus, filterHot, filterDateFrom, filterDateTo, sortField, sortDir]);
+  }, [allVisits, effectiveSearch, filterStatus, filterHot, filterDateFrom, filterDateTo, sortField, sortDir]);
 
   // ── Stats ──────────────────────────────────────────────────────────────────
   const stats = useMemo(() => ({
@@ -503,6 +505,7 @@ export default function VisitReportPage() {
                 ref={searchInputRef}
                 className={FIELD_CLS}
                 placeholder="Customer, code, location, salesperson..."
+                value={searchQuery}
                 onChange={handleSearch}
               />
             </div>

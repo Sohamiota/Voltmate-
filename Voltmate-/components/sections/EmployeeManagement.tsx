@@ -1,6 +1,7 @@
 import { Search, Plus, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { get, post, patch } from '@/src/api/client'
+import { useEffectiveSearch } from '@/components/SearchContext'
 
 const ROLES = ['employee', 'sales_admin', 'attendance_admin', 'admin', 'sales', 'service'] as const
 type RoleValue = typeof ROLES[number]
@@ -117,9 +118,10 @@ export default function EmployeeManagement({ role }: Props) {
     if (!e.is_approved) return 'bg-yellow-500/20 text-yellow-400'
     return 'bg-green-500/20 text-green-400'
   }
+  const effectiveSearch = useEffectiveSearch(search)
   const filtered = employees.filter(e => {
-    if (!search.trim()) return true
-    const q = search.toLowerCase()
+    if (!effectiveSearch) return true
+    const q = effectiveSearch.toLowerCase()
     return e.name.toLowerCase().includes(q) || e.email.toLowerCase().includes(q) || (e.role || '').toLowerCase().includes(q)
   })
 

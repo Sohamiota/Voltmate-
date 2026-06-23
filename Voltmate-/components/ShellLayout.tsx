@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
+import { SearchProvider, useSearch } from '@/components/SearchContext'
 import { getNavItemsForRole, resolveSectionFromPathname } from '@/lib/navigation'
 import { getStoredToken, API_BASE } from '@/src/api/client'
 
@@ -11,18 +12,19 @@ interface Props {
   children: React.ReactNode
 }
 
-export default function ShellLayout({ children }: Props) {
+function ShellLayoutInner({ children }: Props) {
   const pathname = usePathname()
+  const { clearQuery } = useSearch()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
 
   const currentSection = resolveSectionFromPathname(pathname ?? '/')
   const sections = getNavItemsForRole(userRole)
 
-  // Auto-hide sidebar whenever the user navigates to a new page
   useEffect(() => {
     setSidebarOpen(false)
-  }, [pathname])
+    clearQuery()
+  }, [pathname, clearQuery])
 
   useEffect(() => {
     const token = getStoredToken()
@@ -46,11 +48,20 @@ export default function ShellLayout({ children }: Props) {
         <Header
           onMenuClick={() => setSidebarOpen(prev => !prev)}
           isSidebarOpen={sidebarOpen}
+          userRole={userRole}
         />
         <main className="flex-1 overflow-auto">
           {children}
         </main>
       </div>
     </div>
+  )
+}
+
+export default function ShellLayout({ children }: Props) {
+  return (
+    <SearchProvider>
+      <ShellLayoutInner>{children}</ShellLayoutInner>
+    </SearchProvider>
   )
 }

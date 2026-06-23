@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SearchableSelect from '@/components/SearchableSelect';
 import PageHeader from '@/components/PageHeader';
+import { useEffectiveSearch } from '@/components/SearchContext';
 import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 import { labelForContact, labelForDeferral } from '@/lib/crmDeferral';
 import { downloadXlsx, xlsDate, xlsDateTime, parseLocalDate, parseRecordDate } from '@/lib/exportXlsx';
@@ -182,6 +183,7 @@ export default function LeadReportPage() {
 
   const searchTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const effectiveSearch = useEffectiveSearch(searchQuery);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchLeads = useCallback(async () => {
@@ -271,8 +273,8 @@ export default function LeadReportPage() {
   const leads = useMemo(() => {
     let filtered = [...allLeads];
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    if (effectiveSearch) {
+      const q = effectiveSearch.toLowerCase();
       filtered = filtered.filter(l =>
         (l.cust_name || '').toLowerCase().includes(q) ||
         (l.cust_code || '').toLowerCase().includes(q) ||
@@ -315,7 +317,7 @@ export default function LeadReportPage() {
       return 0;
     });
     return filtered;
-  }, [allLeads, searchQuery, filterType, filterBusiness, filterDateFrom, filterDateTo, filterHot, sortField, sortDir]);
+  }, [allLeads, effectiveSearch, filterType, filterBusiness, filterDateFrom, filterDateTo, filterHot, sortField, sortDir]);
 
   // ── Stats ──────────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -420,7 +422,7 @@ export default function LeadReportPage() {
           <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 items-end">
             <div className="flex flex-col">
               <label className="text-[10.5px] font-semibold text-[#4f5463] uppercase tracking-wide mb-1.5">Search</label>
-              <input ref={searchInputRef} className={FIELD_CLS} placeholder="Name, code, business, phone..." onChange={handleSearch} />
+              <input ref={searchInputRef} className={FIELD_CLS} placeholder="Name, code, business, phone..." value={searchQuery} onChange={handleSearch} />
             </div>
             <div className="flex flex-col">
               <label className="text-[10.5px] font-semibold text-[#4f5463] uppercase tracking-wide mb-1.5">Lead Type</label>

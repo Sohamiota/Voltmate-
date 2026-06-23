@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
+import { useEffectiveSearch } from '@/components/SearchContext';
 import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ||
@@ -114,6 +115,7 @@ export default function OverdueVisitsPage() {
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [urgFilter,    setUrgFilter]    = useState<UrgencyFilter>('all');
   const [search,       setSearch]       = useState('');
+  const effectiveSearch = useEffectiveSearch(search);
   const [sortKey,      setSortKey]      = useState<SortKey>('days');
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
@@ -200,8 +202,8 @@ export default function OverdueVisitsPage() {
     return a.name.localeCompare(b.name);
   });
 
-  const visibleRows = search.trim()
-    ? sortedRows.filter(r => r.name.toLowerCase().includes(search.toLowerCase()))
+  const visibleRows = effectiveSearch
+    ? sortedRows.filter(r => r.name.toLowerCase().includes(effectiveSearch.toLowerCase()))
     : sortedRows;
 
   // Bucket counts for filter chips

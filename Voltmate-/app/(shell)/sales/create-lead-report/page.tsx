@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { Lead } from '@/types/api';
 import SearchableSelect from '@/components/SearchableSelect';
 import PageHeader from '@/components/PageHeader';
+import { useEffectiveSearch } from '@/components/SearchContext';
 import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 import {
   CRM_CONTACT_OPTIONS,
@@ -226,6 +227,7 @@ export default function CreateLeadReportPage() {
   const locRef = useRef<HTMLDivElement>(null);
   const toastRef = useRef(0);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const effectiveSearch = useEffectiveSearch(searchQuery);
 
   // ── Toast helper ──────────────────────────────────────────────────────────
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
@@ -273,8 +275,8 @@ export default function CreateLeadReportPage() {
 
   // ── Derived: filtered leads via useMemo — never mutates allLeads ──────────
   const leads = useMemo(() => {
-    if (!searchQuery.trim()) return allLeads;
-    const q = searchQuery.toLowerCase();
+    if (!effectiveSearch) return allLeads;
+    const q = effectiveSearch.toLowerCase();
     return allLeads.filter(l =>
       (l.cust_name || '').toLowerCase().includes(q) ||
       (l.cust_code || '').toLowerCase().includes(q) ||
@@ -282,7 +284,7 @@ export default function CreateLeadReportPage() {
       (l.phone_no || '').toLowerCase().includes(q) ||
       (l.location || '').toLowerCase().includes(q)
     );
-  }, [allLeads, searchQuery]);
+  }, [allLeads, effectiveSearch]);
 
   // ── Stats (derived, memo) ─────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -575,6 +577,7 @@ export default function CreateLeadReportPage() {
                 <input
                   className="bg-transparent border-none outline-none text-[#dde3f0] text-[12.5px] font-sans w-full placeholder:text-[#4b5268]"
                   placeholder="Search leads, customers..."
+                  value={searchQuery}
                   onChange={handleSearch}
                   aria-label="Search leads"
                 />

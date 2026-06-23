@@ -184,3 +184,52 @@ export function isMobileViewport(): boolean {
   if (typeof window === 'undefined') return false
   return window.innerWidth < DESKTOP_BREAKPOINT_PX
 }
+
+/** Extra routes not in the main sidebar but searchable from the header. */
+export const EXTRA_SEARCH_ROUTES: Array<{ route: string; label: string; keywords?: string[] }> = [
+  { route: '/sales/lead-report',         label: 'Lead Report',         keywords: ['sales', 'leads', 'report'] },
+  { route: '/sales/visit-report',        label: 'Visit Report',        keywords: ['sales', 'visits', 'report'] },
+  { route: '/sales/create-lead-report',  label: 'Lead Management',     keywords: ['sales', 'leads', 'create'] },
+  { route: '/sales/create-visit-report', label: 'Visit Management',    keywords: ['sales', 'visits', 'create'] },
+  { route: '/service-manager/vehicles', label: 'Vehicle Management',  keywords: ['service', 'vehicles'] },
+  { route: '/admin/daily-target',        label: 'Weekly Team Report',  keywords: ['admin', 'targets', 'sales'] },
+  { route: '/admin/overdue-visits',      label: 'Overdue Visits',      keywords: ['admin', 'visits', 'overdue'] },
+  { route: '/admin/sales-location',      label: 'Sales Rep Location',  keywords: ['admin', 'location', 'gps'] },
+]
+
+export interface SearchEntry {
+  route: string
+  label: string
+  keywords: string[]
+}
+
+export function getSearchEntriesForRole(role: NavRole): SearchEntry[] {
+  const fromNav = getNavItemsForRole(role).map(item => ({
+    route: item.route,
+    label: item.label,
+    keywords: [item.label.toLowerCase(), item.id.replace(/-/g, ' ')],
+  }))
+  const extras = EXTRA_SEARCH_ROUTES.map(e => ({
+    route: e.route,
+    label: e.label,
+    keywords: [e.label.toLowerCase(), ...(e.keywords ?? [])],
+  }))
+  const seen = new Set<string>()
+  return [...fromNav, ...extras].filter(e => {
+    if (seen.has(e.route)) return false
+    seen.add(e.route)
+    return true
+  })
+}
+
+export function filterSearchEntries(entries: SearchEntry[], query: string, limit = 8): SearchEntry[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return []
+  return entries
+    .filter(e =>
+      e.label.toLowerCase().includes(q) ||
+      e.route.toLowerCase().includes(q) ||
+      e.keywords.some(k => k.includes(q)),
+    )
+    .slice(0, limit)
+}

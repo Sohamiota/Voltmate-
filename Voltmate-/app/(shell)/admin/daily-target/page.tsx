@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
+import { useEffectiveSearch } from '@/components/SearchContext';
 import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ||
@@ -128,6 +129,7 @@ export default function WeeklyTargetPage() {
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [tabFilter,    setTabFilter]    = useState<'all' | 'updated' | 'pending' | string>('all');
   const [search,       setSearch]       = useState('');
+  const effectiveSearch = useEffectiveSearch(search);
   const [weekOffset,   setWeekOffset]   = useState(0);
   const [dayFilter,    setDayFilter]    = useState<string | null>(null); // grid-level day filter
 
@@ -227,8 +229,8 @@ export default function WeeklyTargetPage() {
     };
   }).sort((a, b) => b.targets.length - a.targets.length || b.pending.length - a.pending.length);
 
-  const visibleRows = search.trim()
-    ? rows.filter(r => r.name.toLowerCase().includes(search.toLowerCase()))
+  const visibleRows = effectiveSearch
+    ? rows.filter(r => r.name.toLowerCase().includes(effectiveSearch.toLowerCase()))
     : rows;
 
   const totalTargets = filteredTargets.length;

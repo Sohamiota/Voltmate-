@@ -4,13 +4,16 @@ import Link from 'next/link'
 import { Menu, X, Bell, User } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { clearToken } from '@/src/api/client'
+import GlobalSearch from '@/components/GlobalSearch'
+import type { NavRole } from '@/lib/navigation'
 
 interface HeaderProps {
   onMenuClick: () => void
   isSidebarOpen: boolean
+  userRole: NavRole
 }
 
-export default function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
+export default function Header({ onMenuClick, isSidebarOpen, userRole }: HeaderProps) {
   const router = useRouter()
 
   const handleLogout = () => {
@@ -43,16 +46,9 @@ export default function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
           )}
         </div>
 
-        {/* Right: search + actions */}
-        <div className="flex items-center gap-2 sm:gap-4">
-          {/* Search — hidden on small screens */}
-          <div className="hidden md:flex items-center">
-            <input
-              type="text"
-              placeholder="Search..."
-              className="px-3 py-2 bg-secondary border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm w-40 lg:w-56"
-            />
-          </div>
+        {/* Center / right: search + actions */}
+        <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-end min-w-0">
+          <GlobalSearch userRole={userRole} className="flex-1 min-w-0 max-w-[140px] sm:max-w-xs lg:max-w-sm" />
 
           <button
             className="p-2 hover:bg-secondary rounded-lg transition-colors relative"
