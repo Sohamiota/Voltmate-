@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
 import { useEffectiveSearch } from '@/components/SearchContext';
 import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
+import SalesPulsePanel from '@/components/admin/SalesPulsePanel';
 
 const API = (process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
@@ -311,6 +312,8 @@ export default function WeeklyTargetPage() {
           </button>
         </div>
       </div>
+
+      <SalesPulsePanel />
 
       {/* ── Week navigator ── */}
       <div className="flex items-center gap-[10px] bg-zinc-900 border border-[#232323] rounded-[10px] px-[14px] py-2 flex-wrap mb-4">

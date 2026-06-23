@@ -11,9 +11,10 @@ interface HeaderProps {
   onMenuClick: () => void
   isSidebarOpen: boolean
   userRole: NavRole
+  serviceAlertCount?: number
 }
 
-export default function Header({ onMenuClick, isSidebarOpen, userRole }: HeaderProps) {
+export default function Header({ onMenuClick, isSidebarOpen, userRole, serviceAlertCount = 0 }: HeaderProps) {
   const router = useRouter()
 
   const handleLogout = () => {
@@ -50,13 +51,18 @@ export default function Header({ onMenuClick, isSidebarOpen, userRole }: HeaderP
         <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-end min-w-0">
           <GlobalSearch userRole={userRole} className="flex-1 min-w-0 max-w-[140px] sm:max-w-xs lg:max-w-sm" />
 
-          <button
+          <Link
+            href="/service-manager"
             className="p-2 hover:bg-secondary rounded-lg transition-colors relative"
-            aria-label="Notifications"
+            aria-label={serviceAlertCount > 0 ? `${serviceAlertCount} service alerts` : 'Service alerts'}
           >
             <Bell className="w-5 h-5 text-primary" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full"></span>
-          </button>
+            {serviceAlertCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-[#f43f5e] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                {serviceAlertCount > 99 ? '99+' : serviceAlertCount}
+              </span>
+            )}
+          </Link>
 
           <button
             type="button"

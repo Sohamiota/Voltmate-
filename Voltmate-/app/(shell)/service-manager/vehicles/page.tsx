@@ -1,62 +1,23 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
+import VehicleDetailDrawer from '@/components/service-manager/VehicleDetailDrawer';
 import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 import { downloadXlsx, xlsDate } from '@/lib/exportXlsx';
-
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
-  (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? 'https://voltmate.onrender.com'
-    : 'http://localhost:8081')).replace(/\/api\/v1\/?$/, '');
-
-function getToken(): string {
-  if (typeof window === 'undefined') return '';
-  return localStorage.getItem('auth_token') || '';
-}
-
-function fmtDate(d?: string | null) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-interface Vehicle {
-  id: number;
-  vehicle_number?: string;
-  chassis_number?: string;
-  vehicle_type?: string;
-  owner_name?: string;
-  owner_phone?: string;
-  driver_name?: string;
-  driver_phone?: string;
-  location?: string;
-  purchase_date?: string;
-  current_km?: number;
-  pdi?: string;
-  speak_with?: string;
-  remarks?: string;
-  // inline service data
-  s1_id?: number; s1_due_km?: number; s1_due_date?: string; s1_actual_km?: number; s1_completion_date?: string; s1_status?: string; s1_cost?: number | string;
-  s2_id?: number; s2_due_km?: number; s2_due_date?: string; s2_actual_km?: number; s2_completion_date?: string; s2_status?: string; s2_cost?: number | string;
-  s3_id?: number; s3_due_km?: number; s3_due_date?: string; s3_actual_km?: number; s3_completion_date?: string; s3_status?: string; s3_cost?: number | string;
-  next_service_no?: number;
-  next_due_km?: number;
-  next_due_date?: string;
-  urgency?: 'overdue' | 'due_soon' | 'ok';
-}
-
-interface VehicleService {
-  id: number;
-  vehicle_id: number;
-  service_no: number;
-  due_km?: number;
-  due_date?: string;
-  actual_km?: number;
-  completion_date?: string;
-  status?: string;
-  remarks?: string;
-  cost?: number | string;
-}
+import {
+  Vehicle,
+  VehicleService,
+  exportVehiclesCsv,
+  fetchFilterOptions,
+  fetchVehicle,
+  fetchVehicles,
+  fmtDate,
+  importVehicles,
+  phoneLink,
+} from '@/lib/serviceManagerApi';
+import { API_BASE, getStoredToken } from '@/src/api/client';
 
 const EMPTY_VEHICLE: Record<string, string | number> = {
   vehicle_number: '',
@@ -160,9 +121,20 @@ function svcObj(v: Vehicle, n: 1 | 2 | 3): VehicleService | null {
 }
 
 export default function ServiceManagerVehiclesPage() {
+  const searchParams = useSearchParams();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [urgencyFilter, setUrgencyFilter] = useState('all');
+  const [locationFilter, setLocationFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [filterOptions, setFilterOptions] = useState<{ locations: string[]; vehicle_types: string[] }>({ locations: [], vehicle_types: [] });
+  const [drawerVehicle, setDrawerVehicle] = useState<Vehicle | null>(null);
+  const [drawerServices, setDrawerServices] = useState<VehicleService[]>([]);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importBusy, setImportBusy] = useState(false);
   const [modalOpen, setModalOpen] = useState<'add' | 'edit' | null>(null);
   const [form, setForm] = useState<Record<string, string | number>>(EMPTY_VEHICLE);
   const [editId, setEditId] = useState<number | null>(null);
@@ -172,26 +144,52 @@ export default function ServiceManagerVehiclesPage() {
   const [editServiceForm, setEditServiceForm] = useState({ due_km: '', due_date: '', actual_km: '', completion_date: '', status: 'pending', remarks: '', cost: '' });
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchVehicles = useCallback(async () => {
+  const fetchVehicleList = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const token = getToken();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE}/api/v1/vehicles`, { headers });
-      if (!res.ok) throw new Error(await res.text());
-      const j = await res.json();
+      const params: Record<string, string> = {};
+      if (search.trim()) params.search = search.trim();
+      if (urgencyFilter !== 'all') params.urgency = urgencyFilter;
+      if (locationFilter) params.location = locationFilter;
+      if (typeFilter) params.vehicle_type = typeFilter;
+      const j = await fetchVehicles(Object.keys(params).length ? params : undefined);
       setVehicles(j.vehicles || []);
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load vehicles');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load vehicles');
       setVehicles([]);
     } finally {
       setLoading(false);
     }
+  }, [search, urgencyFilter, locationFilter, typeFilter]);
+
+  useEffect(() => { fetchVehicleList(); }, [fetchVehicleList]);
+
+  useEffect(() => {
+    fetchFilterOptions().then(setFilterOptions).catch(() => {});
   }, []);
 
-  useEffect(() => { fetchVehicles(); }, [fetchVehicles]);
+  async function openDrawer(vehicleId: number) {
+    try {
+      const data = await fetchVehicle(vehicleId);
+      setDrawerVehicle(data.vehicle);
+      setDrawerServices(data.services);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to load vehicle');
+    }
+  }
+
+  useEffect(() => {
+    const openId = searchParams?.get('open');
+    if (openId) openDrawer(parseInt(openId, 10));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  const filteredCount = vehicles.length;
+
+  function getToken(): string {
+    return getStoredToken();
+  }
 
   function openAdd() {
     setEditId(null);
@@ -242,14 +240,14 @@ export default function ServiceManagerVehiclesPage() {
         remarks: form.remarks || null,
       };
       if (editId) {
-        const res = await fetch(`${API_BASE}/api/v1/vehicles/${editId}`, { method: 'PUT', headers, body: JSON.stringify(body) });
+        const res = await fetch(`${API_BASE}/vehicles/${editId}`, { method: 'PUT', headers, body: JSON.stringify(body) });
         if (!res.ok) throw new Error(await res.text());
       } else {
-        const res = await fetch(`${API_BASE}/api/v1/vehicles`, { method: 'POST', headers, body: JSON.stringify(body) });
+        const res = await fetch(`${API_BASE}/vehicles`, { method: 'POST', headers, body: JSON.stringify(body) });
         if (!res.ok) throw new Error(await res.text());
       }
       setModalOpen(null);
-      await fetchVehicles();
+      await fetchVehicleList();
     } catch (err: any) {
       alert(err?.message || 'Save failed');
     } finally {
@@ -280,7 +278,7 @@ export default function ServiceManagerVehiclesPage() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch(
-        `${API_BASE}/api/v1/vehicles/${markDoneService.vehicleId}/services/${markDoneService.service.id}`,
+        `${API_BASE}/vehicles/${markDoneService.vehicleId}/services/${markDoneService.service.id}`,
         {
           method: 'PUT',
           headers,
@@ -294,7 +292,7 @@ export default function ServiceManagerVehiclesPage() {
       );
       if (!res.ok) throw new Error(await res.text());
       setMarkDoneService(null);
-      await fetchVehicles();
+      await fetchVehicleList();
     } catch (err: any) {
       alert(err?.message || 'Update failed');
     } finally {
@@ -337,14 +335,14 @@ export default function ServiceManagerVehiclesPage() {
         cost: costVal != null && !isNaN(costVal) ? costVal : null,
       };
       const svcId = service ? service.id : 'new';
-      const res = await fetch(`${API_BASE}/api/v1/vehicles/${vehicle.id}/services/${svcId}`, {
+      const res = await fetch(`${API_BASE}/vehicles/${vehicle.id}/services/${svcId}`, {
         method: 'PUT',
         headers,
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(await res.text());
       setEditServiceState(null);
-      await fetchVehicles();
+      await fetchVehicleList();
     } catch (err: any) {
       alert(err?.message || 'Save failed');
     } finally {
@@ -358,13 +356,48 @@ export default function ServiceManagerVehiclesPage() {
       const token = getToken();
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE}/api/v1/vehicles/${id}`, { method: 'DELETE', headers });
+      const res = await fetch(`${API_BASE}/vehicles/${id}`, { method: 'DELETE', headers });
       if (!res.ok) throw new Error(await res.text());
-      await fetchVehicles();
+      await fetchVehicleList();
     } catch (err: any) {
       alert(err?.message || 'Delete failed');
     }
   }
+
+  async function handleServerExport() {
+    try {
+      const blob = await exportVehiclesCsv();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `vehicles-services_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Export failed');
+    }
+  }
+
+  async function handleImport(e: React.FormEvent) {
+    e.preventDefault();
+    setImportBusy(true);
+    try {
+      const rows = JSON.parse(importText);
+      if (!Array.isArray(rows)) throw new Error('JSON must be an array of vehicles');
+      await importVehicles(rows);
+      setImportOpen(false);
+      setImportText('');
+      await fetchVehicleList();
+      alert(`Imported ${rows.length} vehicle(s)`);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Import failed');
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  const rowUrgencyBg = (u?: string) =>
+    u === 'overdue' ? 'bg-[#f43f5e]/[0.06]' : u === 'due_soon' ? 'bg-[#fbbf24]/[0.04]' : '';
 
   function handleExportCSV() {
     if (vehicles.length === 0) { alert('No vehicles to export.'); return; }
@@ -445,7 +478,33 @@ export default function ServiceManagerVehiclesPage() {
             backLabel={`Back to ${getBackNavigation('/service-manager/vehicles')?.label ?? 'Service Manager'}`}
             breadcrumbs={getBreadcrumbsForPath('/service-manager/vehicles')}
           />
-          <button type="button" className={primaryBtnLg} onClick={openAdd}>+ Add Vehicle</button>
+          <div className="flex gap-2 flex-wrap">
+            <button type="button" className={baseBtn} onClick={() => setImportOpen(true)}>↑ Import JSON</button>
+            <button type="button" className={primaryBtnLg} onClick={openAdd}>+ Add Vehicle</button>
+          </div>
+        </div>
+
+        <div className="mb-4 flex flex-wrap gap-2">
+          <input
+            placeholder="Search vehicle, owner, phone…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="flex-1 min-w-[200px] px-3 py-2 text-sm bg-[#0f1117] border border-[#1e2236] rounded-lg"
+          />
+          <select value={urgencyFilter} onChange={e => setUrgencyFilter(e.target.value)} className="text-sm bg-[#0f1117] border border-[#1e2236] rounded-lg px-3 py-2">
+            <option value="all">All urgency</option>
+            <option value="overdue">Overdue</option>
+            <option value="due_soon">Due soon</option>
+            <option value="ok">OK</option>
+          </select>
+          <select value={locationFilter} onChange={e => setLocationFilter(e.target.value)} className="text-sm bg-[#0f1117] border border-[#1e2236] rounded-lg px-3 py-2">
+            <option value="">All locations</option>
+            {filterOptions.locations.map(l => <option key={l} value={l}>{l}</option>)}
+          </select>
+          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="text-sm bg-[#0f1117] border border-[#1e2236] rounded-lg px-3 py-2">
+            <option value="">All types</option>
+            {filterOptions.vehicle_types.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
         </div>
 
         {error && (
@@ -457,8 +516,11 @@ export default function ServiceManagerVehiclesPage() {
         ) : (
           <div className="bg-[#0f1117] border border-[#1e2236] rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-[#1e2236] flex justify-between items-center flex-wrap gap-2.5">
-              <div className="text-sm font-bold">{vehicles.length} Vehicles</div>
-              <button type="button" className={baseBtn} onClick={handleExportCSV}>↓ Export CSV</button>
+              <div className="text-sm font-bold">{filteredCount} Vehicles</div>
+              <div className="flex gap-2">
+                <button type="button" className={baseBtn} onClick={handleServerExport}>↓ Export CSV</button>
+                <button type="button" className={baseBtn} onClick={handleExportCSV}>↓ Export XLSX</button>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse min-w-[2200px]">
@@ -474,6 +536,7 @@ export default function ServiceManagerVehiclesPage() {
                     <th className={svcGroupTh} colSpan={4}>1st Service</th>
                     <th className={svcGroupTh} colSpan={4}>2nd Service</th>
                     <th className={svcGroupTh} colSpan={4}>3rd Service</th>
+                    <th rowSpan={2} className={`${baseTh} min-w-[120px]`}>Next Pending</th>
                     <th rowSpan={2} className={`${baseTh} min-w-[100px] whitespace-normal break-words`}>Remarks</th>
                     <th rowSpan={2} className={`${baseTh} min-w-[140px] whitespace-normal break-words`}>Speak With / Notes</th>
                     <th rowSpan={2} className={`${baseTh} min-w-[100px] whitespace-normal`}>Actions</th>
@@ -502,7 +565,7 @@ export default function ServiceManagerVehiclesPage() {
                       const s2 = svcObj(v, 2);
                       const s3 = svcObj(v, 3);
                       return (
-                        <tr key={v.id}>
+                        <tr key={v.id} className={rowUrgencyBg(v.urgency)}>
                           {/* Vehicle */}
                           <td className={baseTd}>
                             <span className="font-bold block">{v.vehicle_number || '—'}</span>
@@ -525,7 +588,11 @@ export default function ServiceManagerVehiclesPage() {
                           {/* Purchase Date */}
                           <td className={`${baseTd} ${monoClass}`}>{fmtDate(v.purchase_date)}</td>
                           {/* PDI */}
-                          <td className={`${baseTd} max-w-[100px]`}>{v.pdi || '—'}</td>
+                          <td className={`${baseTd} max-w-[100px]`}>
+                            {v.pdi_status ? (
+                              <span className="text-xs capitalize">{v.pdi_status.replace('_', ' ')}</span>
+                            ) : (v.pdi || '—')}
+                          </td>
 
                           {/* 1st Service: KM | Date | Status | Cost */}
                           <td className={svcCellGroupStart}>
@@ -662,6 +729,21 @@ export default function ServiceManagerVehiclesPage() {
                             {s3?.cost != null && s3.cost !== '' ? <span className={monoClass}>₹{Number(s3.cost).toLocaleString('en-IN')}</span> : <span className="text-[#3a3f52]">—</span>}
                           </td>
 
+                          <td className={baseTd}>
+                            {v.next_service_no ? (
+                              <div className="text-xs">
+                                <div className="font-semibold">#{v.next_service_no}</div>
+                                <div className={`${monoClass} mt-0.5`}>{v.next_due_km ?? '—'} km</div>
+                                <div className="text-[10.5px] text-[#8e97ad]">{fmtDate(v.next_due_date)}</div>
+                                {v.urgency && v.urgency !== 'ok' && (
+                                  <span className={`inline-flex mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${v.urgency === 'overdue' ? 'bg-[#f43f5e]/15 text-[#f43f5e]' : 'bg-amber-400/10 text-amber-400'}`}>
+                                    {v.urgency === 'overdue' ? 'Overdue' : 'Due soon'}
+                                  </span>
+                                )}
+                              </div>
+                            ) : '—'}
+                          </td>
+
                           {/* Remarks */}
                           <td className={`${baseTd} max-w-[160px] line-clamp-3 break-words text-xs text-[#8e97ad]`}>{v.remarks || '—'}</td>
                           {/* Speak With */}
@@ -669,6 +751,10 @@ export default function ServiceManagerVehiclesPage() {
                           {/* Actions */}
                           <td className={`${baseTd} min-w-[100px]`}>
                             <div className="flex flex-wrap gap-1.5 justify-end">
+                              {phoneLink(v.owner_phone) && (
+                                <a href={phoneLink(v.owner_phone)!} className={`${baseBtn} no-underline`}>Call</a>
+                              )}
+                              <button type="button" className={primaryBtn} onClick={() => openDrawer(v.id)}>Details</button>
                               <button type="button" className={amberBtn} onClick={() => openEdit(v)}>Edit</button>
                               <button type="button" className={redBtn} onClick={() => deleteVehicle(v.id)}>Delete</button>
                             </div>
@@ -847,6 +933,48 @@ export default function ServiceManagerVehiclesPage() {
                 </div>
               </form>
             </div>
+          </div>
+        )}
+
+        {drawerVehicle && (
+          <VehicleDetailDrawer
+            vehicle={drawerVehicle}
+            services={drawerServices}
+            onClose={() => setDrawerVehicle(null)}
+            onUpdated={async () => {
+              await fetchVehicleList();
+              if (drawerVehicle) {
+                const data = await fetchVehicle(drawerVehicle.id);
+                setDrawerVehicle(data.vehicle);
+                setDrawerServices(data.services);
+              }
+            }}
+          />
+        )}
+
+        {importOpen && (
+          <div className={modalOverlay} onClick={() => setImportOpen(false)}>
+            <form onSubmit={handleImport} className={`${modalBox} max-w-[640px]`} onClick={e => e.stopPropagation()}>
+              <div className={modalHead}>
+                <div>
+                  <div className="text-lg font-bold">Bulk import vehicles</div>
+                  <div className="text-xs text-[#8e97ad] mt-1">Paste JSON array matching POST /vehicles/import body</div>
+                </div>
+                <button type="button" className={modalClose} onClick={() => setImportOpen(false)}>Close</button>
+              </div>
+              <div className="p-6">
+                <textarea
+                  className={`${fieldInput} min-h-[200px] font-mono text-xs w-full`}
+                  value={importText}
+                  onChange={e => setImportText(e.target.value)}
+                  placeholder='[{"vehicle_number":"...","owner_name":"...","purchase_date":"01-01-2024"}]'
+                />
+              </div>
+              <div className={modalFoot}>
+                <button type="button" className={baseBtn} onClick={() => setImportOpen(false)}>Cancel</button>
+                <button type="submit" className={primaryBtnLg} disabled={importBusy}>{importBusy ? 'Importing…' : 'Import'}</button>
+              </div>
+            </form>
           </div>
         )}
       </div>

@@ -1,8 +1,7 @@
 import { Request, Response } from 'express';
 import { query } from '../db';
-
-const DEFAULT_KM_INTERVAL = 3000;
-const DEFAULT_DAYS_INTERVAL = 90;
+import { logActivity } from '../utils/activityLog';
+import { DEFAULT_DAYS_INTERVAL, DEFAULT_KM_INTERVAL } from '../utils/vehicleServiceRules';
 
 export async function listServicesForVehicle(req: Request, res: Response) {
   try {
@@ -70,9 +69,15 @@ export async function upsertService(req: Request, res: Response) {
           [vehicleId, nextServiceNo, nextDueKm, nextDueDate, userId],
         );
         await query(
-          'UPDATE vehicles SET current_km = $1, updated_at = now() WHERE id = $2',
+          'UPDATE vehicles SET current_km = $1, km_updated_at = now(), updated_at = now() WHERE id = $2',
           [actualKm, vehicleId],
         );
+        await query(
+          `UPDATE service_alerts SET status = 'resolved', acknowledged_at = now()
+           WHERE vehicle_id = $1 AND service_id = $2 AND status = 'open'`,
+          [vehicleId, serviceId],
+        );
+        await logActivity('vehicle_service', serviceId, `svc-${serviceId}`, 'update', userId, 'Service marked done');
       }
     } else {
       const nextNo = await query(
@@ -102,9 +107,10 @@ export async function upsertService(req: Request, res: Response) {
           [vehicleId, nextServiceNo + 1, nextDueKm, nextDueDate, userId],
         );
         await query(
-          'UPDATE vehicles SET current_km = $1, updated_at = now() WHERE id = $2',
+          'UPDATE vehicles SET current_km = $1, km_updated_at = now(), updated_at = now() WHERE id = $2',
           [actualKm, vehicleId],
         );
+        await logActivity('vehicle_service', row?.id, `svc-${row?.id}`, 'update', userId, 'Service marked done');
       }
     }
 

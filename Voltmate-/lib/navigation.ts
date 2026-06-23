@@ -37,7 +37,7 @@ export const BASE_NAV_ITEMS: NavItem[] = [
   { id: 'task-manager',    label: 'Task Manager',    icon: ClipboardList, route: '/task-manager' },
   { id: 'billing',         label: 'Billing',         icon: FileText,      route: '/billing' },
   { id: 'vehicle-videos',  label: 'Vehicle Videos',  icon: Youtube,       route: '/vehicle-videos' },
-  { id: 'service-manager', label: 'Service Manager', icon: Wrench,        route: '/service-manager' },
+  { id: 'service-manager', label: 'Service Manager', icon: Wrench,        route: '/service-manager', roles: ['admin', 'service', 'sales'] },
 ]
 
 export const ROLE_NAV_ITEMS: NavItem[] = [
@@ -83,6 +83,7 @@ export const ROUTE_LABELS: Record<string, string> = {
   '/vehicle-videos':            'Vehicle Videos',
   '/service-manager':           'Service Manager',
   '/service-manager/vehicles':  'Vehicle Management',
+  '/service-manager/analytics': 'Service Analytics',
   '/admin/attendance':          'Admin Attendance',
   '/admin/leave':               'Leave Approvals',
   '/admin/task-manager':        'Admin Task Manager',
@@ -109,6 +110,7 @@ export const ROUTE_PARENTS: Record<string, string> = {
   '/vehicle-videos':            '/',
   '/service-manager':           '/',
   '/service-manager/vehicles':  '/service-manager',
+  '/service-manager/analytics': '/service-manager',
   '/sales/lead-report':         '/sales',
   '/sales/visit-report':        '/sales',
   '/sales/create-lead-report':  '/sales',
@@ -123,7 +125,9 @@ export const ROUTE_PARENTS: Record<string, string> = {
 }
 
 export function getNavItemsForRole(role: NavRole): NavItem[] {
-  const items = [...BASE_NAV_ITEMS]
+  const items = BASE_NAV_ITEMS.filter(
+    item => !item.roles || (role && item.roles.includes(role)),
+  )
   for (const item of ROLE_NAV_ITEMS) {
     if (!item.roles || (role && item.roles.includes(role))) {
       items.push(item)
@@ -192,6 +196,7 @@ export const EXTRA_SEARCH_ROUTES: Array<{ route: string; label: string; keywords
   { route: '/sales/create-lead-report',  label: 'Lead Management',     keywords: ['sales', 'leads', 'create'] },
   { route: '/sales/create-visit-report', label: 'Visit Management',    keywords: ['sales', 'visits', 'create'] },
   { route: '/service-manager/vehicles', label: 'Vehicle Management',  keywords: ['service', 'vehicles'] },
+  { route: '/service-manager/analytics', label: 'Service Analytics', keywords: ['service', 'analytics', 'reports'] },
   { route: '/admin/daily-target',        label: 'Weekly Team Report',  keywords: ['admin', 'targets', 'sales'] },
   { route: '/admin/overdue-visits',      label: 'Overdue Visits',      keywords: ['admin', 'visits', 'overdue'] },
   { route: '/admin/sales-location',      label: 'Sales Rep Location',  keywords: ['admin', 'location', 'gps'] },

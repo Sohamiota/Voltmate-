@@ -1,157 +1,117 @@
 import { Request, Response } from 'express';
 import { query, pool } from '../db';
+import { logActivity } from '../utils/activityLog';
+import {
+  DEFAULT_DAYS_INTERVAL,
+  DEFAULT_KM_INTERVAL,
+  DEFAULT_PDI_CHECKLIST,
+  isDueThisWeek,
+  isDueToday,
+  isStaleOdometer,
+  PDI_DUE_DAYS,
+  urgency,
+} from '../utils/vehicleServiceRules';
 
-const DEFAULT_KM_INTERVAL = 3000;
-const DEFAULT_DAYS_INTERVAL = 90;
-const DUE_SOON_DAYS = 7;
-const DUE_SOON_KM = 500;
+const VEHICLE_LIST_SQL = `
+  SELECT v.*,
+         s1.id AS s1_id, s1.due_km AS s1_due_km, s1.due_date AS s1_due_date,
+         s1.actual_km AS s1_actual_km, s1.completion_date AS s1_completion_date,
+         s1.status AS s1_status, s1.remarks AS s1_remarks, s1.cost AS s1_cost,
+         s2.id AS s2_id, s2.due_km AS s2_due_km, s2.due_date AS s2_due_date,
+         s2.actual_km AS s2_actual_km, s2.completion_date AS s2_completion_date,
+         s2.status AS s2_status, s2.remarks AS s2_remarks, s2.cost AS s2_cost,
+         s3.id AS s3_id, s3.due_km AS s3_due_km, s3.due_date AS s3_due_date,
+         s3.actual_km AS s3_actual_km, s3.completion_date AS s3_completion_date,
+         s3.status AS s3_status, s3.remarks AS s3_remarks, s3.cost AS s3_cost,
+         nxt.id AS next_service_id, nxt.service_no AS next_service_no,
+         nxt.due_km AS next_due_km, nxt.due_date AS next_due_date
+  FROM vehicles v
+  LEFT JOIN vehicle_services s1 ON s1.vehicle_id = v.id AND s1.service_no = 1
+  LEFT JOIN vehicle_services s2 ON s2.vehicle_id = v.id AND s2.service_no = 2
+  LEFT JOIN vehicle_services s3 ON s3.vehicle_id = v.id AND s3.service_no = 3
+  LEFT JOIN LATERAL (
+    SELECT id, service_no, due_km, due_date
+    FROM vehicle_services
+    WHERE vehicle_id = v.id AND status = 'pending'
+    ORDER BY service_no ASC LIMIT 1
+  ) nxt ON true
+`;
 
-let tablesReady = false;
-async function ensureTables() {
-  if (tablesReady) return;
-  try {
-    await query(`
-      CREATE TABLE IF NOT EXISTS vehicles (
-        id SERIAL PRIMARY KEY,
-        vehicle_number TEXT,
-        chassis_number TEXT,
-        vehicle_type TEXT,
-        owner_name TEXT,
-        owner_phone TEXT,
-        driver_name TEXT,
-        driver_phone TEXT,
-        location TEXT,
-        purchase_date DATE,
-        current_km INT DEFAULT 0,
-        pdi TEXT,
-        speak_with TEXT,
-        remarks TEXT,
-        created_by INT,
-        created_at TIMESTAMPTZ DEFAULT now(),
-        updated_at TIMESTAMPTZ DEFAULT now()
-      )
-    `);
-    await query(`
-      CREATE TABLE IF NOT EXISTS vehicle_services (
-        id SERIAL PRIMARY KEY,
-        vehicle_id INT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
-        service_no INT NOT NULL,
-        due_km INT,
-        due_date DATE,
-        actual_km INT,
-        completion_date DATE,
-        status TEXT DEFAULT 'pending',
-        remarks TEXT,
-        created_by INT,
-        created_at TIMESTAMPTZ DEFAULT now(),
-        updated_at TIMESTAMPTZ DEFAULT now(),
-        UNIQUE(vehicle_id, service_no)
-      )
-    `);
-    // Migrate existing poi column to pdi if present
-    await query(`
-      DO $$ BEGIN
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'vehicles' AND column_name = 'poi')
-        THEN ALTER TABLE vehicles RENAME COLUMN poi TO pdi;
-        END IF;
-      END $$
-    `).catch(() => {});
-    // Add speak_with column if missing
-    await query(`
-      DO $$ BEGIN
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'vehicles' AND column_name = 'speak_with')
-        THEN ALTER TABLE vehicles ADD COLUMN speak_with TEXT;
-        END IF;
-      END $$
-    `).catch(() => {});
-    await query(`
-      DO $$ BEGIN
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'vehicle_services' AND column_name = 'cost')
-        THEN ALTER TABLE vehicle_services ADD COLUMN cost NUMERIC(12,2);
-        END IF;
-      END $$
-    `).catch(() => {});
-  } catch (e) {
-    console.error('ensureTables vehicles', e);
-  }
-  tablesReady = true;
-}
-
-function urgency(currentKm: number, dueKm: number | null, dueDate: string | null): 'overdue' | 'due_soon' | 'ok' {
-  const today = new Date().toISOString().slice(0, 10);
-  const overdueByDate = dueDate && dueDate < today;
-  const overdueByKm = dueKm != null && currentKm >= dueKm;
-  if (overdueByDate || overdueByKm) return 'overdue';
-
-  const dueDateObj = dueDate ? new Date(dueDate) : null;
-  const daysLeft = dueDateObj ? Math.ceil((dueDateObj.getTime() - Date.now()) / (24 * 60 * 60 * 1000)) : 9999;
-  const kmLeft = dueKm != null ? dueKm - currentKm : 9999;
-  if (daysLeft <= DUE_SOON_DAYS || kmLeft <= DUE_SOON_KM) return 'due_soon';
-  return 'ok';
+function mapVehicleRow(row: any) {
+  const u = urgency(row.current_km || 0, row.next_due_km, row.next_due_date);
+  return {
+    ...row,
+    urgency: u,
+    stale_km: isStaleOdometer(row.km_updated_at),
+  };
 }
 
 export async function listVehicles(req: Request, res: Response) {
   try {
-    await ensureTables();
-    const r = await query(`
-      SELECT v.*,
-             s1.id          AS s1_id,
-             s1.due_km      AS s1_due_km,
-             s1.due_date    AS s1_due_date,
-             s1.actual_km   AS s1_actual_km,
-             s1.completion_date AS s1_completion_date,
-             s1.status      AS s1_status,
-             s1.remarks     AS s1_remarks,
-             s1.cost        AS s1_cost,
+    const search = (req.query.search as string)?.trim().toLowerCase();
+    const urgencyFilter = req.query.urgency as string | undefined;
+    const location = req.query.location as string | undefined;
+    const vehicleType = req.query.vehicle_type as string | undefined;
+    const serviceNo = req.query.service_no as string | undefined;
 
-             s2.id          AS s2_id,
-             s2.due_km      AS s2_due_km,
-             s2.due_date    AS s2_due_date,
-             s2.actual_km   AS s2_actual_km,
-             s2.completion_date AS s2_completion_date,
-             s2.status      AS s2_status,
-             s2.remarks     AS s2_remarks,
-             s2.cost        AS s2_cost,
+    const r = await query(`${VEHICLE_LIST_SQL} ORDER BY v.created_at DESC`);
+    let rows = (r as any).rows.map(mapVehicleRow);
 
-             s3.id          AS s3_id,
-             s3.due_km      AS s3_due_km,
-             s3.due_date    AS s3_due_date,
-             s3.actual_km   AS s3_actual_km,
-             s3.completion_date AS s3_completion_date,
-             s3.status      AS s3_status,
-             s3.remarks     AS s3_remarks,
-             s3.cost        AS s3_cost,
+    if (search) {
+      rows = rows.filter((row: any) => {
+        const hay = [
+          row.vehicle_number, row.chassis_number, row.owner_name,
+          row.owner_phone, row.driver_name, row.driver_phone, row.location,
+        ].filter(Boolean).join(' ').toLowerCase();
+        return hay.includes(search);
+      });
+    }
+    if (urgencyFilter && urgencyFilter !== 'all') {
+      rows = rows.filter((row: any) => row.urgency === urgencyFilter);
+    }
+    if (location) {
+      rows = rows.filter((row: any) => (row.location || '').toLowerCase() === location.toLowerCase());
+    }
+    if (vehicleType) {
+      rows = rows.filter((row: any) => (row.vehicle_type || '').toLowerCase() === vehicleType.toLowerCase());
+    }
+    if (serviceNo) {
+      const n = parseInt(serviceNo, 10);
+      if (!isNaN(n)) rows = rows.filter((row: any) => row.next_service_no === n);
+    }
 
-             nxt.service_no AS next_service_no,
-             nxt.due_km     AS next_due_km,
-             nxt.due_date   AS next_due_date
-      FROM vehicles v
-      LEFT JOIN vehicle_services s1 ON s1.vehicle_id = v.id AND s1.service_no = 1
-      LEFT JOIN vehicle_services s2 ON s2.vehicle_id = v.id AND s2.service_no = 2
-      LEFT JOIN vehicle_services s3 ON s3.vehicle_id = v.id AND s3.service_no = 3
-      LEFT JOIN LATERAL (
-        SELECT service_no, due_km, due_date
-        FROM vehicle_services
-        WHERE vehicle_id = v.id AND status = 'pending'
-        ORDER BY service_no ASC LIMIT 1
-      ) nxt ON true
-      ORDER BY v.created_at DESC
-    `);
-    const rows = (r as any).rows;
-    const withUrgency = rows.map((row: any) => ({
-      ...row,
-      urgency: urgency(row.current_km || 0, row.next_due_km, row.next_due_date),
-    }));
-    res.json({ vehicles: withUrgency });
+    res.json({ vehicles: rows });
   } catch (e) {
     console.error('listVehicles', e);
     res.status(500).json({ error: 'failed' });
   }
 }
 
+export async function getVehicle(req: Request, res: Response) {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+
+    const r = await query(`${VEHICLE_LIST_SQL} WHERE v.id = $1`, [id]);
+    if ((r as any).rowCount === 0) return res.status(404).json({ error: 'vehicle not found' });
+
+    const servicesR = await query(
+      `SELECT * FROM vehicle_services WHERE vehicle_id = $1 ORDER BY service_no ASC`,
+      [id],
+    );
+
+    res.json({
+      vehicle: mapVehicleRow((r as any).rows[0]),
+      services: (servicesR as any).rows,
+    });
+  } catch (e) {
+    console.error('getVehicle', e);
+    res.status(500).json({ error: 'failed' });
+  }
+}
+
 export async function createVehicle(req: Request, res: Response) {
   try {
-    await ensureTables();
     const userId = (req as any).user?.sub ?? null;
     const {
       vehicle_number, chassis_number, vehicle_type,
@@ -162,25 +122,29 @@ export async function createVehicle(req: Request, res: Response) {
     const purchaseKm = current_km != null ? parseInt(String(current_km), 10) : 0;
     const dueKm = purchaseKm + DEFAULT_KM_INTERVAL;
     let dueDate: string | null = null;
+    let pdiDueDate: string | null = null;
     if (purchase_date) {
       const d = new Date(purchase_date);
       d.setDate(d.getDate() + DEFAULT_DAYS_INTERVAL);
       dueDate = d.toISOString().slice(0, 10);
+      const pdiD = new Date(purchase_date);
+      pdiD.setDate(pdiD.getDate() + PDI_DUE_DAYS);
+      pdiDueDate = pdiD.toISOString().slice(0, 10);
     }
 
     const ins = await query(
       `INSERT INTO vehicles (
         vehicle_number, chassis_number, vehicle_type,
         owner_name, owner_phone, driver_name, driver_phone,
-        location, purchase_date, current_km, pdi, speak_with, remarks,
-        created_by, created_at, updated_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now(),now())
+        location, purchase_date, current_km, pdi, pdi_status, pdi_due_date, pdi_checklist,
+        speak_with, remarks, km_updated_at, created_by, created_at, updated_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending',$12,$13,$14,$15,now(),$16,now(),now())
       RETURNING *`,
       [
         vehicle_number || null, chassis_number || null, vehicle_type || null,
         owner_name || null, owner_phone || null, driver_name || null, driver_phone || null,
-        location || null, purchase_date || null, purchaseKm, pdi || null, speak_with || null, remarks || null,
-        userId,
+        location || null, purchase_date || null, purchaseKm, pdi || null, pdiDueDate,
+        JSON.stringify(DEFAULT_PDI_CHECKLIST), speak_with || null, remarks || null, userId,
       ],
     );
     const vehicle = (ins as any).rows[0];
@@ -189,6 +153,7 @@ export async function createVehicle(req: Request, res: Response) {
        VALUES ($1, 1, $2, $3, 'pending', $4, now(), now())`,
       [vehicle.id, dueKm, dueDate, userId],
     );
+    await logActivity('vehicle', vehicle.id, vehicle.vehicle_number || vehicle.chassis_number, 'create', userId);
     res.status(201).json(vehicle);
   } catch (e) {
     console.error('createVehicle', e);
@@ -198,9 +163,9 @@ export async function createVehicle(req: Request, res: Response) {
 
 export async function updateVehicle(req: Request, res: Response) {
   try {
-    await ensureTables();
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+    const userId = (req as any).user?.sub ?? null;
     const {
       vehicle_number, chassis_number, vehicle_type,
       owner_name, owner_phone, driver_name, driver_phone,
@@ -217,11 +182,12 @@ export async function updateVehicle(req: Request, res: Response) {
       [
         vehicle_number ?? null, chassis_number ?? null, vehicle_type ?? null,
         owner_name ?? null, owner_phone ?? null, driver_name ?? null, driver_phone ?? null,
-        location ?? null, purchase_date ?? null, current_km ?? null, pdi ?? null, speak_with ?? null, remarks ?? null,
-        id,
+        location ?? null, purchase_date ?? null, current_km ?? null, pdi ?? null,
+        speak_with ?? null, remarks ?? null, id,
       ],
     );
     if ((r as any).rowCount === 0) return res.status(404).json({ error: 'vehicle not found' });
+    await logActivity('vehicle', id, vehicle_number || chassis_number, 'update', userId);
     res.json((r as any).rows[0]);
   } catch (e) {
     console.error('updateVehicle', e);
@@ -231,13 +197,25 @@ export async function updateVehicle(req: Request, res: Response) {
 
 export async function patchCurrentKm(req: Request, res: Response) {
   try {
-    await ensureTables();
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+    const userId = (req as any).user?.sub ?? null;
     const current_km = req.body.current_km != null ? parseInt(String(req.body.current_km), 10) : null;
-    if (current_km == null || current_km < 0) return res.status(400).json({ error: 'current_km required and must be >= 0' });
-    const r = await query('UPDATE vehicles SET current_km = $1, updated_at = now() WHERE id = $2 RETURNING *', [current_km, id]);
+    if (current_km == null || current_km < 0) {
+      return res.status(400).json({ error: 'current_km required and must be >= 0' });
+    }
+    const r = await query(
+      `UPDATE vehicles SET current_km = $1, km_updated_at = now(), updated_at = now()
+       WHERE id = $2 RETURNING *`,
+      [current_km, id],
+    );
     if ((r as any).rowCount === 0) return res.status(404).json({ error: 'vehicle not found' });
+    await logActivity('vehicle', id, String(id), 'update', userId, `KM updated to ${current_km}`);
+    await query(
+      `UPDATE service_alerts SET status = 'resolved', acknowledged_at = now()
+       WHERE vehicle_id = $1 AND alert_type = 'stale_odometer' AND status = 'open'`,
+      [id],
+    );
     res.json((r as any).rows[0]);
   } catch (e) {
     console.error('patchCurrentKm', e);
@@ -245,12 +223,50 @@ export async function patchCurrentKm(req: Request, res: Response) {
   }
 }
 
-export async function deleteVehicle(req: Request, res: Response) {
+export async function updatePdi(req: Request, res: Response) {
   try {
-    await ensureTables();
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+    const userId = (req as any).user?.sub ?? null;
+    const { pdi_status, pdi_checklist, pdi_due_date } = req.body;
+
+    const status = pdi_status || 'pending';
+    const checklist = pdi_checklist ? JSON.stringify(pdi_checklist) : null;
+
+    const r = await query(
+      `UPDATE vehicles SET
+         pdi_status = $1,
+         pdi_checklist = COALESCE($2::jsonb, pdi_checklist),
+         pdi_due_date = COALESCE($3, pdi_due_date),
+         pdi_completed_at = CASE WHEN $1 IN ('done', 'waived') THEN COALESCE(pdi_completed_at, now()) ELSE NULL END,
+         updated_at = now()
+       WHERE id = $4 RETURNING *`,
+      [status, checklist, pdi_due_date ?? null, id],
+    );
+    if ((r as any).rowCount === 0) return res.status(404).json({ error: 'vehicle not found' });
+
+    if (['done', 'waived'].includes(status)) {
+      await query(
+        `UPDATE service_alerts SET status = 'resolved', acknowledged_at = now()
+         WHERE vehicle_id = $1 AND alert_type = 'pdi_pending' AND status = 'open'`,
+        [id],
+      );
+    }
+    await logActivity('vehicle_pdi', id, String(id), 'update', userId, `PDI status: ${status}`);
+    res.json((r as any).rows[0]);
+  } catch (e) {
+    console.error('updatePdi', e);
+    res.status(500).json({ error: 'failed' });
+  }
+}
+
+export async function deleteVehicle(req: Request, res: Response) {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+    const userId = (req as any).user?.sub ?? null;
     await query('DELETE FROM vehicles WHERE id=$1', [id]);
+    await logActivity('vehicle', id, String(id), 'delete', userId);
     res.json({ message: 'deleted' });
   } catch (e) {
     console.error('deleteVehicle', e);
@@ -258,7 +274,6 @@ export async function deleteVehicle(req: Request, res: Response) {
   }
 }
 
-/** Normalize date string dd-mm-yyyy or dd/mm/yyyy to yyyy-mm-dd */
 function normalizeDate(s: string | null | undefined): string | null {
   if (!s || typeof s !== 'string') return null;
   const t = s.trim();
@@ -268,17 +283,14 @@ function normalizeDate(s: string | null | undefined): string | null {
   if (parts.length !== 3) return null;
   const [a, b, c] = parts;
   let y: string, m: string, d: string;
-  if (c.length === 4) {
-    d = a; m = b; y = c;
-  } else if (a.length === 4) {
-    y = a; m = b; d = c;
-  } else return null;
+  if (c.length === 4) { d = a; m = b; y = c; }
+  else if (a.length === 4) { y = a; m = b; d = c; }
+  else return null;
   return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
 }
 
 export async function importVehicles(req: Request, res: Response) {
   try {
-    await ensureTables();
     const userId = (req as any).user?.sub ?? null;
     const vehicles = req.body?.vehicles;
     if (!Array.isArray(vehicles) || vehicles.length === 0) {
@@ -292,31 +304,30 @@ export async function importVehicles(req: Request, res: Response) {
       for (const row of vehicles) {
         const chassis_number = row.chassis_number ?? row.vehicle_number ?? null;
         const vehicle_number = row.vehicle_number ?? chassis_number ?? null;
-        const vehicle_type = row.vehicle_type ?? null;
-        const owner_name = row.owner_name ?? null;
-        const owner_phone = row.owner_phone ?? null;
-        const driver_name = row.driver_name ?? null;
-        const driver_phone = row.driver_phone ?? null;
-        const location = row.location ?? null;
         const purchase_date = normalizeDate(row.purchase_date);
         const current_km = row.current_km != null ? parseInt(String(row.current_km), 10) : 0;
-        const pdi = row.pdi ?? null;
-        const speak_with = row.speak_with ?? null;
-        const remarks = row.remarks ?? null;
+        let pdiDueDate: string | null = null;
+        if (purchase_date) {
+          const pdiD = new Date(purchase_date);
+          pdiD.setDate(pdiD.getDate() + PDI_DUE_DAYS);
+          pdiDueDate = pdiD.toISOString().slice(0, 10);
+        }
 
         const ins = await client.query(
           `INSERT INTO vehicles (
             vehicle_number, chassis_number, vehicle_type,
             owner_name, owner_phone, driver_name, driver_phone,
-            location, purchase_date, current_km, pdi, speak_with, remarks,
-            created_by, created_at, updated_at
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now(),now())
+            location, purchase_date, current_km, pdi, pdi_status, pdi_due_date, pdi_checklist,
+            speak_with, remarks, km_updated_at, created_by, created_at, updated_at
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending',$12,$13,$14,$15,now(),$16,now(),now())
           RETURNING id`,
           [
-            vehicle_number, chassis_number, vehicle_type,
-            owner_name, owner_phone, driver_name, driver_phone,
-            location, purchase_date, isNaN(current_km) ? 0 : current_km, pdi, speak_with, remarks,
-            userId,
+            vehicle_number, chassis_number, row.vehicle_type ?? null,
+            row.owner_name ?? null, row.owner_phone ?? null,
+            row.driver_name ?? null, row.driver_phone ?? null,
+            row.location ?? null, purchase_date, isNaN(current_km) ? 0 : current_km,
+            row.pdi ?? null, pdiDueDate, JSON.stringify(DEFAULT_PDI_CHECKLIST),
+            row.speak_with ?? null, row.remarks ?? null, userId,
           ],
         );
         const vehicleId = (ins as any).rows[0]?.id;
@@ -325,33 +336,30 @@ export async function importVehicles(req: Request, res: Response) {
 
         const services = Array.isArray(row.services) ? row.services : [];
         let lastActualKm = current_km;
-        let lastCompletionDate = purchase_date;
-
         for (const svc of services) {
           const service_no = svc.service_no != null ? parseInt(String(svc.service_no), 10) : null;
           if (service_no == null || isNaN(service_no)) continue;
-          const due_km = svc.due_km != null ? parseInt(String(svc.due_km), 10) : null;
-          const due_date = normalizeDate(svc.due_date);
-          const actual_km = svc.actual_km != null ? parseInt(String(svc.actual_km), 10) : null;
-          const completion_date = normalizeDate(svc.completion_date);
-          const status = (svc.status || 'pending').toLowerCase();
-          const svcRemarks = svc.remarks ?? null;
-
           await client.query(
             `INSERT INTO vehicle_services (vehicle_id, service_no, due_km, due_date, actual_km, completion_date, status, remarks, created_by, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now())
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now(),now())
              ON CONFLICT (vehicle_id, service_no) DO UPDATE SET
               due_km=EXCLUDED.due_km, due_date=EXCLUDED.due_date, actual_km=EXCLUDED.actual_km,
               completion_date=EXCLUDED.completion_date, status=EXCLUDED.status, remarks=EXCLUDED.remarks, updated_at=now()`,
-            [vehicleId, service_no, due_km ?? null, due_date ?? null, actual_km, completion_date ?? null, status, svcRemarks, userId],
+            [
+              vehicleId, service_no,
+              svc.due_km != null ? parseInt(String(svc.due_km), 10) : null,
+              normalizeDate(svc.due_date),
+              svc.actual_km != null ? parseInt(String(svc.actual_km), 10) : null,
+              normalizeDate(svc.completion_date),
+              (svc.status || 'pending').toLowerCase(),
+              svc.remarks ?? null, userId,
+            ],
           );
-          if (actual_km != null) lastActualKm = actual_km;
-          if (completion_date) lastCompletionDate = completion_date;
+          if (svc.actual_km != null) lastActualKm = parseInt(String(svc.actual_km), 10);
         }
-
-        if (lastActualKm > 0 || lastCompletionDate) {
+        if (lastActualKm > 0) {
           await client.query(
-            'UPDATE vehicles SET current_km = $1, updated_at = now() WHERE id = $2',
+            'UPDATE vehicles SET current_km = $1, km_updated_at = now(), updated_at = now() WHERE id = $2',
             [lastActualKm, vehicleId],
           );
         }
@@ -364,6 +372,7 @@ export async function importVehicles(req: Request, res: Response) {
       client.release();
     }
 
+    await logActivity('vehicle_import', null, 'bulk', 'create', userId, `Imported ${importedIds.length} vehicles`);
     res.status(201).json({ imported: importedIds.length, ids: importedIds });
   } catch (e) {
     console.error('importVehicles', e);
@@ -373,43 +382,43 @@ export async function importVehicles(req: Request, res: Response) {
 
 export async function serviceDashboard(req: Request, res: Response) {
   try {
-    await ensureTables();
     const r = await query(`
       SELECT v.id, v.vehicle_number, v.chassis_number, v.vehicle_type,
-             v.owner_name, v.owner_phone, v.location, v.current_km,
+             v.owner_name, v.owner_phone, v.driver_name, v.driver_phone,
+             v.location, v.current_km, v.km_updated_at,
              vs.id AS service_id, vs.service_no, vs.due_km, vs.due_date, vs.status
       FROM vehicles v
       INNER JOIN vehicle_services vs ON vs.vehicle_id = v.id AND vs.status = 'pending'
       ORDER BY v.id, vs.service_no ASC
     `);
     const rows = (r as any).rows;
-    const today = new Date().toISOString().slice(0, 10);
-    const inSevenDays = new Date();
-    inSevenDays.setDate(inSevenDays.getDate() + DUE_SOON_DAYS);
-    const sevenDaysStr = inSevenDays.toISOString().slice(0, 10);
 
     const items = rows.map((row: any) => {
       const currentKm = row.current_km || 0;
       const u = urgency(currentKm, row.due_km, row.due_date);
-      let dueToday = false;
-      let dueThisWeek = false;
-      if (row.due_date) {
-        dueToday = row.due_date === today;
-        dueThisWeek = row.due_date >= today && row.due_date <= sevenDaysStr;
-      }
       return {
         ...row,
         urgency: u,
-        due_today: dueToday,
-        due_this_week: dueThisWeek,
+        due_today: isDueToday(row.due_date),
+        due_this_week: isDueThisWeek(row.due_date),
+        stale_km: isStaleOdometer(row.km_updated_at),
       };
     });
 
     const vehiclesCount = await query('SELECT COUNT(*) AS c FROM vehicles');
     const totalVehicles = parseInt((vehiclesCount as any).rows[0]?.c || '0', 10);
     const overdue = items.filter((i: any) => i.urgency === 'overdue').length;
+    const dueSoon = items.filter((i: any) => i.urgency === 'due_soon').length;
     const dueToday = items.filter((i: any) => i.due_today).length;
     const dueThisWeek = items.filter((i: any) => i.due_this_week && !i.due_today).length;
+    const staleKm = items.filter((i: any) => i.stale_km).length;
+
+    const alertsR = await query(`SELECT COUNT(*) AS c FROM service_alerts WHERE status = 'open'`);
+    const openAlerts = parseInt((alertsR as any).rows[0]?.c || '0', 10);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const snapR = await query(`SELECT * FROM service_snapshots WHERE snapshot_date = $1`, [today]);
+    const snapshot = (snapR as any).rows[0] ?? null;
 
     const order: Record<string, number> = { overdue: 0, due_soon: 1, ok: 2 };
     const sorted = [...items].sort((a: any, b: any) => (order[a.urgency] ?? 2) - (order[b.urgency] ?? 2));
@@ -419,6 +428,13 @@ export async function serviceDashboard(req: Request, res: Response) {
       overdue_count: overdue,
       due_today_count: dueToday,
       due_this_week_count: dueThisWeek,
+      due_soon_count: dueSoon,
+      stale_km_count: staleKm,
+      open_alerts_count: openAlerts,
+      briefing: snapshot
+        ? { snapshot_date: snapshot.snapshot_date, top_overdue: snapshot.top_overdue ?? [], generated_at: snapshot.created_at }
+        : null,
+      last_updated: new Date().toISOString(),
       pending_services: sorted,
     });
   } catch (e) {
@@ -427,15 +443,16 @@ export async function serviceDashboard(req: Request, res: Response) {
   }
 }
 
-/** CSV export: owner name, owner phone, and all 1st/2nd/3rd service fields (km, date, status, cost) */
 export async function exportVehiclesCSV(req: Request, res: Response) {
   try {
-    await ensureTables();
     const r = await query(`
       SELECT v.owner_name, v.owner_phone,
-             s1.due_km AS s1_due_km, s1.due_date AS s1_due_date, s1.actual_km AS s1_actual_km, s1.completion_date AS s1_completion_date, s1.status AS s1_status, s1.cost AS s1_cost,
-             s2.due_km AS s2_due_km, s2.due_date AS s2_due_date, s2.actual_km AS s2_actual_km, s2.completion_date AS s2_completion_date, s2.status AS s2_status, s2.cost AS s2_cost,
-             s3.due_km AS s3_due_km, s3.due_date AS s3_due_date, s3.actual_km AS s3_actual_km, s3.completion_date AS s3_completion_date, s3.status AS s3_status, s3.cost AS s3_cost
+             s1.due_km AS s1_due_km, s1.due_date AS s1_due_date, s1.actual_km AS s1_actual_km,
+             s1.completion_date AS s1_completion_date, s1.status AS s1_status, s1.cost AS s1_cost,
+             s2.due_km AS s2_due_km, s2.due_date AS s2_due_date, s2.actual_km AS s2_actual_km,
+             s2.completion_date AS s2_completion_date, s2.status AS s2_status, s2.cost AS s2_cost,
+             s3.due_km AS s3_due_km, s3.due_date AS s3_due_date, s3.actual_km AS s3_actual_km,
+             s3.completion_date AS s3_completion_date, s3.status AS s3_status, s3.cost AS s3_cost
       FROM vehicles v
       LEFT JOIN vehicle_services s1 ON s1.vehicle_id = v.id AND s1.service_no = 1
       LEFT JOIN vehicle_services s2 ON s2.vehicle_id = v.id AND s2.service_no = 2
@@ -454,20 +471,16 @@ export async function exportVehiclesCSV(req: Request, res: Response) {
       const s2Done = row.s2_status === 'done';
       const s3Done = row.s3_status === 'done';
       return [
-        row.owner_name ?? '',
-        row.owner_phone ?? '',
+        row.owner_name ?? '', row.owner_phone ?? '',
         (s1Done ? row.s1_actual_km : row.s1_due_km) ?? '',
         (s1Done ? row.s1_completion_date : row.s1_due_date) ?? '',
-        row.s1_status ?? '',
-        row.s1_cost ?? '',
+        row.s1_status ?? '', row.s1_cost ?? '',
         (s2Done ? row.s2_actual_km : row.s2_due_km) ?? '',
         (s2Done ? row.s2_completion_date : row.s2_due_date) ?? '',
-        row.s2_status ?? '',
-        row.s2_cost ?? '',
+        row.s2_status ?? '', row.s2_cost ?? '',
         (s3Done ? row.s3_actual_km : row.s3_due_km) ?? '',
         (s3Done ? row.s3_completion_date : row.s3_due_date) ?? '',
-        row.s3_status ?? '',
-        row.s3_cost ?? '',
+        row.s3_status ?? '', row.s3_cost ?? '',
       ].map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',');
     });
     const csv = [header.join(',')].concat(csvRows).join('\n');
@@ -476,6 +489,24 @@ export async function exportVehiclesCSV(req: Request, res: Response) {
     res.send(csv);
   } catch (e) {
     console.error('exportVehiclesCSV', e);
+    res.status(500).json({ error: 'failed' });
+  }
+}
+
+export async function getFilterOptions(_req: Request, res: Response) {
+  try {
+    const locR = await query(
+      `SELECT DISTINCT location FROM vehicles WHERE location IS NOT NULL AND location != '' ORDER BY location`,
+    );
+    const typeR = await query(
+      `SELECT DISTINCT vehicle_type FROM vehicles WHERE vehicle_type IS NOT NULL AND vehicle_type != '' ORDER BY vehicle_type`,
+    );
+    res.json({
+      locations: (locR as any).rows.map((r: any) => r.location),
+      vehicle_types: (typeR as any).rows.map((r: any) => r.vehicle_type),
+    });
+  } catch (e) {
+    console.error('getFilterOptions', e);
     res.status(500).json({ error: 'failed' });
   }
 }

@@ -15,10 +15,12 @@ import salesRoutes       from './routes/sales';
 import tasksRoutes       from './routes/tasks';
 import visitsRoutes      from './routes/visits';
 import vehicleRoutes     from './routes/vehicles';
+import serviceStatusRoutes from './routes/serviceStatus';
 import networkRoutes     from './routes/networks';
 import locationRoutes    from './routes/location';
 import leaveRoutes       from './routes/leave';
 import youtubeRoutes     from './routes/youtube';
+import whatsappRoutes    from './routes/whatsapp';
 import { listEmployees } from './controllers/authController';
 
 const app = express();
@@ -77,12 +79,15 @@ const corsOptions: cors.CorsOptions = {
 app.use(cors(corsOptions));
 
 app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: false }));
 
 // ─── Public routes ────────────────────────────────────────────────────────────
 app.get('/api/v1/health', (_req, res) => res.json({ status: 'ok' }));
 
 // Auth routes (have their own per-endpoint rate limiters inside the router)
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/service-status', serviceStatusRoutes);
+app.use('/api/v1/whatsapp', whatsappRoutes);
 
 // ─── All routes below require a valid JWT ─────────────────────────────────────
 app.use(authMiddleware);
