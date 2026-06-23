@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node --max-old-space-size=460 dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "migrate": "node scripts/migrate.js",
     "seed": "node scripts/seed-admin.js"

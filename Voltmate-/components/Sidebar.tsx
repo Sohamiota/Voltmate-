@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { LucideIcon, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { isMobileViewport } from '@/lib/navigation'
 
 export interface SidebarSection {
   id: string
@@ -26,7 +25,7 @@ export default function Sidebar({
   onClose,
 }: SidebarProps) {
   function handleNavClick() {
-    if (isMobileViewport()) onClose()
+    onClose()
   }
 
   return (

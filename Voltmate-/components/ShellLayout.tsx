@@ -19,14 +19,10 @@ export default function ShellLayout({ children }: Props) {
   const currentSection = resolveSectionFromPathname(pathname ?? '/')
   const sections = getNavItemsForRole(userRole)
 
-  // Open sidebar by default on desktop; stay closed on mobile
+  // Auto-hide sidebar whenever the user navigates to a new page
   useEffect(() => {
-    const mq = window.matchMedia('(min-width: 1024px)')
-    setSidebarOpen(mq.matches)
-    const handler = (e: MediaQueryListEvent) => setSidebarOpen(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [])
+    setSidebarOpen(false)
+  }, [pathname])
 
   useEffect(() => {
     const token = getStoredToken()

@@ -132,11 +132,14 @@ export function sanitizeSearch(val: unknown, maxLen = 100): string {
   return strip(val.trim()).slice(0, maxLen);
 }
 
+/** Hard ceiling for list endpoints — prevents OOM on Render (512 MB instances). */
+export const MAX_PAGE_SIZE = 5000;
+
 // ── Pagination query params ───────────────────────────────────────────────────
 export function parsePagination(
   limitRaw: unknown,
   offsetRaw: unknown,
-  maxLimit = 100000,
+  maxLimit = MAX_PAGE_SIZE,
 ): { limit: number; offset: number } {
   // Default to 200 rows when no limit is supplied so a missing param never
   // silently fetches the entire table. Callers that legitimately need more

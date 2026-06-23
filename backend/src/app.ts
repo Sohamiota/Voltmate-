@@ -59,13 +59,10 @@ const allowedOrigins = Array.from(allowedOriginsSet);
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    // ─── [M-2] Reject requests with no Origin header (curl, file://, etc.) ───
-    // Explicitly allow in development so local tooling still works.
+    // No Origin: health probes, curl, server-to-server, same-origin navigation.
+    // CORS only applies to browsers; blocking these caused 500s on Render.
     if (!origin) {
-      if (process.env.NODE_ENV !== 'production') {
-        return callback(null, true);
-      }
-      return callback(new Error('CORS: missing Origin header'));
+      return callback(null, true);
     }
     if (allowedOrigins.includes(origin)) {
       return callback(null, origin);
@@ -124,6 +121,11 @@ app.use((_req: Request, res: Response) => {
 // ─── Global error handler ─────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  if (err.message.startsWith('CORS')) {
+    console.warn('[cors]', err.message);
+    res.status(403).json({ error: err.message });
+    return;
+  }
   console.error('[error]', err.stack || err.message);
   // Never leak internal error details to clients
   res.status(500).json({ error: 'Internal server error' });
