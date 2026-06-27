@@ -61,6 +61,8 @@ const CSS = `
   .bill-btn:disabled{opacity:.45;cursor:not-allowed;}
   .bill-btn-primary{background:rgba(0,217,255,.12);color:#00d9ff;border-color:rgba(0,217,255,.35);}
   .bill-btn-primary:hover:not(:disabled){background:rgba(0,217,255,.2);}
+  .bill-btn-applied{background:rgba(34,197,94,.18);color:#22c55e;border-color:rgba(34,197,94,.45);}
+  .bill-btn-applied:hover:not(:disabled){background:rgba(34,197,94,.26);}
   .bill-btn-ghost{background:transparent;color:#9ca3af;border-color:#333;}
   .bill-btn-ghost:hover:not(:disabled){border-color:#555;color:#fff;}
   .bill-btn-print{background:rgba(34,197,94,.14);color:#22c55e;border-color:rgba(34,197,94,.35);}
@@ -233,7 +235,9 @@ const CSS = `
   .bill-visit-row:hover{border-color:#00d9ff;}
   .bill-visit-row-top{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;}
   .bill-visit-row-meta{font-size:11px;color:#9ca3af;line-height:1.45;}
-  .bill-visit-selected{background:#0f0f0f;border:1px solid rgba(0,217,255,.25);border-radius:10px;padding:12px;}
+  .bill-visit-selected{background:#0f0f0f;border:1px solid rgba(0,217,255,.25);border-radius:10px;padding:12px;transition:border-color .25s,box-shadow .25s;}
+  .bill-visit-selected-applied{border-color:rgba(34,197,94,.45);box-shadow:0 0 0 1px rgba(34,197,94,.12);}
+  .bill-visit-apply-msg{margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:#86efac;font-size:12px;line-height:1.45;}
   .bill-visit-selected-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
   .bill-visit-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;}
   @media(max-width:640px){.bill-visit-grid{grid-template-columns:1fr;}}
@@ -465,7 +469,6 @@ export default function BillingPage() {
         grand_total: isQuote ? quoteGrandTotal(quote.rows) : receiptTotalAmount(receipt.cashAmount, receipt.upiAmount),
         payload,
         html_snapshot: root.outerHTML,
-        print_css: PRINT_FRAME_CSS,
         visit_id: linkedVisit?.id ?? (isQuote ? quote.visitId : receipt.visitId) ?? null,
         update_visit_status: isQuote && updateVisitStatus && Boolean(linkedVisit?.id ?? quote.visitId),
       };
@@ -475,7 +478,8 @@ export default function BillingPage() {
         if (isQuote) setQuote(q => ({ ...q, quoteNo: doc.doc_no }));
         else setReceipt(r => ({ ...r, receiptNo: doc.doc_no }));
         setSaveStatus(`Saved to server: ${doc.doc_no}${doc.drive_web_link ? ' · Drive' : ''}`);
-      } catch {
+      } catch (serverErr) {
+        const reason = serverErr instanceof Error ? serverErr.message : 'Server unavailable';
         const local = saveLocalBillingDocument({
           doc_type: input.doc_type,
           doc_no: input.doc_no,
@@ -485,10 +489,11 @@ export default function BillingPage() {
           vehicle_model: input.vehicle_model,
           grand_total: input.grand_total,
           payload: input.payload,
+          html_snapshot: input.html_snapshot,
           visit_id: input.visit_id,
           lead_cust_code: isQuote ? quote.leadCustCode : receipt.leadCustCode,
         });
-        setSaveStatus(`Saved on this device: ${local.doc_no} (server unavailable — sync when backend is updated)`);
+        setSaveStatus(`Saved on this device: ${local.doc_no} (${reason})`);
       }
 
       setDocsRefreshKey(k => k + 1);
@@ -727,7 +732,7 @@ export default function BillingPage() {
         </div>
       )}
 
-      <div className="bill-layout">
+      <div className="bill-layout" id="billing-doc-form">
         <div className="bill-panel">
           <div className="bill-panel-title">Company &amp; {tab === 'receipt' ? 'Receipt' : 'Quote'} details</div>
 

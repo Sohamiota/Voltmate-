@@ -51,6 +51,7 @@ export default function VisitLinkPanel({ linkedVisitId, onSelect, onApplyToForm,
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [visitDocs, setVisitDocs] = useState<BillingDocumentRecord[]>([]);
+  const [applied, setApplied] = useState(false);
 
   const loadVisits = useCallback(async () => {
     setLoading(true);
@@ -94,6 +95,10 @@ export default function VisitLinkPanel({ linkedVisitId, onSelect, onApplyToForm,
   }, [visits, linkedVisitId]);
 
   useEffect(() => {
+    setApplied(false);
+  }, [linkedVisitId, docType]);
+
+  useEffect(() => {
     if (!linkedVisitId) {
       setVisitDocs([]);
       return;
@@ -102,6 +107,15 @@ export default function VisitLinkPanel({ linkedVisitId, onSelect, onApplyToForm,
       .then(setVisitDocs)
       .catch(() => setVisitDocs([]));
   }, [linkedVisitId]);
+
+  function handleApply() {
+    if (!selected) return;
+    onApplyToForm(selected);
+    setApplied(true);
+    requestAnimationFrame(() => {
+      document.getElementById('billing-doc-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   return (
     <div className="bill-visit-panel">
@@ -127,7 +141,7 @@ export default function VisitLinkPanel({ linkedVisitId, onSelect, onApplyToForm,
       {error && <div className="bill-visit-error">{error}</div>}
 
       {selected ? (
-        <div className="bill-visit-selected">
+        <div className={`bill-visit-selected${applied ? ' bill-visit-selected-applied' : ''}`}>
           <div className="bill-visit-selected-hdr">
             <strong>Linked visit #{selected.id}</strong>
             <button type="button" className="bill-btn bill-btn-ghost" onClick={() => onSelect(null)}>Clear</button>
@@ -148,10 +162,26 @@ export default function VisitLinkPanel({ linkedVisitId, onSelect, onApplyToForm,
             )}
           </div>
           <div className="bill-btn-row">
-            <button type="button" className="bill-btn bill-btn-primary" onClick={() => onApplyToForm(selected)}>
-              Apply customer details to {docType}
+            <button
+              type="button"
+              className={`bill-btn ${applied ? 'bill-btn-applied' : 'bill-btn-primary'}`}
+              onClick={handleApply}
+            >
+              {applied
+                ? `✓ Applied to ${docType}`
+                : `Apply customer details to ${docType}`}
             </button>
+            {applied && (
+              <button type="button" className="bill-btn bill-btn-ghost" onClick={handleApply}>
+                Apply again
+              </button>
+            )}
           </div>
+          {applied && (
+            <div className="bill-visit-apply-msg">
+              Customer, phone, address, vehicle{docType === 'quotation' ? ', and salesperson' : ''} copied to the form below.
+            </div>
+          )}
 
           {visitDocs.length > 0 && (
             <div className="bill-visit-prior">

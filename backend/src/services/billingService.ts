@@ -5,6 +5,7 @@ import {
   formatReceiptNo,
 } from '../utils/billingNumbering';
 import { saveBillingHtmlFile } from '../utils/billingStorage';
+import { BILLING_PRINT_CSS } from '../utils/billingPrintCss';
 import { uploadBillingFileToDrive } from './googleDriveService';
 
 export type BillingDocType = 'quotation' | 'receipt';
@@ -117,7 +118,7 @@ export async function saveBillingDocument(input: SaveBillingDocumentInput) {
       docNo,
       input.docDate,
       input.htmlSnapshot,
-      input.printCss || '',
+      input.printCss?.trim() || BILLING_PRINT_CSS,
     );
   }
 
