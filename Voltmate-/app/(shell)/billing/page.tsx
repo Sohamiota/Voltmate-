@@ -16,7 +16,7 @@ import {
 import { nextQuoteNo, nextReceiptNo } from '@/lib/billing/numbering';
 import { EULER_VEHICLES, EULER_VEHICLE_NAMES, resolveQuoteVehicle, vehicleByName } from '@/lib/billing/eulerVehicles';
 import { saveLocalBillingDocument, listLocalBillingDocuments, deleteLocalBillingDocument } from '@/lib/billing/localArchive';
-import { printElementById, downloadBillingHtml } from '@/lib/printDocument';
+import { printBillingDocument, downloadBillingHtml } from '@/lib/printDocument';
 import type {
   BillingDocumentRecord, CompanyProfile, QuotationDraft, QuoteTableRow, ReceiptDraft,
 } from '@/lib/billing/types';
@@ -433,7 +433,7 @@ export default function BillingPage() {
   function handlePrint() {
     const job = getPrintJob();
     if (!job) return;
-    printElementById('billing-print-root', job.title, job.css);
+    printBillingDocument(job);
   }
 
   function handleDownload() {

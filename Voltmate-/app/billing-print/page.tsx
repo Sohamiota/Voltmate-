@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { clearBillingPrintJob, readBillingPrintJob } from '@/lib/billing/printJob';
+import {
+  buildPrintHtml,
+  clearBillingPrintJob,
+  printWhenImagesReady,
+  readBillingPrintJob,
+} from '@/lib/billing/printJob';
 
 export default function BillingPrintPage() {
   const [error, setError] = useState('');
@@ -13,43 +18,14 @@ export default function BillingPrintPage() {
       return;
     }
 
-    document.title = job.title;
-
-    const style = document.createElement('style');
-    style.textContent = job.css;
-    document.head.appendChild(style);
-
-    const wrap = document.createElement('div');
-    wrap.innerHTML = job.html;
-    document.body.appendChild(wrap);
-    document.body.style.margin = '0';
-    document.body.style.background = '#fff';
-
+    document.open();
+    document.write(buildPrintHtml(job));
+    document.close();
     clearBillingPrintJob();
 
-    const printWhenReady = () => {
+    printWhenImagesReady(document, () => {
       window.focus();
       window.print();
-    };
-
-    const imgs = Array.from(document.images);
-    if (imgs.length === 0) {
-      printWhenReady();
-      return;
-    }
-
-    let pending = imgs.length;
-    const done = () => {
-      pending -= 1;
-      if (pending <= 0) printWhenReady();
-    };
-
-    imgs.forEach(img => {
-      if (img.complete) done();
-      else {
-        img.onload = done;
-        img.onerror = done;
-      }
     });
   }, []);
 

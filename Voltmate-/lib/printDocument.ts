@@ -1,4 +1,9 @@
-import { openBillingPrintWindow, type BillingPrintJob } from '@/lib/billing/printJob';
+import {
+  openBillingPrintRoute,
+  printBillingDocumentInWindow,
+  printWhenImagesReady,
+  type BillingPrintJob,
+} from '@/lib/billing/printJob';
 
 type PrintInIframeOptions = BillingPrintJob;
 
@@ -27,42 +32,24 @@ export function printHtmlInIframe({ html, title, css }: PrintInIframeOptions): v
     setTimeout(() => iframe.remove(), 1000);
   };
 
-  const triggerPrint = () => {
+  printWhenImagesReady(doc, () => {
     win.focus();
     win.print();
     cleanup();
-  };
-
-  const imgs = Array.from(doc.images);
-  if (imgs.length === 0) {
-    triggerPrint();
-    return;
-  }
-
-  let pending = imgs.length;
-  const onImageReady = () => {
-    pending -= 1;
-    if (pending <= 0) triggerPrint();
-  };
-
-  imgs.forEach(img => {
-    if (img.complete) onImageReady();
-    else {
-      img.onload = onImageReady;
-      img.onerror = onImageReady;
-    }
   });
 }
 
-/** Print a billing document in a new window without app navigation chrome. */
+/** Print a billing document without app navigation chrome. */
 export function printBillingDocument(job: BillingPrintJob): void {
-  const win = openBillingPrintWindow(job);
-  if (!win) {
-    const blocked = window.confirm(
-      'Pop-up blocked. Allow pop-ups for this site to print cleanly, or click OK to use fallback print.',
-    );
-    if (blocked) printHtmlInIframe(job);
-  }
+  if (printBillingDocumentInWindow(job)) return;
+
+  const routeWin = openBillingPrintRoute(job);
+  if (routeWin) return;
+
+  const useFallback = window.confirm(
+    'Could not open a print window. Allow pop-ups for this site, or click OK for inline fallback print.',
+  );
+  if (useFallback) printHtmlInIframe(job);
 }
 
 /** Print a DOM node by id. */
