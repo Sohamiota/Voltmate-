@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
 import VehicleDetailDrawer from '@/components/service-manager/VehicleDetailDrawer';
@@ -121,6 +121,14 @@ function svcObj(v: Vehicle, n: 1 | 2 | 3): VehicleService | null {
 }
 
 export default function ServiceManagerVehiclesPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-muted-foreground text-sm">Loading vehicles…</div>}>
+      <ServiceManagerVehiclesPageInner />
+    </Suspense>
+  );
+}
+
+function ServiceManagerVehiclesPageInner() {
   const searchParams = useSearchParams();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);

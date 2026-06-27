@@ -1,14 +1,12 @@
-type PrintInIframeOptions = {
-  html: string;
-  title: string;
-  css: string;
-};
+import { openBillingPrintWindow, type BillingPrintJob } from '@/lib/billing/printJob';
 
-/** Print isolated HTML in a hidden iframe (no app shell / nav chrome). */
+type PrintInIframeOptions = BillingPrintJob;
+
+/** Print isolated HTML in a hidden iframe (fallback when popup is blocked). */
 export function printHtmlInIframe({ html, title, css }: PrintInIframeOptions): void {
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
-  iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden';
+  iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:820px;height:1200px;border:0;visibility:hidden';
   document.body.appendChild(iframe);
 
   const doc = iframe.contentDocument;
@@ -26,7 +24,7 @@ export function printHtmlInIframe({ html, title, css }: PrintInIframeOptions): v
   doc.close();
 
   const cleanup = () => {
-    setTimeout(() => iframe.remove(), 500);
+    setTimeout(() => iframe.remove(), 1000);
   };
 
   const triggerPrint = () => {
@@ -56,10 +54,34 @@ export function printHtmlInIframe({ html, title, css }: PrintInIframeOptions): v
   });
 }
 
-/** Print a DOM node by id, using optional extra CSS for document styling. */
+/** Print a billing document in a new window without app navigation chrome. */
+export function printBillingDocument(job: BillingPrintJob): void {
+  const win = openBillingPrintWindow(job);
+  if (!win) {
+    const blocked = window.confirm(
+      'Pop-up blocked. Allow pop-ups for this site to print cleanly, or click OK to use fallback print.',
+    );
+    if (blocked) printHtmlInIframe(job);
+  }
+}
+
+/** Print a DOM node by id. */
 export function printElementById(elementId: string, title: string, css = ''): boolean {
   const root = document.getElementById(elementId);
   if (!root) return false;
-  printHtmlInIframe({ html: root.outerHTML, title, css });
+  printBillingDocument({ html: root.outerHTML, title, css });
   return true;
+}
+
+/** Download document HTML as a file (works offline). */
+export function downloadBillingHtml(job: BillingPrintJob): void {
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${job.title}</title>`
+    + `<style>${job.css}</style></head><body>${job.html}</body></html>`;
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${job.title.replace(/[/\\:*?"<>|]/g, '-')}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
 }

@@ -15,7 +15,8 @@ import {
 } from '@/lib/billing/format';
 import { nextQuoteNo, nextReceiptNo } from '@/lib/billing/numbering';
 import { EULER_VEHICLES, EULER_VEHICLE_NAMES, resolveQuoteVehicle, vehicleByName } from '@/lib/billing/eulerVehicles';
-import { printElementById } from '@/lib/printDocument';
+import { saveLocalBillingDocument, listLocalBillingDocuments, deleteLocalBillingDocument } from '@/lib/billing/localArchive';
+import { printElementById, downloadBillingHtml } from '@/lib/printDocument';
 import type {
   BillingDocumentRecord, CompanyProfile, QuotationDraft, QuoteTableRow, ReceiptDraft,
 } from '@/lib/billing/types';
@@ -251,6 +252,11 @@ const CSS = `
   .bill-save-status{font-size:12px;color:#86efac;margin-top:8px;}
   .bill-btn-save{background:rgba(124,58,237,.14);color:#a78bfa;border-color:rgba(124,58,237,.35);}
   .bill-btn-save:hover:not(:disabled){background:rgba(124,58,237,.22);}
+  .bill-btn-dl{background:rgba(59,130,246,.14);color:#60a5fa;border-color:rgba(59,130,246,.35);}
+  .bill-btn-dl:hover:not(:disabled){background:rgba(59,130,246,.22);}
+  .bill-action-bar{position:sticky;top:0;z-index:30;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:12px;padding:12px 14px;margin-bottom:16px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;}
+  .bill-action-label{font-size:13px;font-weight:700;color:#fff;}
+  .bill-action-hint{font-size:11px;color:#9ca3af;margin-top:2px;}
   .bill-check-row{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:#d1d5db;}
   .bill-check-row input{width:auto;}
   @media print{
@@ -418,8 +424,23 @@ export default function BillingPage() {
     return quote.quoteNo ? `Quotation - ${quote.quoteNo}` : 'Quotation';
   }
 
+  function getPrintJob() {
+    const root = document.getElementById('billing-print-root');
+    if (!root) return null;
+    return { title: printDocumentTitle(), html: root.outerHTML, css: PRINT_FRAME_CSS };
+  }
+
   function handlePrint() {
-    printElementById('billing-print-root', printDocumentTitle(), PRINT_FRAME_CSS);
+    const job = getPrintJob();
+    if (!job) return;
+    printElementById('billing-print-root', job.title, job.css);
+  }
+
+  function handleDownload() {
+    const job = getPrintJob();
+    if (!job) return;
+    downloadBillingHtml(job);
+    setSaveStatus('Downloaded HTML copy of this document');
   }
 
   async function handleSave() {
@@ -434,8 +455,8 @@ export default function BillingPage() {
         ? buildQuotationPayload(quote, company)
         : buildReceiptPayload(receipt, company);
 
-      const doc = await saveBillingDocument({
-        doc_type: isQuote ? 'quotation' : 'receipt',
+      const input = {
+        doc_type: (isQuote ? 'quotation' : 'receipt') as const,
         doc_no: isQuote ? quote.quoteNo : receipt.receiptNo,
         doc_date: isQuote ? quote.date : receipt.date,
         customer_name: isQuote ? quote.customerName : receipt.customerName,
@@ -447,14 +468,29 @@ export default function BillingPage() {
         print_css: PRINT_FRAME_CSS,
         visit_id: linkedVisit?.id ?? (isQuote ? quote.visitId : receipt.visitId) ?? null,
         update_visit_status: isQuote && updateVisitStatus && Boolean(linkedVisit?.id ?? quote.visitId),
-      });
+      };
 
-      if (isQuote) {
-        setQuote(q => ({ ...q, quoteNo: doc.doc_no }));
-      } else {
-        setReceipt(r => ({ ...r, receiptNo: doc.doc_no }));
+      try {
+        const doc = await saveBillingDocument(input);
+        if (isQuote) setQuote(q => ({ ...q, quoteNo: doc.doc_no }));
+        else setReceipt(r => ({ ...r, receiptNo: doc.doc_no }));
+        setSaveStatus(`Saved to server: ${doc.doc_no}${doc.drive_web_link ? ' · Drive' : ''}`);
+      } catch {
+        const local = saveLocalBillingDocument({
+          doc_type: input.doc_type,
+          doc_no: input.doc_no,
+          doc_date: input.doc_date,
+          customer_name: input.customer_name,
+          customer_phone: input.customer_phone,
+          vehicle_model: input.vehicle_model,
+          grand_total: input.grand_total,
+          payload: input.payload,
+          visit_id: input.visit_id,
+          lead_cust_code: isQuote ? quote.leadCustCode : receipt.leadCustCode,
+        });
+        setSaveStatus(`Saved on this device: ${local.doc_no} (server unavailable — sync when backend is updated)`);
       }
-      setSaveStatus(`Saved ${doc.doc_no}${doc.drive_web_link ? ' · uploaded to Drive' : ''}`);
+
       setDocsRefreshKey(k => k + 1);
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Could not save document');
