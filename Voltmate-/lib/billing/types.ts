@@ -19,6 +19,8 @@ export type ReceiptDraft = {
   vehicleModel: string;
   bookingDate: string;
   notes: string;
+  visitId?: number | null;
+  leadCustCode?: string | null;
 };
 
 export type BankDetails = {
@@ -49,6 +51,9 @@ export type QuotationDraft = {
   inclusions: string;
   terms: string;
   notes: string;
+  visitId?: number | null;
+  leadCustCode?: string | null;
+  showVehicleImage?: boolean;
 };
 
 export type CompanyProfile = {
@@ -63,4 +68,34 @@ export type CompanyProfile = {
   gstin: string;
   website: string;
   bank: BankDetails;
+};
+
+export type BillingDocType = 'quotation' | 'receipt';
+
+export type BillingDocumentRecord = {
+  id: number;
+  doc_type: BillingDocType;
+  doc_no: string;
+  doc_date: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  vehicle_model: string | null;
+  grand_total: number | null;
+  payload: Record<string, unknown>;
+  visit_id: number | null;
+  lead_id: number | null;
+  lead_cust_code: string | null;
+  file_path: string | null;
+  created_by: number | null;
+  created_by_name: string | null;
+  created_at: string;
+  drive_file_id: string | null;
+  drive_web_link: string | null;
+  drive_upload_status: string | null;
+  drive_error: string | null;
+  visit_status: string | null;
+  visit_date: string | null;
+  visit_next_action: string | null;
+  visit_next_action_date: string | null;
+  visit_cust_name: string | null;
 };

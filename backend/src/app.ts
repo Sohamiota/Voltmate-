@@ -19,6 +19,7 @@ import serviceStatusRoutes from './routes/serviceStatus';
 import networkRoutes     from './routes/networks';
 import locationRoutes    from './routes/location';
 import leaveRoutes       from './routes/leave';
+import billingRoutes     from './routes/billing';
 import youtubeRoutes     from './routes/youtube';
 import whatsappRoutes    from './routes/whatsapp';
 import { listEmployees } from './controllers/authController';
@@ -112,6 +113,7 @@ app.use('/api/v1/vehicles',      vehicleRoutes);
 app.use('/api/v1/networks',      networkRoutes);
 app.use('/api/v1/location',      locationRoutes);
 app.use('/api/v1/leave',         leaveRoutes);
+app.use('/api/v1/billing',       billingRoutes);
 app.use('/api/v1/youtube',       youtubeRoutes);
 
 // [H-6] /api/v1/employees is already exposed via /api/v1/auth/employees (with auth).

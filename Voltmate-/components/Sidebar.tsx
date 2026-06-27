@@ -41,6 +41,7 @@ export default function Sidebar({
 
       {/* Sidebar panel — slide-over drawer; collapsible on all screen sizes */}
       <aside
+        data-shell-sidebar
         className={cn(
           'fixed inset-y-0 left-0 z-50 w-64 bg-sidebar border-r border-sidebar-border flex flex-col transition-transform duration-300 ease-in-out',
           isOpen ? 'translate-x-0' : '-translate-x-full',

@@ -61,7 +61,7 @@ function ShellLayoutInner({ children }: Props) {
           userRole={userRole}
           serviceAlertCount={serviceAlertCount}
         />
-        <main className="flex-1 overflow-auto">
+        <main data-shell-main className="flex-1 overflow-auto">
           {children}
         </main>
       </div>

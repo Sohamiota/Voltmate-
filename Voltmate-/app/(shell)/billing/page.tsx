@@ -2,14 +2,22 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import BillingDocumentPreview from '@/components/billing/BillingDocumentPreview';
+import SavedDocumentsPanel from '@/components/billing/SavedDocumentsPanel';
+import VisitLinkPanel, { type LinkedVisit } from '@/components/billing/VisitLinkPanel';
 import { DEFAULT_COMPANY, detectCompanyAddress } from '@/lib/billing/company';
+import {
+  buildQuotationPayload,
+  buildReceiptPayload,
+  saveBillingDocument,
+} from '@/lib/billing/api';
 import {
   addDaysIso, defaultQuoteRows, newQuoteRow, quoteGrandTotal, receiptTotalAmount, todayIso,
 } from '@/lib/billing/format';
 import { nextQuoteNo, nextReceiptNo } from '@/lib/billing/numbering';
 import { EULER_VEHICLES, EULER_VEHICLE_NAMES, resolveQuoteVehicle, vehicleByName } from '@/lib/billing/eulerVehicles';
+import { printElementById } from '@/lib/printDocument';
 import type {
-  CompanyProfile, QuotationDraft, QuoteTableRow, ReceiptDraft,
+  BillingDocumentRecord, CompanyProfile, QuotationDraft, QuoteTableRow, ReceiptDraft,
 } from '@/lib/billing/types';
 
 const DEFAULT_QUOTE_TERMS = `1. The above prices are inclusive of GST 5%
@@ -110,8 +118,10 @@ const CSS = `
   .bill-v-body{padding:10px 12px 12px;}
   .bill-v-name{font-size:11px;font-weight:600;color:#e5e5e5;line-height:1.35;margin-bottom:4px;}
   .bill-v-cat{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#6b7280;}
-  .bill-v-pick{margin-top:12px;border-radius:10px;overflow:hidden;border:1px solid #333;background:#0f0f0f;}
-  .bill-v-pick img{width:100%;max-height:160px;object-fit:contain;padding:10px;}
+  .bill-v-pick{margin-top:12px;border-radius:10px;overflow:hidden;border:1px solid #333;background:#0f0f0f;position:relative;}
+  .bill-v-pick img{width:100%;max-height:160px;object-fit:contain;padding:10px;display:block;}
+  .bill-v-pick-del{position:absolute;top:8px;right:8px;background:rgba(239,68,68,.9);color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;line-height:1;}
+  .bill-v-pick-del:hover{background:#ef4444;}
   .bill-doc-brand{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:24px;padding-bottom:14px;margin-bottom:16px;border-bottom:2px solid #0057B8;font-family:Calibri,'Segoe UI',Arial,sans-serif;}
   .bill-doc-brand-vw{display:flex;align-items:center;gap:16px;min-width:0;}
   .bill-doc-brand-vw-meta{min-width:0;}
@@ -210,17 +220,65 @@ const CSS = `
   .bill-qt-list,.bill-qt-terms{margin-left:22px;line-height:1.55;}
   .bill-qt-terms{margin-bottom:20px;}
   .bill-qt-bank{margin-left:auto;max-width:320px;text-align:left;line-height:1.6;font-size:12px;border-top:1px solid #ccc;padding-top:10px;}
+  .bill-visit-panel,.bill-saved-panel{background:#111;border:1px solid #2a2a2a;border-radius:14px;padding:16px;margin-bottom:18px;}
+  .bill-visit-hdr,.bill-saved-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+  .bill-visit-title,.bill-saved-title{font-size:14px;font-weight:700;color:#fff;}
+  .bill-visit-sub,.bill-saved-sub{font-size:12px;color:#9ca3af;margin-top:4px;line-height:1.45;max-width:520px;}
+  .bill-visit-search{width:100%;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:9px 11px;color:#e5e5e5;font-size:13px;margin-bottom:12px;}
+  .bill-visit-error{color:#f87171;font-size:12px;margin-bottom:10px;}
+  .bill-visit-empty{color:#6b7280;font-size:12px;padding:12px 0;}
+  .bill-visit-list{display:flex;flex-direction:column;gap:8px;max-height:280px;overflow:auto;}
+  .bill-visit-row{text-align:left;background:#0f0f0f;border:1px solid #333;border-radius:10px;padding:10px 12px;cursor:pointer;color:#e5e5e5;}
+  .bill-visit-row:hover{border-color:#00d9ff;}
+  .bill-visit-row-top{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;}
+  .bill-visit-row-meta{font-size:11px;color:#9ca3af;line-height:1.45;}
+  .bill-visit-selected{background:#0f0f0f;border:1px solid rgba(0,217,255,.25);border-radius:10px;padding:12px;}
+  .bill-visit-selected-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .bill-visit-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;}
+  @media(max-width:640px){.bill-visit-grid{grid-template-columns:1fr;}}
+  .bill-visit-grid span{display:block;font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;}
+  .bill-visit-grid strong{color:#e5e5e5;font-weight:600;line-height:1.4;}
+  .bill-visit-wide{grid-column:1/-1;}
+  .bill-visit-prior{margin-top:12px;padding-top:10px;border-top:1px solid #333;}
+  .bill-visit-prior-title{font-size:11px;font-weight:700;color:#9ca3af;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;}
+  .bill-visit-prior ul{margin:0;padding-left:18px;font-size:12px;color:#d1d5db;line-height:1.5;}
+  .bill-saved-table-wrap{overflow:auto;max-height:360px;}
+  .bill-saved-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .bill-saved-table th,.bill-saved-table td{border-bottom:1px solid #2a2a2a;padding:8px 10px;text-align:left;vertical-align:top;}
+  .bill-saved-table th{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;}
+  .bill-saved-muted{font-size:10px;color:#6b7280;margin-top:2px;}
+  .bill-saved-actions{display:flex;flex-wrap:wrap;gap:4px;}
+  .bill-save-status{font-size:12px;color:#86efac;margin-top:8px;}
+  .bill-btn-save{background:rgba(124,58,237,.14);color:#a78bfa;border-color:rgba(124,58,237,.35);}
+  .bill-btn-save:hover:not(:disabled){background:rgba(124,58,237,.22);}
+  .bill-check-row{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:#d1d5db;}
+  .bill-check-row input{width:auto;}
   @media print{
     @page{size:A4;margin:10mm;}
     html,body{height:auto!important;overflow:visible!important;background:#fff!important;margin:0!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    body.billing-print-active *{visibility:hidden;}
+    body.billing-print-active #billing-print-root,
+    body.billing-print-active #billing-print-root *{visibility:visible;}
+    body.billing-print-active #billing-print-root{
+      position:absolute;left:0;top:0;width:100%;box-shadow:none!important;border-radius:0!important;
+      margin:0!important;padding:0!important;min-width:0!important;max-width:100%!important;
+    }
+    body.billing-print-active main,
+    body.billing-print-active .flex.h-screen{overflow:visible!important;height:auto!important;}
     .bill-pg-hdr,.bill-tabs,.bill-brand-bar,.bill-gallery,.bill-panel{display:none!important;}
     .bill-root{min-height:0!important;padding:0!important;background:#fff!important;}
     .bill-layout{display:block!important;gap:0!important;}
     .bill-preview-wrap{max-height:none!important;overflow:visible!important;padding:0!important;margin:0!important;background:#fff!important;border-radius:0!important;box-shadow:none!important;}
-    #billing-print-root{box-shadow:none!important;border-radius:0!important;margin:0!important;padding:0!important;width:100%!important;min-width:0!important;max-width:100%!important;}
     .bill-doc-mm{border:none!important;border-radius:0!important;max-width:100%!important;min-height:0!important;}
     .bill-doc-qt{min-width:0!important;max-width:100%!important;padding:16px 0!important;}
   }
+`;
+
+const PRINT_FRAME_CSS = `
+  ${CSS}
+  html,body{margin:0;padding:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  @page{size:A4;margin:10mm;}
+  #billing-print-root{width:100%;box-shadow:none;border-radius:0;margin:0;padding:0;}
 `;
 
 function QuoteRowsEditor({
@@ -290,6 +348,11 @@ export default function BillingPage() {
   const [tab, setTab] = useState<'receipt' | 'quotation'>('receipt');
   const [company, setCompany] = useState<CompanyProfile>(DEFAULT_COMPANY);
   const [locStatus, setLocStatus] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('');
+  const [docsRefreshKey, setDocsRefreshKey] = useState(0);
+  const [updateVisitStatus, setUpdateVisitStatus] = useState(true);
+  const [linkedVisit, setLinkedVisit] = useState<LinkedVisit | null>(null);
 
   const [receipt, setReceipt] = useState<ReceiptDraft>(() => ({
     receiptNo: '',
@@ -337,20 +400,141 @@ export default function BillingPage() {
     refreshLocation();
   }, [refreshLocation]);
 
+  useEffect(() => {
+    const onBeforePrint = () => document.body.classList.add('billing-print-active');
+    const onAfterPrint = () => document.body.classList.remove('billing-print-active');
+    window.addEventListener('beforeprint', onBeforePrint);
+    window.addEventListener('afterprint', onAfterPrint);
+    return () => {
+      window.removeEventListener('beforeprint', onBeforePrint);
+      window.removeEventListener('afterprint', onAfterPrint);
+    };
+  }, []);
+
+  function printDocumentTitle() {
+    if (tab === 'receipt') {
+      return receipt.receiptNo ? `Margin Money Receipt - ${receipt.receiptNo}` : 'Margin Money Receipt';
+    }
+    return quote.quoteNo ? `Quotation - ${quote.quoteNo}` : 'Quotation';
+  }
+
   function handlePrint() {
+    printElementById('billing-print-root', printDocumentTitle(), PRINT_FRAME_CSS);
+  }
+
+  async function handleSave() {
     const root = document.getElementById('billing-print-root');
     if (!root) return;
-    document.body.classList.add('billing-print-active');
-    const cleanup = () => {
-      document.body.classList.remove('billing-print-active');
-      window.removeEventListener('afterprint', cleanup);
-    };
-    window.addEventListener('afterprint', cleanup);
-    window.print();
+
+    setSaving(true);
+    setSaveStatus('');
+    try {
+      const isQuote = tab === 'quotation';
+      const payload = isQuote
+        ? buildQuotationPayload(quote, company)
+        : buildReceiptPayload(receipt, company);
+
+      const doc = await saveBillingDocument({
+        doc_type: isQuote ? 'quotation' : 'receipt',
+        doc_no: isQuote ? quote.quoteNo : receipt.receiptNo,
+        doc_date: isQuote ? quote.date : receipt.date,
+        customer_name: isQuote ? quote.customerName : receipt.customerName,
+        customer_phone: isQuote ? quote.customerPhone : receipt.customerPhone,
+        vehicle_model: isQuote ? quote.vehicleModel : receipt.vehicleModel,
+        grand_total: isQuote ? quoteGrandTotal(quote.rows) : receiptTotalAmount(receipt.cashAmount, receipt.upiAmount),
+        payload,
+        html_snapshot: root.outerHTML,
+        print_css: PRINT_FRAME_CSS,
+        visit_id: linkedVisit?.id ?? (isQuote ? quote.visitId : receipt.visitId) ?? null,
+        update_visit_status: isQuote && updateVisitStatus && Boolean(linkedVisit?.id ?? quote.visitId),
+      });
+
+      if (isQuote) {
+        setQuote(q => ({ ...q, quoteNo: doc.doc_no }));
+      } else {
+        setReceipt(r => ({ ...r, receiptNo: doc.doc_no }));
+      }
+      setSaveStatus(`Saved ${doc.doc_no}${doc.drive_web_link ? ' · uploaded to Drive' : ''}`);
+      setDocsRefreshKey(k => k + 1);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not save document');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function applyVisitToForm(visit: LinkedVisit) {
+    setLinkedVisit(visit);
+    if (tab === 'quotation') {
+      setQuote(q => ({
+        ...q,
+        visitId: visit.id,
+        leadCustCode: visit.leadCustCode,
+        customerName: visit.custName !== '—' ? visit.custName : q.customerName,
+        customerPhone: visit.phone || q.customerPhone,
+        customerAddress: visit.address || q.customerAddress,
+        vehicleModel: visit.vehicle || q.vehicleModel,
+        sharedBy: visit.salesperson !== '—' ? visit.salesperson : q.sharedBy,
+      }));
+    } else {
+      setReceipt(r => ({
+        ...r,
+        visitId: visit.id,
+        leadCustCode: visit.leadCustCode,
+        customerName: visit.custName !== '—' ? visit.custName.toUpperCase() : r.customerName,
+        customerPhone: visit.phone || r.customerPhone,
+        customerAddress: visit.address || r.customerAddress,
+        vehicleModel: visit.vehicle || r.vehicleModel,
+      }));
+    }
+  }
+
+  function handleVisitSelect(visit: LinkedVisit | null) {
+    setLinkedVisit(visit);
+    if (!visit) {
+      if (tab === 'quotation') setQuote(q => ({ ...q, visitId: null, leadCustCode: null }));
+      else setReceipt(r => ({ ...r, visitId: null, leadCustCode: null }));
+      return;
+    }
+    if (tab === 'quotation') {
+      setQuote(q => ({ ...q, visitId: visit.id, leadCustCode: visit.leadCustCode }));
+    } else {
+      setReceipt(r => ({ ...r, visitId: visit.id, leadCustCode: visit.leadCustCode }));
+    }
+  }
+
+  function reloadSavedDocument(doc: BillingDocumentRecord) {
+    const payload = doc.payload as { quote?: QuotationDraft; receipt?: ReceiptDraft; company?: CompanyProfile };
+    if (payload.company) setCompany(payload.company);
+    if (doc.doc_type === 'quotation' && payload.quote) {
+      setTab('quotation');
+      setQuote({ ...payload.quote, visitId: doc.visit_id, leadCustCode: doc.lead_cust_code });
+    }
+    if (doc.doc_type === 'receipt' && payload.receipt) {
+      setTab('receipt');
+      setReceipt({ ...payload.receipt, visitId: doc.visit_id, leadCustCode: doc.lead_cust_code });
+    }
+    if (doc.visit_id) {
+      setLinkedVisit({
+        id: doc.visit_id,
+        leadCustCode: doc.lead_cust_code,
+        custName: doc.customer_name || doc.visit_cust_name || '—',
+        phone: doc.customer_phone || '',
+        address: '',
+        vehicle: doc.vehicle_model || '',
+        status: doc.visit_status || '—',
+        visitDate: doc.visit_date ? String(doc.visit_date).slice(0, 10) : '—',
+        nextAction: doc.visit_next_action || '—',
+        nextActionDate: doc.visit_next_action_date ? String(doc.visit_next_action_date).slice(0, 10) : '—',
+        salesperson: '—',
+        note: '',
+      });
+    }
   }
 
   function resetReceipt() {
     const date = todayIso();
+    setLinkedVisit(null);
     setReceipt({
       receiptNo: nextReceiptNo(date),
       date,
@@ -368,6 +552,7 @@ export default function BillingPage() {
 
   function resetQuote() {
     const date = todayIso();
+    setLinkedVisit(null);
     setQuote({
       quoteNo: nextQuoteNo(date),
       date,
@@ -394,7 +579,7 @@ export default function BillingPage() {
         description: name,
         remarks: v?.tagline || rows[0].remarks,
       };
-      return { ...q, vehicleModel: name, rows };
+      return { ...q, vehicleModel: name, rows, showVehicleImage: true };
     });
   }
 
@@ -409,7 +594,12 @@ export default function BillingPage() {
   function onVehicleModelChange(name: string) {
     setQuote(q => {
       const rows = q.rows.length > 0 ? q.rows.map((r, i) => (i === 0 ? { ...r, description: name } : r)) : defaultQuoteRows(name);
-      return { ...q, vehicleModel: name, rows };
+      return {
+        ...q,
+        vehicleModel: name,
+        rows,
+        showVehicleImage: resolveQuoteVehicle(name) ? true : q.showVehicleImage,
+      };
     });
   }
 
@@ -429,8 +619,12 @@ export default function BillingPage() {
           </div>
         </div>
         <div className="bill-btn-row">
+          <button type="button" className="bill-btn bill-btn-save" onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving…' : 'Save document'}
+          </button>
           <button type="button" className="bill-btn bill-btn-print" onClick={handlePrint}>Print / Save PDF</button>
         </div>
+        {saveStatus && <div className="bill-save-status">{saveStatus}</div>}
       </div>
 
       <div className="bill-tabs">
@@ -446,6 +640,31 @@ export default function BillingPage() {
         <span className="bill-brand-bar-title">Volt Wheels</span>
         <span className="bill-brand-bar-sub">Billing &amp; Documents</span>
       </div>
+
+      <VisitLinkPanel
+        linkedVisitId={linkedVisit?.id ?? (tab === 'quotation' ? quote.visitId : receipt.visitId) ?? null}
+        onSelect={handleVisitSelect}
+        onApplyToForm={applyVisitToForm}
+        docType={tab}
+      />
+
+      {tab === 'quotation' && (
+        <label className="bill-check-row">
+          <input
+            type="checkbox"
+            checked={updateVisitStatus}
+            onChange={e => setUpdateVisitStatus(e.target.checked)}
+          />
+          After saving quotation, mark linked visit as &quot;Quotation Shared&quot;
+        </label>
+      )}
+
+      <SavedDocumentsPanel
+        docType={tab}
+        printCss={PRINT_FRAME_CSS}
+        onReload={reloadSavedDocument}
+        refreshKey={docsRefreshKey}
+      />
 
       {tab === 'quotation' && (
         <div className="bill-gallery">
@@ -678,10 +897,29 @@ export default function BillingPage() {
                   <datalist id="quote-vehicle-models">
                     {EULER_VEHICLE_NAMES.map(n => <option key={n} value={n} />)}
                   </datalist>
-                  {selectedVehicle && (
+                  {selectedVehicle && quote.showVehicleImage !== false && (
                     <div className="bill-v-pick">
+                      <button
+                        type="button"
+                        className="bill-v-pick-del"
+                        onClick={() => setQuote(q => ({ ...q, showVehicleImage: false }))}
+                        aria-label="Remove vehicle image"
+                      >
+                        Remove image
+                      </button>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={selectedVehicle.image} alt={selectedVehicle.name} />
+                    </div>
+                  )}
+                  {selectedVehicle && quote.showVehicleImage === false && (
+                    <div className="bill-btn-row" style={{ marginTop: 10 }}>
+                      <button
+                        type="button"
+                        className="bill-btn bill-btn-ghost"
+                        onClick={() => setQuote(q => ({ ...q, showVehicleImage: true }))}
+                      >
+                        Show vehicle image
+                      </button>
                     </div>
                   )}
                 </div>

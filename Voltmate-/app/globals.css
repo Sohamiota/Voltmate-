@@ -93,3 +93,31 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  [data-shell-sidebar],
+  [data-shell-header] {
+    display: none !important;
+  }
+
+  [data-shell-main] {
+    overflow: visible !important;
+  }
+
+  .flex.h-screen {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+}

@@ -272,7 +272,7 @@ function VoltWheelsQuotation({ company, quote }: { company: CompanyProfile; quot
               <td>{i + 1}</td>
               <td>
                 <div className="bill-qt-vmodel">{row.description || '—'}</div>
-                {i === 0 && quoteVehicle && (
+                {i === 0 && quoteVehicle && quote.showVehicleImage !== false && (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={quoteVehicle.image} alt={row.description} className="bill-qt-vimg" />
                 )}
