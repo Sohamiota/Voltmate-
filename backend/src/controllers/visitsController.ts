@@ -5,6 +5,7 @@ import { ensureLocationPingCols } from './locationController';
 import {
   reqId, optId, optStr, optPhone, optDate, optEnum, optBool,
   collectErrors, parsePagination, VISIT_STATUSES,
+  MAX_CSV_EXPORT_ROWS,
   LOST_NOT_INTEREST_REASONS, LOST_NOT_INTERESTED_STATUS,
 } from '../utils/validate';
 import { parseCrmDeferralBody, ParsedCrmDeferral } from '../utils/crmDeferral';
@@ -49,6 +50,12 @@ function sqlQuoteStatusList(items: readonly string[]): string {
 function parseIncludeLost(raw: unknown): boolean {
   const v = String(raw ?? '').trim().toLowerCase();
   return v === '1' || v === 'true' || v === 'yes';
+}
+
+function parseVisitDateParam(raw: unknown): string | null {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
 }
 
 function visitReportWhereSql(includeLost: boolean): string {
@@ -396,9 +403,24 @@ ${VISIT_CRM_SQL},
 export async function listVisibleVisits(req: Request, res: Response) {
   const { limit, offset } = parsePagination(req.query.limit, req.query.offset);
   const includeLost = parseIncludeLost(req.query.include_lost);
+  const visitDateFrom = parseVisitDateParam(req.query.visit_date_from);
+  const visitDateTo = parseVisitDateParam(req.query.visit_date_to);
   try {
     await ensureVisitsCols();
-    const whereExtra = visitReportWhereSql(includeLost);
+    const whereParts = [visitReportWhereSql(includeLost)];
+    const params: (string | number)[] = [];
+    if (visitDateFrom) {
+      params.push(visitDateFrom);
+      whereParts.push(`v.visit_date >= $${params.length}`);
+    }
+    if (visitDateTo) {
+      params.push(visitDateTo);
+      whereParts.push(`v.visit_date <= $${params.length}`);
+    }
+    params.push(limit, offset);
+    const limitIdx = params.length - 1;
+    const offsetIdx = params.length;
+    const whereExtra = whereParts.join(' AND ');
     const r = await query(
       `SELECT v.id, v.lead_id, v.lead_cust_code, v.salesperson_id, v.vehicle, v.status,
               v.visit_date, v.next_action, v.next_action_date, v.note, v.phone_no, v.phone_no_2,
@@ -422,10 +444,17 @@ ${VISIT_CRM_SQL},
        LEFT JOIN users  uu ON uu.id = v.updated_by
        WHERE ${whereExtra}
        ORDER BY v.created_at DESC
-       LIMIT $1 OFFSET $2`,
-      [limit, offset],
+       LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+      params,
     );
-    res.json({ visits: (r as any).rows, limit, offset, include_lost: includeLost });
+    res.json({
+      visits: (r as any).rows,
+      limit,
+      offset,
+      include_lost: includeLost,
+      visit_date_from: visitDateFrom,
+      visit_date_to: visitDateTo,
+    });
   } catch (e) {
     console.error('listVisibleVisits error:', e);
     res.status(500).json({ error: 'failed' });
@@ -455,6 +484,7 @@ export async function exportVisitsCSV(req: Request, res: Response) {
       LEFT JOIN users uc ON uc.id = v.created_by
       LEFT JOIN users uu ON uu.id = v.updated_by
       ORDER BY v.created_at DESC
+      LIMIT ${MAX_CSV_EXPORT_ROWS}
     `);
     const rows   = (r as any).rows;
     const header = ['id','lead_cust_code','lead_type','connect_date','cust_name','lead_location','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','lost_not_interested_reason','lost_reason_notes',...VISIT_CSV_CRM_KEYS,'is_hot_lead','visit_location_captured_at','created_by_name','created_at','updated_by_name','updated_at'];
@@ -674,6 +704,7 @@ export async function exportVisibleVisitsCSV(req: Request, res: Response) {
       LEFT JOIN users uu ON uu.id = v.updated_by
       WHERE ${whereExtra}
       ORDER BY v.created_at DESC
+      LIMIT ${MAX_CSV_EXPORT_ROWS}
     `);
     const rows   = (r as any).rows;
     const header = ['id','lead_cust_code','lead_type','connect_date','cust_name','lead_location','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','lost_not_interested_reason','lost_reason_notes',...VISIT_CSV_CRM_KEYS,'is_hot_lead','visit_location_captured_at','created_by_name','created_at','updated_by_name','updated_at'];

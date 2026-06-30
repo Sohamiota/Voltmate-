@@ -195,7 +195,7 @@ export default function LeadReportPage() {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(`${API_BASE}/api/v1/leads?limit=100000`, { headers });
+      const res = await fetch(`${API_BASE}/api/v1/leads?limit=2000`, { headers });
       if (!res.ok) {
         const txt = await res.text().catch(() => '');
         throw new Error(`API error ${res.status}${txt ? ': ' + txt : ''}`);

@@ -76,7 +76,8 @@ export async function uploadBillingFileToDrive(input: UploadInput): Promise<Driv
       console.warn('[billing] googleapis not installed — skipping Drive upload');
       return null;
     }
-    throw e;
+    console.error('[billing] Drive upload failed:', e);
+    return null;
   }
 }
 

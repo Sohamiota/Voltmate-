@@ -142,7 +142,7 @@ export default function SalesAnalyticsPage() {
     try {
       const [analyticsRes, visitsRes] = await Promise.all([
         fetch(`${API}/api/v1/visits/report/analytics`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API}/api/v1/visits/report?limit=100000`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/api/v1/visits/report?limit=2000`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (analyticsRes.ok) setData(await analyticsRes.json());
       if (visitsRes.ok)    { const j = await visitsRes.json(); setAllVisits(j.visits || []); }

@@ -143,9 +143,14 @@ export default function AdminAttendancePage() {
     if (!token) return;
     setLoading(true);
     try {
+      const end = new Date();
+      const start = new Date();
+      start.setFullYear(start.getFullYear() - 1);
+      const startDate = start.toISOString().slice(0, 10);
+      const endDate = end.toISOString().slice(0, 10);
       const [empRes, attRes] = await Promise.all([
         fetch(`${API}/api/v1/auth/employees`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API}/api/v1/attendance?limit=100000`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/api/v1/attendance?limit=2000&startDate=${startDate}&endDate=${endDate}`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (!empRes.ok || !attRes.ok) {
         console.error('Failed to fetch attendance data');

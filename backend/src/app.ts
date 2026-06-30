@@ -23,6 +23,7 @@ import billingRoutes     from './routes/billing';
 import youtubeRoutes     from './routes/youtube';
 import whatsappRoutes    from './routes/whatsapp';
 import { listEmployees } from './controllers/authController';
+import { healthCheck } from './db';
 
 const app = express();
 
@@ -83,7 +84,15 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false }));
 
 // ─── Public routes ────────────────────────────────────────────────────────────
-app.get('/api/v1/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/api/v1/health', async (_req, res) => {
+  try {
+    await healthCheck();
+    res.json({ status: 'ok', db: 'ok' });
+  } catch (e) {
+    console.error('[health] db check failed:', e);
+    res.status(503).json({ status: 'degraded', db: 'error' });
+  }
+});
 
 // Auth routes (have their own per-endpoint rate limiters inside the router)
 app.use('/api/v1/auth', authRoutes);
