@@ -156,6 +156,23 @@ const VISIT_CSV_CRM_KEYS = [
   'customer_promised_callback',
 ] as const;
 
+const VISIT_CSV_HEADER = ['id','lead_cust_code','lead_type','connect_date','cust_name','lead_location','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','lost_not_interested_reason','lost_reason_notes',...VISIT_CSV_CRM_KEYS,'is_hot_lead','visit_location_captured_at','created_by_name','created_at','updated_by_name','updated_at'];
+
+function csvCell(v: unknown): string {
+  const s = v === null || v === undefined ? '' : String(v);
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+function sendVisitCsv(res: Response, rows: Record<string, unknown>[], filename: string) {
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.write(VISIT_CSV_HEADER.join(',') + '\n');
+  for (const row of rows) {
+    res.write(VISIT_CSV_HEADER.map(h => csvCell(row[h])).join(',') + '\n');
+  }
+  res.end();
+}
+
 export async function createVisit(req: Request, res: Response) {
   try {
     const requester = (req as any).user;
@@ -487,17 +504,7 @@ export async function exportVisitsCSV(req: Request, res: Response) {
       LIMIT ${MAX_CSV_EXPORT_ROWS}
     `);
     const rows   = (r as any).rows;
-    const header = ['id','lead_cust_code','lead_type','connect_date','cust_name','lead_location','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','lost_not_interested_reason','lost_reason_notes',...VISIT_CSV_CRM_KEYS,'is_hot_lead','visit_location_captured_at','created_by_name','created_at','updated_by_name','updated_at'];
-    const csv    = [header.join(',')].concat(
-      rows.map((row: any) => header.map(h => {
-        const v = row[h];
-        const s = v === null || v === undefined ? '' : String(v);
-        return `"${s.replace(/"/g, '""')}"`;
-      }).join(',')),
-    ).join('\n');
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="visits.csv"');
-    res.send(csv);
+    sendVisitCsv(res, rows, 'visits.csv');
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'failed' });
@@ -707,17 +714,7 @@ export async function exportVisibleVisitsCSV(req: Request, res: Response) {
       LIMIT ${MAX_CSV_EXPORT_ROWS}
     `);
     const rows   = (r as any).rows;
-    const header = ['id','lead_cust_code','lead_type','connect_date','cust_name','lead_location','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','lost_not_interested_reason','lost_reason_notes',...VISIT_CSV_CRM_KEYS,'is_hot_lead','visit_location_captured_at','created_by_name','created_at','updated_by_name','updated_at'];
-    const csv    = [header.join(',')].concat(
-      rows.map((row: any) => header.map(h => {
-        const v = row[h];
-        const s = v === null || v === undefined ? '' : String(v);
-        return `"${s.replace(/"/g, '""')}"`;
-      }).join(',')),
-    ).join('\n');
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="visible_visits.csv"');
-    res.send(csv);
+    sendVisitCsv(res, rows, 'visible_visits.csv');
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'failed' });

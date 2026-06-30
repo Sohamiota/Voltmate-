@@ -7,6 +7,10 @@ import { API_BASE, getStoredToken } from '@/src/api/client';
 // YouTube calls are proxied through the backend so the API key is never
 // bundled into the client JS bundle or visible in browser DevTools.
 const YT_BASE = `${API_BASE.replace(/\/api\/v1\/?$/, '')}/api/v1/youtube`;
+
+/** Euler Motors (@EulerMotors) — fallback when handle lookup fails. */
+const EULER_CHANNEL_ID_FALLBACK = 'UCWCjm4kOin3lecjOlxa3wuQ';
+
 function ytFetch(resource: string, params: Record<string, string>) {
   const qs = new URLSearchParams(params).toString();
   return fetch(`${YT_BASE}/${resource}?${qs}`, {
@@ -14,7 +18,31 @@ function ytFetch(resource: string, params: Record<string, string>) {
   });
 }
 
-const EULER_CHANNEL = '@EulerMotors';
+async function ytFetchJson<T = Record<string, unknown>>(
+  resource: string,
+  params: Record<string, string>,
+): Promise<T> {
+  const r = await ytFetch(resource, params);
+  const d = (await r.json()) as T & { error?: string | { message?: string }; code?: string };
+
+  if (!r.ok) {
+    if (typeof d.error === 'string') throw new Error(d.error);
+    if (d.code === 'YOUTUBE_NOT_CONFIGURED') {
+      throw new Error(
+        'YouTube is not configured on the server. Ask an admin to set YOUTUBE_API_KEY on Render.',
+      );
+    }
+    const msg =
+      typeof d.error === 'object' && d.error?.message
+        ? d.error.message
+        : `YouTube request failed (${r.status})`;
+    throw new Error(msg);
+  }
+
+  const apiErr = (d as { error?: { message?: string } }).error;
+  if (apiErr?.message) throw new Error(apiErr.message);
+  return d;
+}
 
 interface Video {
   id: string;
@@ -56,36 +84,41 @@ export default function VehicleVideosPage() {
 
   useEffect(() => { fetchVideos(); }, []);
 
-  async function resolveChannelId(handle: string): Promise<string> {
-    const clean = handle.startsWith('@') ? handle.slice(1) : handle;
-    const r = await ytFetch('channels', { part: 'id', forHandle: clean });
-    const d = await r.json();
-    if (d.items?.[0]?.id) return d.items[0].id;
-    throw new Error('Channel not found.');
+  async function resolveChannelId(): Promise<string> {
+    try {
+      const cfg = await fetch(`${YT_BASE}/euler/config`, {
+        headers: { Authorization: `Bearer ${getStoredToken()}` },
+      }).then(r => r.json());
+      if (cfg?.channelId) return cfg.channelId as string;
+    } catch {
+      /* use local fallback */
+    }
+    return EULER_CHANNEL_ID_FALLBACK;
   }
 
   const fetchVideos = useCallback(async (pageToken?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const channelId = await resolveChannelId(EULER_CHANNEL);
-      const chRes = await ytFetch('channels', { part: 'snippet,contentDetails', id: channelId });
-      const chData = await chRes.json();
-      if (!chData.items?.length) throw new Error('Channel not found.');
+      const channelId = await resolveChannelId();
+      const chData = await ytFetchJson<{ items?: Array<{ snippet: { title: string }; contentDetails: { relatedPlaylists: { uploads: string } } }> }>(
+        'channels',
+        { part: 'snippet,contentDetails', id: channelId },
+      );
+      if (!chData.items?.length) {
+        throw new Error('Could not load the Euler Motors YouTube channel. Check YOUTUBE_API_KEY on the server.');
+      }
       setChannelTitle(chData.items[0].snippet.title);
       const uploadsId: string = chData.items[0].contentDetails.relatedPlaylists.uploads;
 
       const plParams: Record<string, string> = { part: 'snippet', playlistId: uploadsId, maxResults: '24' };
       if (pageToken) plParams.pageToken = pageToken;
-      const plRes = await ytFetch('playlistItems', plParams);
-      const plData: YouTubePlaylistResponse = await plRes.json();
-      if ((plData as any).error) throw new Error((plData as any).error.message);
+      const plData = await ytFetchJson<YouTubePlaylistResponse>('playlistItems', plParams);
       if (!plData.items) return;
       setNextPageToken(plData.nextPageToken || null);
 
       const videoIds: string = plData.items.map((i: any) => i.snippet.resourceId.videoId).join(',');
-      const statsRes = await ytFetch('videos', { part: 'statistics', id: videoIds });
-      const statsData = await statsRes.json();
+      const statsData = await ytFetchJson<{ items?: YouTubeVideo[] }>('videos', { part: 'statistics', id: videoIds });
       const statsMap: Record<string, YouTubeVideo> = {};
       statsData.items?.forEach((v: YouTubeVideo) => { statsMap[(v as any).id] = v; });
 

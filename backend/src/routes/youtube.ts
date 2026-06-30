@@ -2,10 +2,23 @@ import { Router, Request, Response } from 'express';
 
 const router = Router();
 
+/** Euler Motors (@EulerMotors) — used when handle lookup is unavailable. */
+export const EULER_YOUTUBE_CHANNEL_ID =
+  process.env.EULER_YOUTUBE_CHANNEL_ID || 'UCWCjm4kOin3lecjOlxa3wuQ';
+
 // Whitelisted YouTube Data API v3 resources this proxy exposes.
 // Anything not in this list is rejected — prevents the proxy from becoming an
 // open relay to arbitrary Google APIs.
 const ALLOWED_RESOURCES = new Set(['channels', 'playlistItems', 'videos']);
+
+/**
+ * GET /api/v1/youtube/euler/config
+ *
+ * Returns the known Euler Motors channel id so the client can skip handle lookup.
+ */
+router.get('/euler/config', (_req: Request, res: Response) => {
+  res.json({ channelId: EULER_YOUTUBE_CHANNEL_ID, handle: '@EulerMotors' });
+});
 
 /**
  * GET /api/v1/youtube/:resource
@@ -25,7 +38,10 @@ router.get('/:resource', async (req: Request, res: Response) => {
 
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
-    return res.status(503).json({ error: 'YouTube integration is not configured on this server' });
+    return res.status(503).json({
+      error: 'YouTube integration is not configured on this server',
+      code: 'YOUTUBE_NOT_CONFIGURED',
+    });
   }
 
   // Forward all query params from the client, then append the key.

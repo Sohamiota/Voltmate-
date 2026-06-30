@@ -72,8 +72,8 @@ export default function SalesPerformance() {
     setError('');
     try {
       const [leadsRes, visitsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/v1/leads?limit=5000`,  { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_BASE}/api/v1/visits?limit=5000`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE}/api/v1/leads?limit=1000`,  { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE}/api/v1/visits?limit=1000`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (!leadsRes.ok || !visitsRes.ok) {
         throw new Error(`HTTP ${leadsRes.status}/${visitsRes.status} fetching leads/visits`);

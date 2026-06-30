@@ -138,7 +138,7 @@ export default function OverdueVisitsPage() {
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/v1/visits/report?limit=2000`, {
+      const res = await fetch(`${API}/api/v1/visits/report?limit=1000`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {

@@ -133,10 +133,10 @@ export function sanitizeSearch(val: unknown, maxLen = 100): string {
 }
 
 /** Hard ceiling for list endpoints — prevents OOM on Render (512 MB instances). */
-export const MAX_PAGE_SIZE = 2000;
+export const MAX_PAGE_SIZE = 1000;
 
 /** CSV exports load all rows into memory — cap to avoid heap exhaustion. */
-export const MAX_CSV_EXPORT_ROWS = 5000;
+export const MAX_CSV_EXPORT_ROWS = 2000;
 
 // ── Pagination query params ───────────────────────────────────────────────────
 export function parsePagination(

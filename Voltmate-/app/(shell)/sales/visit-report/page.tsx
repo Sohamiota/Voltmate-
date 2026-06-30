@@ -275,7 +275,7 @@ export default function VisitReportPage() {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const qs = new URLSearchParams({ limit: '2000' });
+      const qs = new URLSearchParams({ limit: '1000' });
       if (includeLost) qs.set('include_lost', '1');
 
       const res = await fetch(`${API_BASE}/api/v1/visits/report?${qs}`, { headers });

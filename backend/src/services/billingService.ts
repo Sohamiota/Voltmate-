@@ -225,7 +225,11 @@ export async function listBillingDocuments(opts: {
   params.push(limit, offset);
 
   const r = await query(
-    `SELECT bd.*,
+    `SELECT bd.id, bd.doc_type, bd.doc_no, bd.doc_date,
+            bd.customer_name, bd.customer_phone, bd.vehicle_model, bd.grand_total,
+            bd.visit_id, bd.lead_id, bd.lead_cust_code, bd.file_path,
+            bd.created_by, bd.created_at,
+            bd.drive_file_id, bd.drive_web_link, bd.drive_upload_status, bd.drive_error,
             u.name AS created_by_name,
             v.status AS visit_status,
             v.visit_date,

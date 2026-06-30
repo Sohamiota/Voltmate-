@@ -396,7 +396,7 @@ export default function CreateVisitReportPage() {
   const fetchVisits = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/api/v1/visits?limit=2000`, { headers: authHeaders() });
+      const res = await fetch(`${API_BASE}/api/v1/visits?limit=1000`, { headers: authHeaders() });
       if (!res.ok) { setAllVisits([]); return; }
       const j = await res.json();
       setAllVisits(j.visits || []);
@@ -410,7 +410,7 @@ export default function CreateVisitReportPage() {
 
   const fetchLeads = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/leads?limit=2000`, { headers: authHeaders() });
+      const res = await fetch(`${API_BASE}/api/v1/leads?limit=1000`, { headers: authHeaders() });
       if (!res.ok) { setLeads([]); return; }
       const j = await res.json();
       setLeads(j.leads || []);
