@@ -3,7 +3,7 @@ import { query } from '../db';
 import { logActivity } from '../utils/activityLog';
 import {
   reqStr, optStr, optPhone, optDate, optEnum, reqId, optBool,
-  collectErrors, parsePagination, sanitizeSearch, LEAD_TYPES,
+  collectErrors, parseLeadsListQuery, sanitizeSearch, LEAD_TYPES,
 } from '../utils/validate';
 import { parseCrmDeferralBody } from '../utils/crmDeferral';
 
@@ -160,7 +160,7 @@ export async function updateLead(req: Request, res: Response) {
 }
 
 export async function listLeads(req: Request, res: Response) {
-  const { limit, offset } = parsePagination(req.query.limit, req.query.offset);
+  const { limit, offset } = parseLeadsListQuery(req.query.limit, req.query.offset);
   try {
     await ensureLeadsCols();
     const q     = sanitizeSearch(req.query.q);
@@ -187,8 +187,14 @@ export async function listLeads(req: Request, res: Response) {
       LEFT JOIN users uu ON uu.id = l.updated_by
     `;
     if (where.length) sql += ` WHERE ${where.join(' AND ')}`;
-    sql += ` ORDER BY l.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-    params.push(limit, offset);
+    sql += ' ORDER BY l.created_at DESC';
+    if (limit != null) {
+      sql += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+      params.push(limit, offset);
+    } else if (offset > 0) {
+      sql += ` OFFSET $${params.length + 1}`;
+      params.push(offset);
+    }
 
     const r = await query(sql, params);
     res.json({ leads: (r as any).rows, limit, offset });

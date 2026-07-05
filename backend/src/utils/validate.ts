@@ -152,6 +152,25 @@ export function parsePagination(
   return { limit, offset };
 }
 
+/** Leads list — omit limit (or pass `all`) to return every matching row. */
+export function parseLeadsListQuery(
+  limitRaw: unknown,
+  offsetRaw: unknown,
+): { limit: number | null; offset: number } {
+  const offset = Math.max(parseInt(String(offsetRaw ?? '0'), 10) || 0, 0);
+  if (
+    limitRaw === undefined ||
+    limitRaw === null ||
+    limitRaw === '' ||
+    String(limitRaw).toLowerCase() === 'all'
+  ) {
+    return { limit: null, offset };
+  }
+  const parsed = parseInt(String(limitRaw), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return { limit: null, offset };
+  return { limit: parsed, offset };
+}
+
 // ── Collect field errors and return a single error string (or null) ───────────
 export function collectErrors(checks: Record<string, string | null>): string | null {
   const msgs = Object.entries(checks)
