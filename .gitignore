@@ -93,17 +93,17 @@ frontend-samples/
 # ── Local-only test / debug scripts ───────────────────────────────────────────
 backend/check_pass.js
 
+# Backend ops / admin scripts (local DB tools — do not commit)
+backend/scripts/
+backend-node/scripts/
+
 # ── Root-level junk files ───────────────────────────────────────────────────
 ,
 commit_msg.txt
 render_db.json
 
-# ── Sample seed data (optional local file for seed-vehicles.js) ───────────────
-backend/scripts/seed-vehicles-data.json
+# Local SQL seeds (may contain credentials)
 backend/seed_admin.sql
-
-backend-node/scripts/generate_hash.js
-backend-node/scripts/insert_user.js
 
 # Credential / test-payload files — must never be committed
 tmp/

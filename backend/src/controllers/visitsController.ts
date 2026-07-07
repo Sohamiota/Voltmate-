@@ -108,6 +108,7 @@ async function ensureVisitsCols() {
     await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS contact_disposition TEXT`);
     await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS callback_requested_at TIMESTAMPTZ`);
     await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS customer_promised_callback BOOLEAN NOT NULL DEFAULT false`);
+    await query(`ALTER TABLE visits ADD COLUMN IF NOT EXISTS is_walk_in BOOLEAN NOT NULL DEFAULT false`);
   } catch { /* ignore */ }
   visitsColsReady = true;
   try {
@@ -156,7 +157,7 @@ const VISIT_CSV_CRM_KEYS = [
   'customer_promised_callback',
 ] as const;
 
-const VISIT_CSV_HEADER = ['id','lead_cust_code','lead_type','connect_date','cust_name','lead_location','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','lost_not_interested_reason','lost_reason_notes',...VISIT_CSV_CRM_KEYS,'is_hot_lead','visit_location_captured_at','created_by_name','created_at','updated_by_name','updated_at'];
+const VISIT_CSV_HEADER = ['id','lead_cust_code','lead_type','connect_date','cust_name','lead_location','phone_no','phone_no_2','salesperson_name','vehicle','status','visit_date','next_action','next_action_date','note','lost_not_interested_reason','lost_reason_notes',...VISIT_CSV_CRM_KEYS,'is_hot_lead','is_walk_in','visit_location_captured_at','created_by_name','created_at','updated_by_name','updated_at'];
 
 function csvCell(v: unknown): string {
   const s = v === null || v === undefined ? '' : String(v);
@@ -197,6 +198,7 @@ export async function createVisit(req: Request, res: Response) {
 
     const hotProvided = Object.prototype.hasOwnProperty.call(body, 'is_hot_lead');
     const vHot        = optBool(body.is_hot_lead);
+    const vWalkIn     = optBool(body.is_walk_in);
 
     const fieldErr = collectErrors({
       lead_id: vLeadId.error, salesperson_id: vSalesperson.error,
@@ -205,6 +207,7 @@ export async function createVisit(req: Request, res: Response) {
       connect_date: vConnDate.error, note: vNote.error,
       phone_no: vPhone.error, phone_no_2: vPhone2.error,
       is_hot_lead: hotProvided ? vHot.error : null,
+      is_walk_in: vWalkIn.error,
     });
     if (fieldErr) return res.status(400).json({ error: fieldErr });
 
@@ -226,9 +229,9 @@ export async function createVisit(req: Request, res: Response) {
          next_action, next_action_date, note, phone_no, phone_no_2,
          lost_not_interested_reason, lost_reason_notes,
          deferral_bucket, deferral_notes, follow_up_after_date, earliest_purchase_intent_date,
-         contact_disposition, callback_requested_at, customer_promised_callback,
+         contact_disposition, callback_requested_at, customer_promised_callback, is_walk_in,
          created_by, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,now(),now()) RETURNING *`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,now(),now()) RETURNING *`,
       [
         vLeadId.value, lead.cust_code, lead.lead_type || null, connect_date,
         vSalesperson.value, vVehicle.value, vStatus.value,
@@ -236,6 +239,7 @@ export async function createVisit(req: Request, res: Response) {
         vPhone.value, vPhone2.value, lostNi.reason, lostNi.notes,
         crm.deferral_bucket, crm.deferral_notes, crm.follow_up_after_date, crm.earliest_purchase_intent_date,
         crm.contact_disposition, crm.callback_requested_at, crm.customer_promised_callback,
+        vWalkIn.value,
         userId,
       ],
     );
@@ -278,6 +282,7 @@ export async function updateVisit(req: Request, res: Response) {
 
     const hotProvided = Object.prototype.hasOwnProperty.call(body, 'is_hot_lead');
     const vHot        = optBool(body.is_hot_lead);
+    const vWalkIn     = optBool(body.is_walk_in);
 
     const fieldErr = collectErrors({
       salesperson_id: vSalesperson.error, vehicle: vVehicle.error,
@@ -286,6 +291,7 @@ export async function updateVisit(req: Request, res: Response) {
       connect_date: vConnDate.error, note: vNote.error,
       phone_no: vPhone.error, phone_no_2: vPhone2.error,
       is_hot_lead: hotProvided ? vHot.error : null,
+      is_walk_in: vWalkIn.error,
     });
     if (fieldErr) return res.status(400).json({ error: fieldErr });
 
@@ -308,8 +314,9 @@ export async function updateVisit(req: Request, res: Response) {
            lost_not_interested_reason=$11, lost_reason_notes=$12,
            deferral_bucket=$13, deferral_notes=$14, follow_up_after_date=$15, earliest_purchase_intent_date=$16,
            contact_disposition=$17, callback_requested_at=$18, customer_promised_callback=$19,
-           updated_by=$20, updated_at=now()
-       WHERE id=$21 RETURNING *`,
+           is_walk_in=$20,
+           updated_by=$21, updated_at=now()
+       WHERE id=$22 RETURNING *`,
       [
         vVehicle.value, vSalesperson.value, vStatus.value, vVisitDate.value,
         vNextAction.value, vNextDate.value, vNote.value,
@@ -317,6 +324,7 @@ export async function updateVisit(req: Request, res: Response) {
         lostNi.reason, lostNi.notes,
         crm.deferral_bucket, crm.deferral_notes, crm.follow_up_after_date, crm.earliest_purchase_intent_date,
         crm.contact_disposition, crm.callback_requested_at, crm.customer_promised_callback,
+        vWalkIn.value,
         userId, id,
       ],
     );
@@ -390,6 +398,7 @@ ${VISIT_CRM_SQL},
               l.location AS lead_location,
               l.phone_no AS lead_phone_no,
               COALESCE(l.is_hot_lead, false) AS is_hot_lead,
+              COALESCE(v.is_walk_in, false) AS is_walk_in,
               u.name  AS salesperson_name,
               uc.name AS created_by_name,
               uu.name AS updated_by_name,
@@ -450,6 +459,7 @@ ${VISIT_CRM_SQL},
               l.location AS lead_location,
               l.phone_no AS lead_phone_no,
               COALESCE(l.is_hot_lead, false) AS is_hot_lead,
+              COALESCE(v.is_walk_in, false) AS is_walk_in,
               u.name  AS salesperson_name,
               uc.name AS created_by_name,
               uu.name AS updated_by_name,
@@ -492,6 +502,7 @@ export async function exportVisitsCSV(req: Request, res: Response) {
              v.deferral_bucket, v.deferral_notes, v.follow_up_after_date, v.earliest_purchase_intent_date,
              v.contact_disposition, v.callback_requested_at, v.customer_promised_callback,
              COALESCE(l.is_hot_lead, false) AS is_hot_lead,
+             COALESCE(v.is_walk_in, false) AS is_walk_in,
              uc.name AS created_by_name, v.created_at,
              uu.name AS updated_by_name, v.updated_at,
              (SELECT MAX(lp.pinged_at) FROM location_pings lp WHERE lp.visit_id = v.id) AS visit_location_captured_at
@@ -701,6 +712,7 @@ export async function exportVisibleVisitsCSV(req: Request, res: Response) {
              v.deferral_bucket, v.deferral_notes, v.follow_up_after_date, v.earliest_purchase_intent_date,
              v.contact_disposition, v.callback_requested_at, v.customer_promised_callback,
              COALESCE(l.is_hot_lead, false) AS is_hot_lead,
+             COALESCE(v.is_walk_in, false) AS is_walk_in,
              uc.name AS created_by_name, v.created_at,
              uu.name AS updated_by_name, v.updated_at,
              (SELECT MAX(lp.pinged_at) FROM location_pings lp WHERE lp.visit_id = v.id) AS visit_location_captured_at

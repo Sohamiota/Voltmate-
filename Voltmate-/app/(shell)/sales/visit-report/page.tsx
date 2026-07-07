@@ -31,6 +31,7 @@ interface Visit {
   lost_not_interested_reason?: string | null;
   lost_reason_notes?: string | null;
   is_hot_lead?: boolean;
+  is_walk_in?: boolean;
   created_by_name?: string;
   updated_by_name?: string;
   created_at?: string;
@@ -121,6 +122,7 @@ const VISIT_REPORT_CSV_COLUMNS = [
   'callback_requested_at',
   'customer_promised_callback',
   'is_hot_lead',
+  'is_walk_in',
   'visit_location_captured_at',
   'created_by_name',
   'created_at',
@@ -442,6 +444,7 @@ export default function VisitReportPage() {
       'Callback At':           xlsDateTime(v.callback_requested_at),
       'Promised Callback':     v.customer_promised_callback ? 'Yes' : 'No',
       'Hot Lead':              v.is_hot_lead ? 'Yes' : 'No',
+      'Walk In':               v.is_walk_in ? 'Yes' : 'No',
       'GPS Captured At':       xlsDateTime(v.visit_location_captured_at),
       'Created By':            v.created_by_name ?? '',
       'Created At':            xlsDateTime(v.created_at),
@@ -620,6 +623,7 @@ export default function VisitReportPage() {
                     Status {sortField === 'status' && <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>}
                   </th>
                   <th className={`${TH_BASE} text-zinc-500`}>Hot</th>
+                  <th className={`${TH_BASE} text-zinc-500`}>Walk In</th>
                   <th className={`${TH_BASE} text-zinc-500`}>Lost – NI</th>
                   <th className={thCls('visit_date')} onClick={() => handleSort('visit_date')}>
                     Visit Date {sortField === 'visit_date' && <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>}
@@ -635,7 +639,7 @@ export default function VisitReportPage() {
                 {loading ? (
                   <SkeletonRows />
                 ) : visits.length === 0 ? (
-                  <tr><td colSpan={18}>
+                  <tr><td colSpan={19}>
                     <div className="text-center py-16 px-5 text-zinc-500">
                       <div className="text-[40px] mb-3.5 opacity-40"></div>
                       <div className="text-sm">
@@ -675,6 +679,13 @@ export default function VisitReportPage() {
                       <td className="px-4 py-[13px] border-b border-zinc-800/60 align-middle text-center text-[13px]">
                         {v.is_hot_lead ? (
                           <span className={`${QUOTATION_BADGE} text-[10px]`}>Hot</span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td className="px-4 py-[13px] border-b border-zinc-800/60 align-middle text-center text-[13px]">
+                        {v.is_walk_in ? (
+                          <span className={`${BADGE_BASE} bg-violet-500/[0.12] text-violet-300 border-violet-500/25 text-[10px]`}>Walk in</span>
                         ) : (
                           '—'
                         )}
@@ -830,6 +841,16 @@ export default function VisitReportPage() {
                   <div className="flex flex-col gap-1 col-span-2">
                     <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Lead location</div>
                     <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">{previewVisit.lead_location?.trim() ? previewVisit.lead_location : '—'}</div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Walk in</div>
+                    <div className="text-[13.5px] text-zinc-200 bg-zinc-800/40 border border-zinc-800 rounded-lg px-3 py-[9px] min-h-[38px] break-words leading-relaxed">
+                      {previewVisit.is_walk_in ? (
+                        <span className={`${BADGE_BASE} bg-violet-500/[0.12] text-violet-300 border-violet-500/25 text-[11px]`}>Walk in</span>
+                      ) : (
+                        <span className="text-zinc-500">No</span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-col gap-1">
                     <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-[0.8px]">Lead priority</div>

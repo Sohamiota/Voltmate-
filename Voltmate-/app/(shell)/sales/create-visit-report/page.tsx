@@ -49,6 +49,7 @@ interface FormState {
   lost_not_interested_reason: string;
   lost_reason_notes: string;
   is_hot_lead: boolean;
+  is_walk_in: boolean;
   /** Optional CRM-linked GPS ping tied to this visit after save (same permission model as attendance). */
   capture_visit_gps: boolean;
   deferral_bucket: string;
@@ -216,6 +217,7 @@ const EMPTY_FORM: FormState = {
   lost_not_interested_reason: '',
   lost_reason_notes: '',
   is_hot_lead: false,
+  is_walk_in: false,
   capture_visit_gps: false,
   deferral_bucket: '',
   deferral_notes: '',
@@ -521,6 +523,7 @@ export default function CreateVisitReportPage() {
       lost_not_interested_reason: visit.lost_not_interested_reason || '',
       lost_reason_notes: visit.lost_reason_notes || '',
       is_hot_lead:      !!visit.is_hot_lead,
+      is_walk_in:       !!visit.is_walk_in,
       capture_visit_gps: false,
       deferral_bucket:           visit.deferral_bucket ?? '',
       deferral_notes:            visit.deferral_notes ?? '',
@@ -597,6 +600,7 @@ export default function CreateVisitReportPage() {
         phone_no_2: form.phone_no_2 || null,
         note: form.note || null,
         is_hot_lead: form.is_hot_lead,
+        is_walk_in: form.is_walk_in,
       };
       if (!isEdit) payload.lead_id = Number(form.lead_id);
       if (form.status === LOST_NOT_INTERESTED_STATUS) {
@@ -666,6 +670,7 @@ export default function CreateVisitReportPage() {
       'Callback At':           xlsDateTime(v.callback_requested_at),
       'Promised Callback':     v.customer_promised_callback ? 'Yes' : 'No',
       'Hot Lead':              v.is_hot_lead ? 'Yes' : 'No',
+      'Walk In':               v.is_walk_in ? 'Yes' : 'No',
       'GPS Captured At':       xlsDateTime(v.visit_location_captured_at),
       'Created By':            v.created_by_name ?? '',
       'Created At':            xlsDateTime(v.created_at),
@@ -770,7 +775,7 @@ export default function CreateVisitReportPage() {
             <table className="w-full border-collapse min-w-[860px]">
               <thead>
                 <tr className="border-b border-[#222638]">
-                  {['#', 'Cust. Code', 'Customer Name', 'Salesperson', 'Vehicle', 'Status', 'Hot', 'Lost – NI', 'Visit Date', 'Next Action', 'Buy window', 'Callback', 'Logged By', 'Action'].map((h, i) => (
+                  {['#', 'Cust. Code', 'Customer Name', 'Salesperson', 'Vehicle', 'Status', 'Hot', 'Walk In', 'Lost – NI', 'Visit Date', 'Next Action', 'Buy window', 'Callback', 'Logged By', 'Action'].map((h, i) => (
                     <th
                       key={i}
                       className="py-[11px] px-4 text-left text-[10.5px] font-semibold text-zinc-500 uppercase tracking-[.8px] bg-[#1a1e2e] whitespace-nowrap"
@@ -786,7 +791,7 @@ export default function CreateVisitReportPage() {
                   <SkeletonRows />
                 ) : visits.length === 0 ? (
                   <tr>
-                    <td colSpan={14}>
+                    <td colSpan={15}>
                       <div className="text-center py-[52px] px-5 text-zinc-500">
                         <div className="text-[36px] mb-3 opacity-50"></div>
                         <div className="text-[13.5px]">
@@ -811,6 +816,11 @@ export default function CreateVisitReportPage() {
                       <td className="py-3 px-4 text-center">
                         {v.is_hot_lead
                           ? <span className={`${BADGE_BASE} bg-[rgba(245,158,11,.15)] text-[#f59e0b] border-[rgba(245,158,11,.35)]`}>Hot</span>
+                          : '—'}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        {v.is_walk_in
+                          ? <span className={`${BADGE_BASE} bg-violet-500/[0.12] text-violet-300 border-violet-500/25`}>Walk in</span>
                           : '—'}
                       </td>
                       <td
@@ -1054,6 +1064,19 @@ export default function CreateVisitReportPage() {
                       </div>
                     </>
                   )}
+
+                  <div className="col-span-2 flex items-center gap-2.5 mt-1">
+                    <input
+                      id="f-walk-in"
+                      type="checkbox"
+                      checked={form.is_walk_in}
+                      onChange={e => handleFormChange('is_walk_in', e.target.checked)}
+                      className="w-[18px] h-[18px] accent-violet-400 cursor-pointer"
+                    />
+                    <label htmlFor="f-walk-in" className="cursor-pointer text-[13px] text-[#e2e8f0] select-none">
+                      Mark as <strong className="text-violet-300">walk in</strong> visit
+                    </label>
+                  </div>
 
                   <div className="col-span-2 flex items-center gap-2.5 mt-1">
                     <input

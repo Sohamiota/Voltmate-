@@ -140,6 +140,7 @@ export interface Visit {
   callback_requested_at?: string | null;
   customer_promised_callback?: boolean;
   is_hot_lead?: boolean;
+  is_walk_in?: boolean;
   lead_type?: string | null;
   connect_date?: string | null;
   cust_name?: string | null;
