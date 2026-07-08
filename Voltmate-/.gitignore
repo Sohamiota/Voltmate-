@@ -1,40 +1,33 @@
-# v0 runtime files (should only exist in preview, not in git)
-__v0_runtime_loader.js
-__v0_devtools.tsx
-__v0_jsx-dev-runtime.ts
+# Voltmate frontend — extends repo root .gitignore
+# (Git merges rules from parent directories automatically.)
 
-# Dependencies & build
+# Build & deps (when working inside Voltmate-/ only)
 node_modules/
 .next/
 out/
 dist/
 *.tsbuildinfo
 
-# Environment
+# Env — examples are allowed
 .env
-.env.local
-.env.development
-.env.production
-.env.test
-.env.*.local
+.env.*
 !.env.example
 !.env.*.example
 
-# Tooling
+# Deploy & caches
+.vercel/
 .eslintcache
 .turbo/
 .cache/
 
-# Test / E2E output
+# Local asset scrapers (not shipped to Vercel)
+scripts/
+
+# Test output
 coverage/
 test-results/
 playwright-report/
 
-# OS / editor
+# OS
 .DS_Store
 Thumbs.db
-*.swp
-*.swo
-
-# Deploy
-.vercel

@@ -11,7 +11,15 @@
  *    second layer for format/type correctness
  */
 
+import { crmPlainTextError, sanitizeCrmPlainText, type CrmPlainTextKind } from './crmTextInput';
+
 export type VResult<T> = { value: T; error: string | null };
+
+export type OptStrOptions = {
+  /** Skip charset rules (still blocks emojis / control chars). */
+  loose?: boolean;
+  plainTextKind?: CrmPlainTextKind;
+};
 
 // ── Strip HTML / script tags from a string ────────────────────────────────────
 function strip(s: string): string {
@@ -22,23 +30,49 @@ function strip(s: string): string {
 }
 
 // ── Optional free-text field ──────────────────────────────────────────────────
-export function optStr(val: unknown, maxLen = 500): VResult<string | null> {
+export function optStr(
+  val: unknown,
+  maxLen = 500,
+  opts: OptStrOptions = {},
+): VResult<string | null> {
   if (val === null || val === undefined || val === '') return { value: null, error: null };
   if (typeof val !== 'string') return { value: null, error: 'must be a string' };
-  const s = strip(val.trim());
+  const kind = opts.plainTextKind ?? 'note';
+  const s = opts.loose
+    ? strip(val.trim())
+    : sanitizeCrmPlainText(strip(val.trim()), kind);
   if (s.length === 0) return { value: null, error: null };
   if (s.length > maxLen) return { value: null, error: `must be at most ${maxLen} characters` };
+  const plainErr = crmPlainTextError(s, kind, false);
+  if (plainErr) return { value: null, error: plainErr };
   return { value: s, error: null };
 }
 
 // ── Required free-text field ──────────────────────────────────────────────────
-export function reqStr(val: unknown, maxLen = 500): VResult<string> {
+export function reqStr(val: unknown, maxLen = 500, opts: OptStrOptions = {}): VResult<string> {
   if (val === null || val === undefined || val === '')
     return { value: '', error: 'required' };
-  const r = optStr(val, maxLen);
+  const r = optStr(val, maxLen, opts);
   if (r.error) return { value: '', error: r.error };
   if (!r.value)  return { value: '', error: 'required' };
   return { value: r.value, error: null };
+}
+
+// ── Plain CRM text (no emojis / random symbols) ───────────────────────────────
+export function optPlainText(
+  val: unknown,
+  kind: CrmPlainTextKind,
+  maxLen = 500,
+): VResult<string | null> {
+  return optStr(val, maxLen, { plainTextKind: kind });
+}
+
+export function reqPlainText(
+  val: unknown,
+  kind: CrmPlainTextKind,
+  maxLen = 500,
+): VResult<string> {
+  return reqStr(val, maxLen, { plainTextKind: kind });
 }
 
 // ── Email ─────────────────────────────────────────────────────────────────────
@@ -129,7 +163,7 @@ export function optBool(val: unknown): VResult<boolean> {
 // ── Sanitized search query (no HTML, capped length) ───────────────────────────
 export function sanitizeSearch(val: unknown, maxLen = 100): string {
   if (!val || typeof val !== 'string') return '';
-  return strip(val.trim()).slice(0, maxLen);
+  return sanitizeCrmPlainText(strip(val.trim()), 'note').slice(0, maxLen);
 }
 
 /** Hard ceiling for list endpoints — prevents OOM on Render (512 MB instances). */

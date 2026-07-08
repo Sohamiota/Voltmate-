@@ -460,7 +460,7 @@ export default function BillingPage() {
         : buildReceiptPayload(receipt, company);
 
       const input = {
-        doc_type: (isQuote ? 'quotation' : 'receipt') as const,
+        doc_type: isQuote ? ('quotation' as const) : ('receipt' as const),
         doc_no: isQuote ? quote.quoteNo : receipt.receiptNo,
         doc_date: isQuote ? quote.date : receipt.date,
         customer_name: isQuote ? quote.customerName : receipt.customerName,

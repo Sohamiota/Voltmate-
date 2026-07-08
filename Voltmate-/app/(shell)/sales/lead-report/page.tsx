@@ -203,9 +203,9 @@ export default function LeadReportPage() {
       const j = await res.json();
       setAllLeads(j.leads || []);
       setConnected(true);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('fetch leads error:', e);
-      setError(e?.message || 'Failed to load leads');
+      setError(e instanceof Error ? e.message : 'Failed to load leads');
       setConnected(false);
       setAllLeads([]);
     } finally {
@@ -304,15 +304,12 @@ export default function LeadReportPage() {
     if (filterHot === 'not_hot') filtered = filtered.filter(l => !l.is_hot_lead);
 
     filtered.sort((a, b) => {
-      let aVal: any = a[sortField];
-      let bVal: any = b[sortField];
-      if (sortField === 'connect_date') {
-        aVal = a.connect_date ? new Date(a.connect_date).getTime() : 0;
-        bVal = b.connect_date ? new Date(b.connect_date).getTime() : 0;
-      } else {
-        aVal = (aVal || '').toString().toLowerCase();
-        bVal = (bVal || '').toString().toLowerCase();
-      }
+      const aVal: string | number = sortField === 'connect_date'
+        ? (a.connect_date ? new Date(a.connect_date).getTime() : 0)
+        : String(a[sortField] ?? '').toLowerCase();
+      const bVal: string | number = sortField === 'connect_date'
+        ? (b.connect_date ? new Date(b.connect_date).getTime() : 0)
+        : String(b[sortField] ?? '').toLowerCase();
       if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
       if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
       return 0;

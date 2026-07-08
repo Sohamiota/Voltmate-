@@ -26,7 +26,26 @@ function isoWeekLabel(dateStr: string) {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
 }
 
-function buildDeptData(employees: any[]) {
+type AnalyticsEmployee = {
+  id?: number;
+  name?: string;
+  email?: string;
+  role?: string;
+  created_at?: string;
+};
+type AttendanceRecord = {
+  date?: string;
+  user_id: number;
+  duration_seconds?: number | null;
+  employee_name?: string;
+  employee_email?: string;
+  clock_in_at?: string;
+  clock_out_at?: string;
+  status?: string;
+};
+type LeadRecord = { lead_type?: string }
+
+function buildDeptData(employees: AnalyticsEmployee[]) {
   const counts: Record<string, number> = {}
   for (const e of employees) {
     const role = e.role || 'employee'
@@ -39,7 +58,7 @@ function buildDeptData(employees: any[]) {
   }))
 }
 
-function buildAttendanceTrend(records: any[], startDate?: string, endDate?: string) {
+function buildAttendanceTrend(records: AttendanceRecord[], startDate?: string, endDate?: string) {
   const weekMap: Record<string, Set<number>> = {}
   for (const r of records) {
     if (!r.date) continue
@@ -54,7 +73,7 @@ function buildAttendanceTrend(records: any[], startDate?: string, endDate?: stri
     .slice(-8)
 }
 
-function buildLeadsByType(leads: any[]) {
+function buildLeadsByType(leads: LeadRecord[]) {
   const counts: Record<string, number> = {}
   for (const l of leads) {
     const t = l.lead_type || 'Unknown'
@@ -63,7 +82,7 @@ function buildLeadsByType(leads: any[]) {
   return Object.entries(counts).map(([type, count]) => ({ type, count }))
 }
 
-function downloadCSV(rows: any[], filename: string) {
+function downloadCSV(rows: Record<string, unknown>[], filename: string) {
   if (!rows.length) return
   const headers = Object.keys(rows[0])
   const csv = [headers.join(',')]
@@ -83,16 +102,17 @@ function downloadCSV(rows: any[], filename: string) {
 }
 
 // Custom pie label — only shows on larger screens via short text
-const renderPieLabel = ({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`
+const renderPieLabel = ({ name, percent }: { name?: string; percent?: number }) =>
+  `${name ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`
 
 export default function Analytics() {
   const token = typeof window !== 'undefined'
     ? (localStorage.getItem('auth_token') || '')
     : ''
 
-  const [employees,  setEmployees]  = useState<any[]>([])
-  const [attendance, setAttendance] = useState<any[]>([])
-  const [leads,      setLeads]      = useState<any[]>([])
+  const [employees,  setEmployees]  = useState<AnalyticsEmployee[]>([])
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([])
+  const [leads,      setLeads]      = useState<LeadRecord[]>([])
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState('')
 
@@ -128,8 +148,8 @@ export default function Analytics() {
       setEmployees(empRes.employees || [])
       setAttendance(attRes.attendance || [])
       setLeads(leadRes.leads || [])
-    } catch (e: any) {
-      setError(e.message || 'Failed to fetch analytics data')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to fetch analytics data')
     } finally {
       setLoading(false)
     }
@@ -148,9 +168,9 @@ export default function Analytics() {
   const totalLeads     = leads.length
   const durSessions    = attendance.filter(a => a.duration_seconds)
   const avgDuration    = durSessions.length
-    ? Math.round(durSessions.reduce((s, a) => s + a.duration_seconds, 0) / durSessions.length / 3600 * 10) / 10
+    ? Math.round(durSessions.reduce((s, a) => s + (a.duration_seconds ?? 0), 0) / durSessions.length / 3600 * 10) / 10
     : 0
-  const uniqueRoles = [...new Set(employees.map(e => e.role).filter(Boolean))]
+  const uniqueRoles = [...new Set(employees.map(e => e.role).filter((r): r is string => Boolean(r)))]
 
   const insights: string[] = []
   if (totalEmployees > 0) insights.push(`${totalEmployees} active employee${totalEmployees !== 1 ? 's' : ''} across ${deptData.length} role${deptData.length !== 1 ? 's' : ''}`)
@@ -304,7 +324,7 @@ export default function Analytics() {
                     labelLine={false} label={renderPieLabel} dataKey="value">
                     {deptData.map((e, i) => <Cell key={i} fill={e.color} />)}
                   </Pie>
-                  <Tooltip {...tooltipStyle} formatter={(v: any, n: any) => [v, n]} />
+                  <Tooltip {...tooltipStyle} formatter={(v: number | string, n: string) => [v, n]} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex flex-wrap gap-2 mt-3">
@@ -333,7 +353,7 @@ export default function Analytics() {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 10 }} />
                 <YAxis stroke="hsl(var(--muted-foreground))" allowDecimals={false} tick={{ fontSize: 10 }} width={28} />
-                <Tooltip {...tooltipStyle} formatter={(v: any) => [v, 'Present']} />
+                <Tooltip {...tooltipStyle} formatter={(v: number | string) => [v, 'Present']} />
                 <Line type="monotone" dataKey="present" stroke="hsl(var(--primary))"
                   strokeWidth={2} dot={{ fill: 'hsl(var(--primary))', r: 4 }} activeDot={{ r: 6 }} />
               </LineChart>

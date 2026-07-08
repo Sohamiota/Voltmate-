@@ -3,10 +3,11 @@ import { query } from '../db';
 import { logActivity } from '../utils/activityLog';
 import { ensureLocationPingCols } from './locationController';
 import {
-  reqId, optId, optStr, optPhone, optDate, optEnum, optBool,
+  reqId, optId, optPhone, optDate, optEnum, optBool,
   collectErrors, parsePagination, VISIT_STATUSES,
   MAX_CSV_EXPORT_ROWS,
   LOST_NOT_INTEREST_REASONS, LOST_NOT_INTERESTED_STATUS,
+  optPlainText,
 } from '../utils/validate';
 import { parseCrmDeferralBody, ParsedCrmDeferral } from '../utils/crmDeferral';
 
@@ -72,7 +73,7 @@ function lostNiDispositionFromBody(body: Record<string, unknown>, status: string
     return { error: null as string | null, reason: null as string | null, notes: null as string | null };
   }
   const vLostReason = optEnum(body.lost_not_interested_reason, LOST_NOT_INTEREST_REASONS);
-  const vLostNotes = optStr(body.lost_reason_notes, 2000);
+  const vLostNotes = optPlainText(body.lost_reason_notes, 'note', 2000);
   const reasonErr =
     vLostReason.error ?? (!vLostReason.value ? 'required when status is Lost – Not Interested' : null);
   let notesErr = vLostNotes.error;
@@ -186,13 +187,13 @@ export async function createVisit(req: Request, res: Response) {
 
     const vLeadId      = reqId(body.lead_id);
     const vSalesperson = optId(body.salesperson_id);
-    const vVehicle     = optStr(body.vehicle, 200);
+    const vVehicle     = optPlainText(body.vehicle, 'note', 200);
     const vStatus      = optEnum(body.status, VISIT_STATUSES);
     const vNextAction  = optEnum(body.next_action, VISIT_STATUSES);
     const vVisitDate   = optDate(body.visit_date);
     const vNextDate    = optDate(body.next_action_date);
     const vConnDate    = optDate(body.connect_date);
-    const vNote        = optStr(body.note, 2000);
+    const vNote        = optPlainText(body.note, 'note', 2000);
     const vPhone       = optPhone(body.phone_no);
     const vPhone2      = optPhone(body.phone_no_2);
 
@@ -270,13 +271,13 @@ export async function updateVisit(req: Request, res: Response) {
     const body    = req.body || {};
 
     const vSalesperson = optId(body.salesperson_id);
-    const vVehicle     = optStr(body.vehicle, 200);
+    const vVehicle     = optPlainText(body.vehicle, 'note', 200);
     const vStatus      = optEnum(body.status, VISIT_STATUSES);
     const vNextAction  = optEnum(body.next_action, VISIT_STATUSES);
     const vVisitDate   = optDate(body.visit_date);
     const vNextDate    = optDate(body.next_action_date);
     const vConnDate    = optDate(body.connect_date);
-    const vNote        = optStr(body.note, 2000);
+    const vNote        = optPlainText(body.note, 'note', 2000);
     const vPhone       = optPhone(body.phone_no);
     const vPhone2      = optPhone(body.phone_no_2);
 

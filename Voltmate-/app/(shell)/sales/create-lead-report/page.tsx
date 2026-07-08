@@ -16,6 +16,7 @@ import {
   labelForDeferral,
 } from '@/lib/crmDeferral';
 import { downloadXlsx, xlsDate, xlsDateTime } from '@/lib/exportXlsx';
+import { sanitizeCrmPlainText, validateLeadFormText } from '@/lib/crmTextInput';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FormState {
@@ -238,14 +239,15 @@ export default function CreateLeadReportPage() {
 
   // ── Location autocomplete (Nominatim, West Bengal only) ──────────────────
   const searchLocation = useCallback((val: string) => {
-    setForm(f => ({ ...f, location: val }));
+    const cleaned = sanitizeCrmPlainText(val, 'location');
+    setForm(f => ({ ...f, location: cleaned }));
     setLocHighlight(-1);
     if (locTimer.current) clearTimeout(locTimer.current);
-    if (!val.trim() || val.length < 2) { setLocResults([]); setShowLocDrop(false); return; }
+    if (!cleaned.trim() || cleaned.length < 2) { setLocResults([]); setShowLocDrop(false); return; }
     locTimer.current = setTimeout(async () => {
       setLocLoading(true);
       try {
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val + ', West Bengal')}&countrycodes=in&format=json&addressdetails=1&limit=10`;
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cleaned + ', West Bengal')}&countrycodes=in&format=json&addressdetails=1&limit=10`;
         const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
         const data: NominatimResult[] = await res.json();
         const wb = data.filter(d => d.address?.state === 'West Bengal');
@@ -391,6 +393,18 @@ export default function CreateLeadReportPage() {
       showToast('Please select a Business Category', 'error');
       return;
     }
+
+    const textErr = validateLeadFormText({
+      cust_name: form.cust_name,
+      location: form.location,
+      note: form.note,
+      deferral_notes: form.deferral_notes,
+    });
+    if (textErr) {
+      showToast(textErr, 'error');
+      return;
+    }
+
     if (!form.phone_no.trim()) {
       showToast('Phone No. 1 is required', 'error');
       return;
@@ -615,7 +629,7 @@ export default function CreateLeadReportPage() {
                         <div className="text-[34px] mb-3 opacity-45"></div>
                         <div className="text-[13.5px]">
                           {searchQuery
-                            ? <>No leads match <strong className="text-[#8b93a8]">"{searchQuery}"</strong></>
+                            ? <>No leads match <strong className="text-[#8b93a8]">&ldquo;{searchQuery}&rdquo;</strong></>
                             : <>No leads yet. Click <strong className="text-[#8b93a8]">+ Add Lead</strong> to get started.</>}
                         </div>
                       </div>
@@ -781,7 +795,7 @@ export default function CreateLeadReportPage() {
                       className={FIELD}
                       placeholder="Full name"
                       value={form.cust_name}
-                      onChange={e => setForm(f => ({ ...f, cust_name: e.target.value }))}
+                      onChange={e => setForm(f => ({ ...f, cust_name: sanitizeCrmPlainText(e.target.value, 'name') }))}
                       required
                     />
                   </div>
@@ -1001,7 +1015,7 @@ export default function CreateLeadReportPage() {
                       rows={2}
                       placeholder="Optional context…"
                       value={form.deferral_notes}
-                      onChange={e => setForm(f => ({ ...f, deferral_notes: e.target.value }))}
+                      onChange={e => setForm(f => ({ ...f, deferral_notes: sanitizeCrmPlainText(e.target.value, 'note') }))}
                     />
                   </div>
 
@@ -1013,7 +1027,7 @@ export default function CreateLeadReportPage() {
                       rows={3}
                       placeholder="Any additional notes..."
                       value={form.note}
-                      onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
+                      onChange={e => setForm(f => ({ ...f, note: sanitizeCrmPlainText(e.target.value, 'note') }))}
                     />
                   </div>
 

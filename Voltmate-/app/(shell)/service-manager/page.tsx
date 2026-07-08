@@ -2,13 +2,16 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import PageHeader from '@/components/PageHeader';
+import { useEffectiveSearch } from '@/components/SearchContext';
+import ServiceManagerShell from '@/components/service-manager/ServiceManagerShell';
+import KmUpdateSheet from '@/components/service-manager/KmUpdateSheet';
+import MarkServiceDoneSheet from '@/components/service-manager/MarkServiceDoneSheet';
 import {
+  CustomerGroup,
+  CustomerVehicleSummary,
   DashboardData,
   PendingService,
-  ServiceAlert,
-  acknowledgeAlert,
-  fetchAlerts,
+  fetchCustomerGroups,
   fetchDashboard,
   fmtDate,
   markServiceDone,
@@ -16,19 +19,49 @@ import {
   phoneLink,
   vehicleLabel,
 } from '@/lib/serviceManagerApi';
+import {
+  SM_BTN_GHOST,
+  SM_BTN_SECONDARY,
+  SM_CARD,
+  SM_INPUT,
+  getInitials,
+  urgencyBadgeCls,
+  urgencyLabel,
+  urgencyRowBg,
+} from '@/lib/serviceManagerUi';
 
 type UrgencyFilter = 'all' | 'overdue' | 'due_soon' | 'ok';
-type AlertFilter = 'all' | 'overdue' | 'due_soon' | 'pdi_pending';
 
-export default function ServiceManagerPage() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [alerts, setAlerts] = useState<ServiceAlert[]>([]);
+function pendingFromVehicle(v: CustomerVehicleSummary): PendingService | null {
+  if (!v.pending_service_id) return null;
+  return {
+    id: v.id,
+    vehicle_number: v.vehicle_number,
+    chassis_number: v.chassis_number,
+    vehicle_type: v.vehicle_type,
+    owner_phone: v.owner_phone,
+    location: v.location,
+    current_km: v.current_km,
+    service_id: v.pending_service_id,
+    service_no: v.pending_service_no ?? 0,
+    due_km: v.pending_due_km ?? undefined,
+    due_date: v.pending_due_date ?? undefined,
+    urgency: v.urgency,
+    due_today: v.due_today,
+    stale_km: v.stale_km,
+  };
+}
+
+export default function ServiceManagerWorkQueuePage() {
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [customers, setCustomers] = useState<CustomerGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [urgencyFilter, setUrgencyFilter] = useState<UrgencyFilter>('all');
-  const [alertFilter, setAlertFilter] = useState<AlertFilter>('all');
+  const [selectedName, setSelectedName] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [locationFilter, setLocationFilter] = useState('');
+  const [urgencyFilter, setUrgencyFilter] = useState<UrgencyFilter>('all');
+  const effectiveSearch = useEffectiveSearch(search);
+
   const [kmModal, setKmModal] = useState<{ id: number; current_km: number } | null>(null);
   const [kmValue, setKmValue] = useState('');
   const [markDoneModal, setMarkDoneModal] = useState<PendingService | null>(null);
@@ -39,41 +72,47 @@ export default function ServiceManagerPage() {
     try {
       setLoading(true);
       setError(null);
-      const [dash, alertData] = await Promise.all([
-        fetchDashboard(),
-        fetchAlerts('open', alertFilter === 'all' ? undefined : alertFilter),
-      ]);
-      setData(dash);
-      setAlerts(alertData.alerts);
+      const [dash, groups] = await Promise.all([fetchDashboard(), fetchCustomerGroups()]);
+      setDashboard(dash);
+      setCustomers(groups.customers);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load dashboard');
+      setError(e instanceof Error ? e.message : 'Failed to load work queue');
     } finally {
       setLoading(false);
     }
-  }, [alertFilter]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const locations = useMemo(() => {
-    const set = new Set<string>();
-    data?.pending_services?.forEach(p => { if (p.location) set.add(p.location); });
-    return Array.from(set).sort();
-  }, [data]);
-
-  const filteredPending = useMemo(() => {
-    let rows = data?.pending_services ?? [];
-    if (urgencyFilter !== 'all') rows = rows.filter(r => r.urgency === urgencyFilter);
-    if (locationFilter) rows = rows.filter(r => (r.location || '') === locationFilter);
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      rows = rows.filter(r => {
-        const hay = [r.vehicle_number, r.chassis_number, r.owner_name, r.owner_phone, r.location]
-          .filter(Boolean).join(' ').toLowerCase();
-        return hay.includes(q);
-      });
+  const filteredCustomers = useMemo(() => {
+    let rows = customers;
+    if (urgencyFilter === 'overdue') rows = rows.filter(c => c.overdue_count > 0);
+    else if (urgencyFilter === 'due_soon') rows = rows.filter(c => c.due_soon_count > 0);
+    else if (urgencyFilter === 'ok') {
+      rows = rows.filter(c => c.overdue_count === 0 && c.due_soon_count === 0);
+    }
+    if (effectiveSearch) {
+      const q = effectiveSearch.toLowerCase();
+      rows = rows.filter(c => c.customer_name.toLowerCase().includes(q));
     }
     return rows;
-  }, [data, urgencyFilter, locationFilter, search]);
+  }, [customers, urgencyFilter, effectiveSearch]);
+
+  const selected = selectedName
+    ? customers.find(c => c.customer_name === selectedName) ?? null
+    : null;
+
+  const selectedVehicles = useMemo(() => {
+    if (!selected) return [];
+    let vs = selected.vehicles.filter(v => v.pending_service_id);
+    if (urgencyFilter !== 'all') vs = vs.filter(v => v.urgency === urgencyFilter);
+    return vs.sort((a, b) => {
+      const rank = (u: string) => (u === 'overdue' ? 0 : u === 'due_soon' ? 1 : 2);
+      return rank(a.urgency) - rank(b.urgency) || (a.pending_service_no ?? 0) - (b.pending_service_no ?? 0);
+    });
+  }, [selected, urgencyFilter]);
+
+  const activeCustomers = customers.filter(c => c.overdue_count > 0 || c.due_soon_count > 0).length;
 
   async function submitKm() {
     if (!kmModal) return;
@@ -113,238 +152,290 @@ export default function ServiceManagerPage() {
     }
   }
 
-  async function ackAlert(id: number) {
-    try {
-      await acknowledgeAlert(id);
-      await load();
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Failed');
-    }
-  }
-
-  const rowBg = (u: string) =>
-    u === 'overdue' ? 'bg-[#f43f5e]/[0.08]' : u === 'due_soon' ? 'bg-[#fbbf24]/[0.06]' : '';
-
-  const badgeCls = (u: string) =>
-    u === 'overdue' ? 'bg-[#f43f5e]/[0.15] text-[#f43f5e]'
-    : u === 'due_soon' ? 'bg-[#fbbf24]/[0.12] text-amber-400'
-    : 'bg-[#10b981]/[0.10] text-[#10b981]';
-
   return (
-    <div className="min-h-screen bg-[#0a0c12] text-[#e8edf5] font-sans">
-      <div className="px-7 py-8 max-w-[1680px] mx-auto">
-        <div className="mb-7 flex items-start justify-between flex-wrap gap-3">
-          <PageHeader
-            title="Service Manager"
-            description="Daily operations cockpit — briefing, alerts, and pending services"
-            variant="dark"
-            className="mb-0"
-          />
-          <div className="flex gap-2 flex-wrap pt-1">
-              <button type="button" onClick={load} className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#1e2236] text-[#8e97ad] hover:text-white">
-                Refresh
-              </button>
-              <Link href="/service-manager/vehicles" className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-cyan-400 text-[#0a0c12]">
-                Manage Vehicles
+    <ServiceManagerShell
+      title="Service Manager"
+      description={
+        selected
+          ? `${selected.customer_name} — pending services and fleet status`
+          : 'Work queue grouped by customer — overdue and due-soon services at a glance'
+      }
+      actions={
+        <button type="button" className={SM_BTN_GHOST} onClick={load}>
+          Refresh
+        </button>
+      }
+    >
+      {error && (
+        <div className="bg-rose-500/10 border border-rose-500/25 rounded-xl px-5 py-4 mb-5 text-rose-400 text-sm">
+          {error}
+        </div>
+      )}
+
+      {dashboard && (
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] gap-3 mb-5">
+          {[
+            { label: 'Customers', value: customers.length, color: 'text-cyan-400' },
+            { label: 'Active', value: activeCustomers, color: 'text-violet-400' },
+            { label: 'Overdue', value: dashboard.overdue_count, color: 'text-rose-400' },
+            { label: 'Due Today', value: dashboard.due_today_count, color: 'text-amber-400' },
+            { label: 'This Week', value: dashboard.due_this_week_count, color: 'text-emerald-400' },
+            { label: 'Stale KM', value: dashboard.stale_km_count, color: 'text-orange-400' },
+          ].map(k => (
+            <div key={k.label} className={`${SM_CARD} px-4 py-[14px]`}>
+              <div className={`text-[clamp(20px,4vw,26px)] font-bold mb-[2px] ${k.color}`}>{k.value}</div>
+              <div className="text-[10px] text-zinc-400 uppercase tracking-[0.5px]">{k.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2 mb-5">
+        {(['all', 'overdue', 'due_soon', 'ok'] as const).map(f => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => setUrgencyFilter(f)}
+            className={`border rounded-lg px-[14px] py-[7px] text-[12px] transition-all ${
+              urgencyFilter === f
+                ? 'bg-[#0e3a42] border-cyan-400/40 text-cyan-400 font-semibold'
+                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-[#444]'
+            }`}
+          >
+            {f === 'all' ? 'All urgency' : f === 'due_soon' ? 'Due soon' : f.charAt(0).toUpperCase() + f.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {loading && !customers.length ? (
+        <div className="text-center py-12 text-zinc-500 text-[14px]">Loading work queue…</div>
+      ) : selectedName === null ? (
+        <div>
+          <div className="flex items-center justify-between gap-[10px] mb-[14px] flex-wrap">
+            <div className="text-[15px] font-semibold text-white">
+              All Customers ({filteredCustomers.length})
+            </div>
+            <input
+              className={`${SM_INPUT} min-w-[180px]`}
+              placeholder="Search customer…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+
+          {filteredCustomers.length === 0 ? (
+            <div className="text-center py-[60px] text-zinc-500">
+              <div className="text-[15px] font-semibold mb-1">No customers found</div>
+              <div className="text-[13px]">Try a different filter or search term.</div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-[14px]">
+              {filteredCustomers.map(c => {
+                const pendingCount = c.vehicles.filter(v => v.pending_service_id).length;
+                const hasOverdue = c.overdue_count > 0;
+                const hasDueSoon = c.due_soon_count > 0;
+
+                return (
+                  <div
+                    key={c.customer_name}
+                    role="button"
+                    tabIndex={0}
+                    className={`${SM_CARD} rounded-[14px] p-[18px] cursor-pointer transition-all duration-200 flex flex-col hover:-translate-y-0.5 ${
+                      hasOverdue
+                        ? 'border-rose-500/40 hover:border-rose-500/70 hover:shadow-[0_8px_24px_rgba(244,63,94,0.1)]'
+                        : hasDueSoon
+                          ? 'border-amber-400/40 hover:border-amber-400/70 hover:shadow-[0_8px_24px_rgba(251,191,36,0.1)]'
+                          : 'hover:border-cyan-400 hover:shadow-[0_8px_24px_rgba(0,217,255,0.12)]'
+                    }`}
+                    onClick={() => setSelectedName(c.customer_name)}
+                    onKeyDown={e => { if (e.key === 'Enter') setSelectedName(c.customer_name); }}
+                  >
+                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#0891b2] to-[#0e7490] flex items-center justify-center text-[15px] font-bold text-white mb-3">
+                      {getInitials(c.customer_name)}
+                    </div>
+                    <div className="text-[15px] font-semibold text-white mb-1">{c.customer_name}</div>
+                    <div className="text-[12px] text-zinc-500 mb-3">
+                      {c.vehicle_count} vehicle{c.vehicle_count !== 1 ? 's' : ''}
+                    </div>
+
+                    <div className="flex gap-1.5 flex-wrap mb-3">
+                      {c.overdue_count > 0 && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${urgencyBadgeCls('overdue')}`}>
+                          {c.overdue_count} overdue
+                        </span>
+                      )}
+                      {c.due_soon_count > 0 && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${urgencyBadgeCls('due_soon')}`}>
+                          {c.due_soon_count} due soon
+                        </span>
+                      )}
+                      {c.due_this_week_count > 0 && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                          {c.due_this_week_count} this week
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between mt-auto pt-[10px] border-t border-zinc-800">
+                      {pendingCount === 0 ? (
+                        <span className="text-[11px] text-zinc-500">No pending services</span>
+                      ) : (
+                        <span className="bg-cyan-400/10 text-cyan-400 border border-cyan-400/25 rounded-full text-[11px] font-semibold px-[10px] py-[3px]">
+                          {pendingCount} pending
+                        </span>
+                      )}
+                      <span className="text-zinc-600 text-base">›</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div>
+          <button
+            type="button"
+            className={`${SM_BTN_GHOST} mb-4`}
+            onClick={() => setSelectedName(null)}
+          >
+            ← All customers
+          </button>
+
+          <div className={`${SM_CARD} overflow-hidden`}>
+            <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <div className="text-[16px] font-semibold text-white">{selected!.customer_name}</div>
+                <div className="text-[12px] text-zinc-500 mt-0.5">
+                  {selectedVehicles.length} pending service{selectedVehicles.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+              <Link
+                href={`/service-manager/customers?customer=${encodeURIComponent(selected!.customer_name)}`}
+                className={SM_BTN_SECONDARY}
+              >
+                Open in Customers
               </Link>
-              <Link href="/service-manager/analytics" className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-cyan-400/40 text-cyan-400">
-                Analytics
-              </Link>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse min-w-[900px] text-[13px]">
+                <thead>
+                  <tr>
+                    {['Vehicle', 'Service #', 'Due', 'Current KM', 'Status', 'Actions'].map(h => (
+                      <th
+                        key={h}
+                        className="px-4 py-[11px] text-left text-[10px] font-bold text-zinc-500 uppercase tracking-[1px] bg-zinc-900/80 border-b border-zinc-800"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedVehicles.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-center py-12 text-zinc-500">
+                        No pending services match this filter
+                      </td>
+                    </tr>
+                  ) : selectedVehicles.map(v => {
+                    const tel = phoneLink(v.owner_phone);
+                    const pending = pendingFromVehicle(v)!;
+                    return (
+                      <tr key={v.id} className={urgencyRowBg(v.urgency)}>
+                        <td className="px-4 py-3 border-b border-zinc-800/60">
+                          <span className="font-semibold text-white">{vehicleLabel(v)}</span>
+                          {v.vehicle_type && (
+                            <span className="block text-[11px] text-zinc-500 font-mono">{v.vehicle_type}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 border-b border-zinc-800/60 font-mono text-[12px]">
+                          #{v.pending_service_no}
+                        </td>
+                        <td className="px-4 py-3 border-b border-zinc-800/60 font-mono text-[12px]">
+                          {fmtDate(v.pending_due_date)} · {v.pending_due_km ?? '—'} km
+                        </td>
+                        <td className="px-4 py-3 border-b border-zinc-800/60 font-mono text-[12px]">
+                          {v.current_km ?? 0}
+                          {v.stale_km && (
+                            <span className="ml-1 text-[10px] text-orange-400">stale</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 border-b border-zinc-800/60">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold border ${urgencyBadgeCls(v.urgency)}`}>
+                            {urgencyLabel(v.urgency)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 border-b border-zinc-800/60">
+                          <div className="flex gap-1 flex-wrap">
+                            {tel && (
+                              <a href={tel} className="text-[10px] font-semibold px-2 py-1 rounded border border-cyan-400/30 text-cyan-400">
+                                Call
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              className="text-[10px] font-semibold px-2 py-1 rounded border border-zinc-700 text-zinc-400"
+                              onClick={() => {
+                                setKmModal({ id: v.id, current_km: v.current_km ?? 0 });
+                                setKmValue(String(v.current_km ?? 0));
+                              }}
+                            >
+                              KM
+                            </button>
+                            <button
+                              type="button"
+                              className="text-[10px] font-semibold px-2 py-1 rounded bg-emerald-500/15 text-emerald-400"
+                              onClick={() => {
+                                setMarkDoneModal(pending);
+                                setMarkDoneForm({
+                                  actual_km: String(v.current_km ?? v.pending_due_km ?? ''),
+                                  completion_date: new Date().toISOString().slice(0, 10),
+                                  cost: '',
+                                });
+                              }}
+                            >
+                              Done
+                            </button>
+                            <Link
+                              href={`/service-manager/vehicles/${v.id}`}
+                              className="text-[10px] font-semibold px-2 py-1 rounded border border-zinc-700 text-zinc-400"
+                            >
+                              Dossier
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
+      )}
 
-        {error && (
-          <div className="bg-[#f43f5e]/10 border border-[#f43f5e]/25 rounded-xl px-5 py-4 mb-6 text-[#f43f5e]">{error}</div>
-        )}
+      {kmModal && (
+        <KmUpdateSheet
+          onClose={() => setKmModal(null)}
+          value={kmValue}
+          onChange={setKmValue}
+          onSubmit={submitKm}
+          busy={busy}
+        />
+      )}
 
-        {loading && !data ? (
-          <div className="text-center py-12 text-[#8e97ad]">Loading dashboard…</div>
-        ) : data ? (
-          <>
-            {data.briefing && (
-              <div className="bg-gradient-to-r from-[#0f1117] to-[#141720] border border-[#1e2236] rounded-xl p-5 mb-6">
-                <div className="text-xs font-bold uppercase text-cyan-400 tracking-wider mb-1">Today&apos;s briefing</div>
-                <div className="text-sm text-[#8e97ad] mb-3">
-                  Snapshot for {fmtDate(data.briefing.snapshot_date)}
-                  {data.last_updated && ` · Updated ${new Date(data.last_updated).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`}
-                </div>
-                {(data.briefing.top_overdue?.length ?? 0) > 0 ? (
-                  <div className="text-sm">
-                    <span className="text-[#f43f5e] font-semibold">Top overdue: </span>
-                    {data.briefing.top_overdue.map((t, i) => (
-                      <span key={t.vehicle_id}>
-                        {t.label} ({t.owner_name || '—'})
-                        {i < data.briefing!.top_overdue.length - 1 ? ' · ' : ''}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-sm text-[#10b981]">No overdue vehicles in today&apos;s digest.</div>
-                )}
-              </div>
-            )}
-
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-3 mb-6">
-              {[
-                { label: 'Total', value: data.total_vehicles, color: 'text-cyan-400' },
-                { label: 'Overdue', value: data.overdue_count, color: 'text-[#f43f5e]' },
-                { label: 'Due Today', value: data.due_today_count, color: 'text-amber-400' },
-                { label: 'This Week', value: data.due_this_week_count, color: 'text-[#10b981]' },
-                { label: 'Due Soon', value: data.due_soon_count, color: 'text-amber-300' },
-                { label: 'Stale KM', value: data.stale_km_count, color: 'text-orange-400' },
-                { label: 'Open Alerts', value: data.open_alerts_count, color: 'text-purple-400' },
-              ].map(k => (
-                <div key={k.label} className="bg-[#0f1117] border border-[#1e2236] rounded-xl p-4">
-                  <div className="text-[10px] font-semibold text-[#545968] uppercase tracking-wide mb-1">{k.label}</div>
-                  <div className={`text-2xl font-extrabold font-mono ${k.color}`}>{k.value}</div>
-                </div>
-              ))}
-            </div>
-
-            <div className="grid lg:grid-cols-[340px_1fr] gap-6 mb-6">
-              <div className="bg-[#0f1117] border border-[#1e2236] rounded-xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-[#1e2236] flex justify-between items-center">
-                  <div className="text-sm font-bold">Alert feed</div>
-                  <select
-                    value={alertFilter}
-                    onChange={e => setAlertFilter(e.target.value as AlertFilter)}
-                    className="text-xs bg-[#0a0c12] border border-[#1e2236] rounded px-2 py-1"
-                  >
-                    <option value="all">All</option>
-                    <option value="overdue">Overdue</option>
-                    <option value="due_soon">Due soon</option>
-                    <option value="pdi_pending">PDI pending</option>
-                  </select>
-                </div>
-                <div className="max-h-[320px] overflow-y-auto divide-y divide-[#1e2236]">
-                  {alerts.length === 0 ? (
-                    <div className="p-4 text-sm text-[#545968]">No open alerts</div>
-                  ) : alerts.map(a => (
-                    <div key={a.id} className="p-3">
-                      <div className="text-xs font-semibold text-cyan-400">{a.title}</div>
-                      <div className="text-xs text-[#8e97ad] mt-0.5">{a.message}</div>
-                      <button type="button" onClick={() => ackAlert(a.id)} className="mt-2 text-[10px] font-semibold text-[#10b981]">
-                        Mark handled
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-[#0f1117] border border-[#1e2236] rounded-xl p-4">
-                <div className="text-sm font-bold mb-3">Filters</div>
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    placeholder="Search vehicle, owner, phone…"
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    className="flex-1 min-w-[180px] px-3 py-2 text-sm bg-[#0a0c12] border border-[#1e2236] rounded-lg"
-                  />
-                  <select value={urgencyFilter} onChange={e => setUrgencyFilter(e.target.value as UrgencyFilter)} className="text-sm bg-[#0a0c12] border border-[#1e2236] rounded-lg px-3 py-2">
-                    <option value="all">All urgency</option>
-                    <option value="overdue">Overdue</option>
-                    <option value="due_soon">Due soon</option>
-                    <option value="ok">OK</option>
-                  </select>
-                  <select value={locationFilter} onChange={e => setLocationFilter(e.target.value)} className="text-sm bg-[#0a0c12] border border-[#1e2236] rounded-lg px-3 py-2">
-                    <option value="">All locations</option>
-                    {locations.map(l => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-[#0f1117] border border-[#1e2236] rounded-xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-[#1e2236]">
-                <div className="text-sm font-bold">Pending services ({filteredPending.length})</div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse min-w-[1000px]">
-                  <thead>
-                    <tr>
-                      {['Vehicle', 'Owner', 'Service #', 'Due', 'Current KM', 'Status', 'Actions'].map(h => (
-                        <th key={h} className="px-4 py-[11px] text-left text-[10px] font-bold text-[#545968] uppercase tracking-[1px] bg-[#141720] border-b border-[#1e2236]">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredPending.length === 0 ? (
-                      <tr><td colSpan={7} className="text-center py-12 text-[#545968] text-sm">No matching pending services</td></tr>
-                    ) : filteredPending.map(p => {
-                      const tel = phoneLink(p.owner_phone);
-                      return (
-                        <tr key={p.service_id} className={rowBg(p.urgency)}>
-                          <td className="px-4 py-3 border-b border-[#1e2236]/60 text-sm font-semibold">
-                            {vehicleLabel(p)}
-                            {p.vehicle_type && <span className="block text-xs text-[#8e97ad] font-mono">{p.vehicle_type}</span>}
-                          </td>
-                          <td className="px-4 py-3 border-b border-[#1e2236]/60 text-sm">{p.owner_name || '—'}</td>
-                          <td className="px-4 py-3 border-b border-[#1e2236]/60 font-mono text-xs">#{p.service_no}</td>
-                          <td className="px-4 py-3 border-b border-[#1e2236]/60 font-mono text-xs">
-                            {fmtDate(p.due_date)} · {p.due_km ?? '—'} km
-                          </td>
-                          <td className="px-4 py-3 border-b border-[#1e2236]/60 font-mono text-xs">{p.current_km ?? 0}</td>
-                          <td className="px-4 py-3 border-b border-[#1e2236]/60">
-                            <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${badgeCls(p.urgency)}`}>
-                              {p.urgency === 'overdue' ? 'Overdue' : p.urgency === 'due_soon' ? 'Due soon' : 'OK'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 border-b border-[#1e2236]/60">
-                            <div className="flex gap-1 flex-wrap">
-                              {tel && (
-                                <a href={tel} className="text-[10px] font-semibold px-2 py-1 rounded border border-cyan-400/30 text-cyan-400">Call</a>
-                              )}
-                              <button type="button" className="text-[10px] font-semibold px-2 py-1 rounded border border-[#1e2236] text-[#8e97ad]" onClick={() => { setKmModal({ id: p.id, current_km: p.current_km ?? 0 }); setKmValue(String(p.current_km ?? 0)); }}>
-                                KM
-                              </button>
-                              <button type="button" className="text-[10px] font-semibold px-2 py-1 rounded bg-[#10b981]/15 text-[#10b981]" onClick={() => { setMarkDoneModal(p); setMarkDoneForm({ actual_km: String(p.current_km ?? p.due_km ?? ''), completion_date: new Date().toISOString().slice(0, 10), cost: '' }); }}>
-                                Done
-                              </button>
-                              <Link href={`/service-manager/vehicles?open=${p.id}`} className="text-[10px] font-semibold px-2 py-1 rounded border border-[#1e2236] text-[#8e97ad]">
-                                Open
-                              </Link>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </>
-        ) : null}
-
-        {kmModal && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000]" onClick={() => setKmModal(null)}>
-            <div className="bg-[#0f1117] border border-[#1e2236] rounded-xl p-6 min-w-[280px]" onClick={e => e.stopPropagation()}>
-              <div className="mb-3 font-bold">Update current KM</div>
-              <input type="number" min={0} value={kmValue} onChange={e => setKmValue(e.target.value)} className="w-full px-3 py-2 bg-[#0a0c12] border border-[#1e2236] rounded-lg mb-4 font-mono" />
-              <div className="flex gap-2 justify-end">
-                <button type="button" onClick={() => setKmModal(null)} className="text-xs px-3 py-1.5 border border-[#1e2236] rounded-lg">Cancel</button>
-                <button type="button" disabled={busy} onClick={submitKm} className="text-xs px-3 py-1.5 bg-cyan-400 text-[#0a0c12] rounded-lg font-semibold">Save</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {markDoneModal && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000]" onClick={() => setMarkDoneModal(null)}>
-            <form onSubmit={submitMarkDone} className="bg-[#0f1117] border border-[#1e2236] rounded-xl p-6 min-w-[300px]" onClick={e => e.stopPropagation()}>
-              <div className="mb-3 font-bold">Mark Service #{markDoneModal.service_no} done</div>
-              <div className="space-y-3">
-                <input required type="number" placeholder="Actual KM" value={markDoneForm.actual_km} onChange={e => setMarkDoneForm(f => ({ ...f, actual_km: e.target.value }))} className="w-full px-3 py-2 bg-[#0a0c12] border border-[#1e2236] rounded-lg" />
-                <input required type="date" value={markDoneForm.completion_date} onChange={e => setMarkDoneForm(f => ({ ...f, completion_date: e.target.value }))} className="w-full px-3 py-2 bg-[#0a0c12] border border-[#1e2236] rounded-lg" />
-                <input type="number" step="0.01" placeholder="Cost (optional)" value={markDoneForm.cost} onChange={e => setMarkDoneForm(f => ({ ...f, cost: e.target.value }))} className="w-full px-3 py-2 bg-[#0a0c12] border border-[#1e2236] rounded-lg" />
-              </div>
-              <div className="flex gap-2 justify-end mt-4">
-                <button type="button" onClick={() => setMarkDoneModal(null)} className="text-xs px-3 py-1.5 border border-[#1e2236] rounded-lg">Cancel</button>
-                <button type="submit" disabled={busy} className="text-xs px-3 py-1.5 bg-cyan-400 text-[#0a0c12] rounded-lg font-semibold">Save</button>
-              </div>
-            </form>
-          </div>
-        )}
-      </div>
-    </div>
+      {markDoneModal && (
+        <MarkServiceDoneSheet
+          serviceNo={markDoneModal.service_no}
+          form={markDoneForm}
+          onChange={patch => setMarkDoneForm(f => ({ ...f, ...patch }))}
+          onClose={() => setMarkDoneModal(null)}
+          onSubmit={submitMarkDone}
+          busy={busy}
+        />
+      )}
+    </ServiceManagerShell>
   );
 }

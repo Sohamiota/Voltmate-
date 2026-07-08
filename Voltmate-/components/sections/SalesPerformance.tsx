@@ -50,9 +50,30 @@ const tooltipStyle = {
   labelStyle: { color: 'hsl(var(--foreground))' },
 };
 
+type LeadRow = {
+  id?: number;
+  cust_code?: string;
+  cust_name?: string;
+  business?: string;
+  lead_type?: string;
+  phone_no?: string;
+  connect_date?: string;
+};
+
+type VisitRow = {
+  id?: number;
+  cust_name?: string;
+  lead_cust_code?: string;
+  salesperson_name?: string;
+  vehicle?: string;
+  status?: string;
+  visit_date?: string;
+  next_action?: string;
+};
+
 export default function SalesPerformance() {
-  const [leads,   setLeads]   = useState<any[]>([]);
-  const [visits,  setVisits]  = useState<any[]>([]);
+  const [leads,   setLeads]   = useState<LeadRow[]>([]);
+  const [visits,  setVisits]  = useState<VisitRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -81,8 +102,8 @@ export default function SalesPerformance() {
       const [lj, vj] = await Promise.all([leadsRes.json(), visitsRes.json()]);
       setLeads(lj.leads   || []);
       setVisits(vj.visits || []);
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load data');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -246,7 +267,7 @@ export default function SalesPerformance() {
                 <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))"
                   tick={{ fontSize: 10 }} angle={-30} textAnchor="end" interval={0} />
                 <YAxis stroke="hsl(var(--muted-foreground))" allowDecimals={false} tick={{ fontSize: 10 }} width={28} />
-                <Tooltip {...tooltipStyle} formatter={(v: any) => [v, 'Visits']} />
+                <Tooltip {...tooltipStyle} formatter={(v: number | string) => [v, 'Visits']} />
                 <Bar dataKey="visits" fill="#00d9ff" radius={[4, 4, 0, 0]} name="Visits" />
               </BarChart>
             </ResponsiveContainer>
@@ -271,7 +292,7 @@ export default function SalesPerformance() {
                     labelLine={false}>
                     {leadsByType.map((e, i) => <Cell key={i} fill={e.color} />)}
                   </Pie>
-                  <Tooltip {...tooltipStyle} formatter={(v: any, n: any) => [v, n]} />
+                  <Tooltip {...tooltipStyle} formatter={(v: number | string, n: string) => [v, n]} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex flex-wrap gap-2 mt-2">

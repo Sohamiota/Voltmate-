@@ -11,7 +11,14 @@ const eslintConfig = defineConfig([
       'react-hooks/set-state-in-effect': 'warn',
     },
   },
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts']),
+  globalIgnores([
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
+    // One-off maintenance scrapers (not shipped)
+    'scripts/**',
+  ]),
 ]);
 
 export default eslintConfig;

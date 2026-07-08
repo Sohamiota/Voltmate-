@@ -1,125 +1,173 @@
-#
-# Combined .gitignore (merged from HEAD and production)
-#
+# =============================================================================
+# VoltWheels EMS — production .gitignore
+# Keeps secrets, local ops tooling, uploads, and build artifacts out of git.
+# Safe to commit: source, migrations, .env.example, public assets, lockfiles.
+# =============================================================================
 
-# v0 runtime files (should only exist in preview, not in git)
-__v0_runtime_loader.js
-__v0_devtools.tsx
-__v0_jsx-dev-runtime.ts
-
-# Node
-node_modules/
-**/node_modules/
-npm-debug.log*
-yarn-error.log
-pnpm-debug.log*
-.pnpm-store/
-
-# Environment — never commit secrets
+# ── Environment & secrets (NEVER commit) ─────────────────────────────────────
 .env
-.env.local
-.env.development
-.env.production
-.env.test
-.env.*.local
-/*.env
-**/.env
+.env.*
+!.env.example
 !**/.env.example
 !**/.env.*.example
+*.local
 
-# Next.js / build output
-.next/
-**/.next/
+# Service accounts / API keys on disk
+**/credentials.json
+**/credentials*.json
+**/*service-account*.json
+**/*service_account*.json
+**/*-sa.json
+**/google-credentials.json
+**/firebase-adminsdk*.json
+
+# Keys & certs
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+
+# ── Node / package managers ──────────────────────────────────────────────────
+node_modules/
+**/node_modules/
+.npm/
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ── TypeScript / build output ────────────────────────────────────────────────
 dist/
 **/dist/
 build/
+**/build/
 out/
-
-# TypeScript
+**/.next/
+.next/
 *.tsbuildinfo
 
-# Tooling caches
+# ── Tooling caches ───────────────────────────────────────────────────────────
 .eslintcache
 .turbo/
 .cache/
+.parcel-cache/
 eslint-report.json
 
-# Uploaded leave proof documents & billing archives
-backend/uploads/
+# ── Next.js / Vercel / Render local deploy metadata ───────────────────────────
+.vercel/
+**/.vercel/
+.render/
 
-# Generated report exports (do not commit)
+# ── User uploads & generated runtime files ───────────────────────────────────
+backend/uploads/
+backend-node/uploads/
+**/uploads/
+**/leave-proofs/
+
+# ── Exports & reports (generated locally — not source) ────────────────────────
+**/*.csv
+**/*.xlsx
+**/*.xls
+!**/public/**
 backend/*.csv
 backend/*.xlsx
-docs/CRM_User_Manual_Data_Entry.pdf
 
-# Logs
+# ── DB dumps, seeds with credentials, local DB files ─────────────────────────
+*.sql.backup
+*.dump
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+backup/
+**/backup/
+backend/seed_admin.sql
+render_db.json
+voltmate-db-data/
+/voltmate-db-data/
+
+# ── Local ops / admin / scraper scripts (run on machine only) ────────────────
+backend/scripts/
+backend-node/scripts/
+backend/check_pass.js
+Voltmate-/scripts/
+
+# ── Credential & debug payloads ──────────────────────────────────────────────
+tmp/
+**/tmp/
+tmp_login.json
+tmp_register.json
+**/tmp_login.json
+**/tmp_register.json
+commit_msg.txt
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
 logs/
+**/logs/
 *.log
 debug.log*
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
 
-# OS
+# ── Test / coverage / E2E artifacts ──────────────────────────────────────────
+coverage/
+**/coverage/
+*.lcov
+test-results/
+**/test-results/
+playwright-report/
+**/playwright-report/
+cypress/videos/
+cypress/screenshots/
+
+# ── OS junk ──────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+nul
+NUL
+,
 
-# Editor (local only — share rules via .cursor/rules if needed)
+# ── Editor / IDE (share team rules via .cursor/rules if needed) ───────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.code-workspace
 
-# Cursor — keep `.cursor/rules/` shareable; ignore other local Cursor metadata
+# Cursor — keep rules shareable; ignore local agent metadata
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
 
-# Docker
+# ── Docker local overrides & volumes ─────────────────────────────────────────
 docker-compose.override.yml
-/voltmate-db-data/
+docker-compose.override.yaml
 
-# Test / E2E output (not source)
-coverage/
-**/coverage/
-**/test-results/
-**/playwright-report/
-**/cypress/videos/
-**/cypress/screenshots/
+# ── Archives & local export folders ──────────────────────────────────────────
+**/exports/
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.tgz
+*.rar
 
-# ── Sample / demo code (not the production Voltmate app) ─────────────────────
+# ── Generated docs (build locally) ─────────────────────────────────────────────
+docs/CRM_User_Manual_Data_Entry.pdf
+
+# ── v0 preview runtime (not production source) ─────────────────────────────────
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+
+# ── Non-production / legacy / sample trees ───────────────────────────────────
 frontend-samples/
-
-# ── Local-only test / debug scripts ───────────────────────────────────────────
-backend/check_pass.js
-
-# Backend ops / admin scripts (local DB tools — do not commit)
-backend/scripts/
-backend-node/scripts/
-
-# ── Root-level junk files ───────────────────────────────────────────────────
-,
-commit_msg.txt
-render_db.json
-
-# Local SQL seeds (may contain credentials)
-backend/seed_admin.sql
-
-# Credential / test-payload files — must never be committed
-tmp/
-tmp_login.json
-tmp_register.json
-**/tmp_login.json
-**/tmp_register.json
-
-# Keys / local DB files
-*.sqlite
-*.pem
-*.key
-
-# Deploy platform local config
-/.vercel
-**/.vercel
-
-# Legacy / unused local folders
 voltmate-back/

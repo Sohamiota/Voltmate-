@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { query } from '../db';
 import { getClientIp, isIpAllowed, isPrivateOrLocalIp } from '../utils/network';
-import { collectErrors, optDate, optId, optStr, parsePagination } from '../utils/validate';
+import { collectErrors, optDate, optId, optPlainText, parsePagination } from '../utils/validate';
 
 export async function clockIn(req: Request, res: Response) {
   try {
@@ -59,8 +59,8 @@ export async function clockIn(req: Request, res: Response) {
 
     // ── Validate body ──────────────────────────────────────────────────────────
     const body   = req.body || {};
-    const vLoc   = optStr(body.location, 300);
-    const vNote  = optStr(body.note, 500);
+    const vLoc   = optPlainText(body.location, 'location', 300);
+    const vNote  = optPlainText(body.note, 'note', 500);
     if (vLoc.error)  return res.status(400).json({ error: `location: ${vLoc.error}` });
     if (vNote.error) return res.status(400).json({ error: `note: ${vNote.error}` });
 
@@ -117,8 +117,8 @@ export async function clockOut(req: Request, res: Response) {
     if ((r0 as any).rowCount === 0) return res.status(400).json({ error: 'no open session' });
     const record = (r0 as any).rows[0];
     const body2  = req.body || {};
-    const vLoc2  = optStr(body2.location, 300);
-    const vNote2 = optStr(body2.note, 500);
+    const vLoc2  = optPlainText(body2.location, 'location', 300);
+    const vNote2 = optPlainText(body2.note, 'note', 500);
     if (vLoc2.error)  return res.status(400).json({ error: `location: ${vLoc2.error}` });
     if (vNote2.error) return res.status(400).json({ error: `note: ${vNote2.error}` });
 
@@ -302,7 +302,7 @@ export async function adminApproveAttendance(req: Request, res: Response) {
     if (typeof approveRaw !== 'boolean')
       return res.status(400).json({ error: 'approve must be a boolean (true to approve, false to reject)' });
 
-    const vNote = optStr(body.note, 500);
+    const vNote = optPlainText(body.note, 'note', 500);
     const noteErr = collectErrors({ note: vNote.error });
     if (noteErr) return res.status(400).json({ error: noteErr });
 

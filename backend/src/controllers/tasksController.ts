@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { query } from '../db';
 import {
-  reqStr, optStr, reqId, reqEnum, optEnum,
+  reqPlainText, optPlainText, reqId, reqEnum, optEnum,
   parsePagination, TASK_STATUSES, APPROVAL_STATUSES,
 } from '../utils/validate';
 
@@ -74,7 +74,7 @@ export async function createTask(req: Request, res: Response) {
     if (!userId) return res.status(401).json({ error: 'missing user' });
 
     const body  = req.body || {};
-    const vDesc = reqStr(body.description, 1000);
+    const vDesc = reqPlainText(body.description, 'note', 1000);
     if (vDesc.error) return res.status(400).json({ error: `description: ${vDesc.error}` });
     const vStatus = optEnum(body.status, TASK_STATUSES);
     if (vStatus.error) return res.status(400).json({ error: `status: ${vStatus.error}` });
@@ -130,7 +130,7 @@ export async function updateTask(req: Request, res: Response) {
     const id   = vId.value;
     const body = req.body || {};
 
-    const vDesc   = optStr(body.description, 1000);
+    const vDesc   = optPlainText(body.description, 'note', 1000);
     const vStatus = optEnum(body.status, TASK_STATUSES);
     if (vDesc.error)   return res.status(400).json({ error: `description: ${vDesc.error}` });
     if (vStatus.error) return res.status(400).json({ error: `status: ${vStatus.error}` });

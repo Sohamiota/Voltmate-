@@ -288,9 +288,9 @@ export default function VisitReportPage() {
       const j = await res.json();
       setAllVisits(j.visits || []);
       setConnected(true);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('fetch visits error:', e);
-      setError(e?.message || 'Failed to load visits');
+      setError(e instanceof Error ? e.message : 'Failed to load visits');
       setConnected(false);
       setAllVisits([]);
     } finally {
@@ -384,15 +384,12 @@ export default function VisitReportPage() {
     }
 
     filtered.sort((a, b) => {
-      let aVal: any = a[sortField];
-      let bVal: any = b[sortField];
-      if (sortField === 'visit_date') {
-        aVal = a.visit_date ? new Date(a.visit_date).getTime() : 0;
-        bVal = b.visit_date ? new Date(b.visit_date).getTime() : 0;
-      } else {
-        aVal = (aVal || '').toString().toLowerCase();
-        bVal = (bVal || '').toString().toLowerCase();
-      }
+      const aVal: string | number = sortField === 'visit_date'
+        ? (a.visit_date ? new Date(a.visit_date).getTime() : 0)
+        : String(a[sortField] ?? '').toLowerCase();
+      const bVal: string | number = sortField === 'visit_date'
+        ? (b.visit_date ? new Date(b.visit_date).getTime() : 0)
+        : String(b[sortField] ?? '').toLowerCase();
       if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
       if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
       return 0;

@@ -7,7 +7,7 @@ import {
   type BillingDocType,
 } from '../services/billingService';
 import { readBillingFile } from '../utils/billingStorage';
-import { optStr, reqStr, optDate, collectErrors } from '../utils/validate';
+import { optPlainText, optDate, collectErrors } from '../utils/validate';
 
 function parseDocType(raw: unknown): BillingDocType | null {
   const v = String(raw ?? '').trim().toLowerCase();
@@ -37,10 +37,10 @@ export async function createDocument(req: Request, res: Response) {
 
     const docType = parseDocType(body.doc_type);
     const vDate = optDate(body.doc_date);
-    const vDocNo = optStr(body.doc_no, 80);
-    const vCustomer = optStr(body.customer_name, 200);
-    const vPhone = optStr(body.customer_phone, 30);
-    const vVehicle = optStr(body.vehicle_model, 200);
+    const vDocNo = optPlainText(body.doc_no, 'identifier', 80);
+    const vCustomer = optPlainText(body.customer_name, 'name', 200);
+    const vPhone = optPlainText(body.customer_phone, 'identifier', 30);
+    const vVehicle = optPlainText(body.vehicle_model, 'note', 200);
 
     const fieldErr = collectErrors({
       doc_type: !docType ? 'must be quotation or receipt' : null,
@@ -49,6 +49,12 @@ export async function createDocument(req: Request, res: Response) {
     if (fieldErr) return res.status(400).json({ error: fieldErr });
     if (!body.payload || typeof body.payload !== 'object') {
       return res.status(400).json({ error: 'payload is required' });
+    }
+    if (typeof body.html_snapshot === 'string' && body.html_snapshot.length > 512_000) {
+      return res.status(400).json({ error: 'html_snapshot too large' });
+    }
+    if (typeof body.print_css === 'string' && body.print_css.length > 64_000) {
+      return res.status(400).json({ error: 'print_css too large' });
     }
 
     const grandTotal = body.grand_total != null ? Number(body.grand_total) : null;
@@ -86,7 +92,7 @@ export async function listDocuments(req: Request, res: Response) {
   try {
     const docType = parseDocType(req.query.doc_type);
     const visitId = req.query.visit_id != null ? Number(req.query.visit_id) : undefined;
-    const search = optStr(req.query.search, 100).value || undefined;
+    const search = optPlainText(req.query.search, 'note', 100).value || undefined;
     const limit = req.query.limit != null ? Number(req.query.limit) : 50;
     const offset = req.query.offset != null ? Number(req.query.offset) : 0;
 

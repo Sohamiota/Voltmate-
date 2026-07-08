@@ -6,8 +6,8 @@ import DatePickerField from '@/components/DatePickerField';
 
 /** Returns an AbortSignal that fires after `ms` milliseconds. */
 function timeoutSignal(ms: number): AbortSignal {
-  if (typeof AbortSignal !== 'undefined' && (AbortSignal as any).timeout) {
-    return (AbortSignal as any).timeout(ms);
+  if (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
+    return (AbortSignal as typeof AbortSignal & { timeout: (ms: number) => AbortSignal }).timeout(ms);
   }
   const ctrl = new AbortController();
   setTimeout(() => ctrl.abort(), ms);

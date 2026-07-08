@@ -24,6 +24,7 @@ import {
   acknowledgeAllAlerts,
 } from '../controllers/serviceAlertController';
 import { getServiceAnalytics } from '../controllers/serviceAnalyticsController';
+import { listCustomerGroups, getCustomerDetail } from '../controllers/serviceHubController';
 import { authMiddleware } from '../middlewares/auth';
 import { requireServiceRead, requireServiceWrite } from '../middlewares/serviceRole';
 import { ensureServiceManagerMiddleware } from '../utils/ensureServiceManagerSchema';
@@ -40,6 +41,8 @@ router.get('/alerts', listAlerts);
 router.patch('/alerts/ack-all', requireServiceWrite, acknowledgeAllAlerts);
 router.patch('/alerts/:id/ack', requireServiceWrite, acknowledgeAlert);
 router.get('/analytics', getServiceAnalytics);
+router.get('/customers', listCustomerGroups);
+router.get('/customers/:customerKey', getCustomerDetail);
 router.get('/filters', getFilterOptions);
 router.get('/dashboard', serviceDashboard);
 router.get('/export/csv', exportVehiclesCSV);

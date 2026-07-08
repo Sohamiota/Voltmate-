@@ -16,6 +16,7 @@ import {
   labelForDeferral,
 } from '@/lib/crmDeferral';
 import { downloadXlsx, xlsDate, xlsDateTime } from '@/lib/exportXlsx';
+import { sanitizeCrmPlainText, validateVisitFormText } from '@/lib/crmTextInput';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Lead {
@@ -449,6 +450,10 @@ export default function CreateVisitReportPage() {
 
   // ── Form change ────────────────────────────────────────────────────────────
   function handleFormChange<K extends keyof FormState>(key: K, value: FormState[K]) {
+    let nextValue = value;
+    if (key === 'note' || key === 'deferral_notes' || key === 'lost_reason_notes') {
+      nextValue = sanitizeCrmPlainText(String(value), 'note') as FormState[K];
+    }
     if (key === 'lead_id') {
       // Pull phone numbers and connect_date from the selected lead
       const selected = leads.find(l => String(l.id) === String(value));
@@ -461,7 +466,7 @@ export default function CreateVisitReportPage() {
         is_hot_lead:  !!selected?.is_hot_lead,
       }));
     } else if (key === 'status') {
-      const nextStatus = value as string;
+      const nextStatus = nextValue as string;
       setForm(f => ({
         ...f,
         status: nextStatus,
@@ -470,7 +475,7 @@ export default function CreateVisitReportPage() {
           : {}),
       }));
     } else {
-      setForm(f => ({ ...f, [key]: value }));
+      setForm(f => ({ ...f, [key]: nextValue }));
     }
     setHasUnsaved(true);
   }
@@ -560,6 +565,19 @@ export default function CreateVisitReportPage() {
       showToast('Please log in first', 'error');
       return;
     }
+
+    const textErr = validateVisitFormText({
+      note: form.note,
+      deferral_notes: form.deferral_notes,
+      lost_reason_notes: form.lost_reason_notes,
+      lostReasonRequired:
+        form.status === LOST_NOT_INTERESTED_STATUS && form.lost_not_interested_reason === 'other',
+    });
+    if (textErr) {
+      showToast(textErr, 'error');
+      return;
+    }
+
     if (!form.phone_no.trim()) {
       showToast('Phone No. 1 is required', 'error');
       return;

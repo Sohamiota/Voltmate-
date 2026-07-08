@@ -95,14 +95,26 @@ const BADGE_CTX =
   'bg-indigo-400/[0.12] text-indigo-300 border border-indigo-400/[0.25] text-[10px] px-[7px] py-0.5 rounded font-medium ml-1.5';
 const MAPS_LINK = 'text-xs text-indigo-500 no-underline ml-2 hover:text-indigo-300';
 
+type LocationEmployee = { id: number; name?: string; email?: string; role?: string };
+
+type DayAttendance = {
+  id?: number;
+  user_id?: number;
+  employee_name?: string;
+  clock_in_at?: string;
+  clock_out_at?: string;
+  duration_seconds?: number | null;
+  status?: string | null;
+};
+
 export default function SalesLocationPage() {
   const init = initialTrailParams();
-  const [employees, setEmployees] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<LocationEmployee[]>([]);
   const [selectedUser, setSelectedUser] = useState(init.userId);
   const [date, setDate] = useState(init.dateStr);
   const [loading, setLoading] = useState(false);
   const [pings, setPings] = useState<LocationPing[]>([]);
-  const [attendance, setAttendance] = useState<any>(null);
+  const [attendance, setAttendance] = useState<DayAttendance | null>(null);
   const [fetched, setFetched] = useState(false);
   const [acting, setActing] = useState(false);
 
@@ -397,7 +409,7 @@ export default function SalesLocationPage() {
               onChange={e => setSelectedUser(e.target.value)}
             >
               <option value="">— Select employee —</option>
-              {employees.map((e: any) => (
+              {employees.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.name || e.email} {e.role ? `(${e.role})` : ''}
                 </option>
@@ -453,7 +465,7 @@ export default function SalesLocationPage() {
           </div>
           <div className="flex flex-col gap-1 min-w-[110px]">
             <label className={ATT_FIELD_LABEL}>Duration</label>
-            <span className={ATT_FIELD_VALUE}>{fmtDuration(attendance.duration_seconds)}</span>
+            <span className={ATT_FIELD_VALUE}>{fmtDuration(attendance.duration_seconds ?? null)}</span>
           </div>
           <div className="flex flex-col gap-1 min-w-[110px]">
             <label className={ATT_FIELD_LABEL}>Status</label>

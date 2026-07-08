@@ -8,7 +8,7 @@ import {
   normalizeCidr,
   officeNetworkHint,
 } from '../utils/network';
-import { optStr } from '../utils/validate';
+import { optPlainText } from '../utils/validate';
 
 function isAdmin(req: Request): boolean {
   const role = (req as any).user?.role;
@@ -79,8 +79,8 @@ export async function addNetwork(req: Request, res: Response) {
   try {
     if (!isAdmin(req)) return res.status(403).json({ error: 'forbidden' });
 
-    const vLabel = optStr(req.body?.label, 100);
-    const vCidr  = optStr(req.body?.ip_cidr, 50);
+    const vLabel = optPlainText(req.body?.label, 'note', 100);
+    const vCidr  = optPlainText(req.body?.ip_cidr, 'identifier', 50);
 
     if (vLabel.error || !vLabel.value)
       return res.status(400).json({ error: 'label is required (max 100 chars)' });

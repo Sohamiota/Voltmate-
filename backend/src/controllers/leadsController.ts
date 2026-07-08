@@ -2,8 +2,9 @@ import { Request, Response } from 'express';
 import { query } from '../db';
 import { logActivity } from '../utils/activityLog';
 import {
-  reqStr, optStr, optPhone, optDate, optEnum, reqId, optBool,
+  optPhone, optDate, optEnum, reqId, optBool,
   collectErrors, parseLeadsListQuery, sanitizeSearch, LEAD_TYPES,
+  reqPlainText, optPlainText,
 } from '../utils/validate';
 import { parseCrmDeferralBody } from '../utils/crmDeferral';
 
@@ -41,13 +42,13 @@ export async function createLead(req: Request, res: Response) {
     const userId = requester?.sub ?? null;
     const body   = req.body || {};
 
-    const vName     = reqStr(body.cust_name, 200);
-    const vBusiness = optStr(body.business, 200);
+    const vName     = reqPlainText(body.cust_name, 'name', 200);
+    const vBusiness = optPlainText(body.business, 'note', 200);
     const vPhone    = optPhone(body.phone_no);
     const vPhone2   = optPhone(body.phone_no_2);
     const vLeadType = optEnum(body.lead_type, LEAD_TYPES);
-    const vNote     = optStr(body.note, 2000);
-    const vLocation = optStr(body.location, 300);
+    const vNote     = optPlainText(body.note, 'note', 2000);
+    const vLocation = optPlainText(body.location, 'location', 300);
     const vConnDate = optDate(body.connect_date);
     const hotProvided = Object.prototype.hasOwnProperty.call(body, 'is_hot_lead');
     const vHot      = optBool(body.is_hot_lead);
@@ -107,13 +108,13 @@ export async function updateLead(req: Request, res: Response) {
     const userId  = requester?.sub ?? null;
     const body    = req.body || {};
 
-    const vName     = reqStr(body.cust_name, 200);
-    const vBusiness = optStr(body.business, 200);
+    const vName     = reqPlainText(body.cust_name, 'name', 200);
+    const vBusiness = optPlainText(body.business, 'note', 200);
     const vPhone    = optPhone(body.phone_no);
     const vPhone2   = optPhone(body.phone_no_2);
     const vLeadType = optEnum(body.lead_type, LEAD_TYPES);
-    const vNote     = optStr(body.note, 2000);
-    const vLocation = optStr(body.location, 300);
+    const vNote     = optPlainText(body.note, 'note', 2000);
+    const vLocation = optPlainText(body.location, 'location', 300);
     const vConnDate = optDate(body.connect_date);
     const hotProvided = Object.prototype.hasOwnProperty.call(body, 'is_hot_lead');
     const vHot      = optBool(body.is_hot_lead);

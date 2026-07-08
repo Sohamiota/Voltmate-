@@ -49,10 +49,10 @@ export default function EmployeeManagement({ role }: Props) {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
       const path = role === 'admin' ? '/employees?full_roster=1' : '/employees'
-      const res: any = await get(path, token || undefined)
+      const res = await get(path, token || undefined) as { employees?: Employee[] }
       setEmployees(res.employees || [])
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load employees')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load employees')
     } finally {
       setLoading(false)
     }
@@ -67,8 +67,8 @@ export default function EmployeeManagement({ role }: Props) {
     try {
       await post(`/auth/admin/users/${userId}/approve`, {}, token)
       await loadEmployees()
-    } catch (e: any) {
-      alert(e?.message || 'Approve failed')
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Approve failed')
     } finally {
       setActingId(null)
     }
@@ -82,8 +82,8 @@ export default function EmployeeManagement({ role }: Props) {
     try {
       await patch(`/auth/admin/users/${userId}/role`, { role: newRole }, token)
       setEmployees(prev => prev.map(e => e.id === userId ? { ...e, role: newRole } : e))
-    } catch (e: any) {
-      alert(e?.message || 'Role change failed')
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Role change failed')
     } finally {
       setRoleActingId(null)
     }
@@ -100,8 +100,8 @@ export default function EmployeeManagement({ role }: Props) {
       setShowModal(false)
       setForm(EMPTY_FORM)
       await loadEmployees()
-    } catch (err: any) {
-      setFormError(err?.message || 'Failed to create account')
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create account')
     } finally {
       setFormBusy(false)
     }

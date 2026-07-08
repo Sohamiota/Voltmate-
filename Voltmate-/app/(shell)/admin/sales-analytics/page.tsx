@@ -105,10 +105,34 @@ function agingBucketText(bucket: string): string {
   return '#ef4444';
 }
 
+type SpSort = 'total' | 'overdue' | 'no_date' | 'stale_7d' | 'health';
+
+function SortBtn({
+  k,
+  label,
+  spSort,
+  spAsc,
+  onSort,
+}: {
+  k: SpSort;
+  label: string;
+  spSort: SpSort;
+  spAsc: boolean;
+  onSort: (k: SpSort) => void;
+}) {
+  return (
+    <button
+      className={`bg-transparent border-none text-[10px] cursor-pointer px-1 ${spSort === k ? 'text-red-500' : 'text-zinc-500'}`}
+      onClick={() => onSort(k)}
+    >
+      {label} {spSort === k ? (spAsc ? 'ASC' : 'DESC') : '-'}
+    </button>
+  );
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 type AtRiskTab = 'overdue' | 'no_date' | 'stale';
-type SpSort = 'total' | 'overdue' | 'no_date' | 'stale_7d' | 'health';
 
 export default function SalesAnalyticsPage() {
   const router = useRouter();
@@ -240,15 +264,10 @@ export default function SalesAnalyticsPage() {
     ? ''
     : trendRows.map((r, i) => `${i === 0 ? 'M' : 'L'}${trendX(i).toFixed(1)},${trendY(Number(r.count)).toFixed(1)}`).join(' ');
 
-  // Sort header helper
-  const SortBtn = ({ k, label }: { k: SpSort; label: string }) => (
-    <button
-      className={`bg-transparent border-none text-[10px] cursor-pointer px-1 ${spSort === k ? 'text-red-500' : 'text-zinc-500'}`}
-      onClick={() => { if (spSort === k) setSpAsc(p => !p); else { setSpSort(k); setSpAsc(false); } }}
-    >
-      {label} {spSort === k ? (spAsc ? 'ASC' : 'DESC') : '-'}
-    </button>
-  );
+  const handleSpSort = (k: SpSort) => {
+    if (spSort === k) setSpAsc(p => !p);
+    else { setSpSort(k); setSpAsc(false); }
+  };
 
   // ── Shared table class strings ───────────────────────────────────────────────
 
@@ -382,12 +401,12 @@ export default function SalesAnalyticsPage() {
                 <thead>
                   <tr>
                     <th className={thCls}>Salesperson</th>
-                    <th className={thCls}><SortBtn k="total"    label="Total" /></th>
-                    <th className={thCls}><SortBtn k="overdue"  label="Overdue" /></th>
-                    <th className={thCls}><SortBtn k="no_date"  label="No Date" /></th>
-                    <th className={thCls}><SortBtn k="stale_7d" label="Stale 7d+" /></th>
+                    <th className={thCls}><SortBtn k="total"    label="Total"    spSort={spSort} spAsc={spAsc} onSort={handleSpSort} /></th>
+                    <th className={thCls}><SortBtn k="overdue"  label="Overdue"  spSort={spSort} spAsc={spAsc} onSort={handleSpSort} /></th>
+                    <th className={thCls}><SortBtn k="no_date"  label="No Date"  spSort={spSort} spAsc={spAsc} onSort={handleSpSort} /></th>
+                    <th className={thCls}><SortBtn k="stale_7d" label="Stale 7d+" spSort={spSort} spAsc={spAsc} onSort={handleSpSort} /></th>
                     <th className={thCls}>Lost (month)</th>
-                    <th className={thCls}><SortBtn k="health"   label="Health" /></th>
+                    <th className={thCls}><SortBtn k="health"   label="Health"   spSort={spSort} spAsc={spAsc} onSort={handleSpSort} /></th>
                   </tr>
                 </thead>
                 <tbody>

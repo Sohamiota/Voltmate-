@@ -2,10 +2,12 @@
 
 import { LineChart, Line, CartesianGrid, Tooltip, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 
+type ChartPoint = { name: string; sales?: number }
+
 interface ChartCardProps {
   title: string
   subtitle: string
-  data?: any[]
+  data?: ChartPoint[]
 }
 
 export default function ChartCard({ title, subtitle, data = [] }: ChartCardProps) {
@@ -33,7 +35,7 @@ export default function ChartCard({ title, subtitle, data = [] }: ChartCardProps
                 borderRadius: '8px',
               }}
               labelStyle={{ color: 'hsl(var(--foreground))' }}
-              formatter={(v: any) => [v, 'Visits']}
+              formatter={(v: number | string) => [v, 'Visits']}
             />
             <Line
               type="monotone"
@@ -50,11 +52,11 @@ export default function ChartCard({ title, subtitle, data = [] }: ChartCardProps
       <div className="flex gap-6 mt-6 pt-6 border-t border-border">
         <div>
           <p className="text-xs text-muted-foreground mb-1">Total Visits (30 days)</p>
-          <p className="text-lg font-bold text-foreground">{hasData ? data.reduce((s: any, d: any) => s + (d.sales || 0), 0) : '—'}</p>
+          <p className="text-lg font-bold text-foreground">{hasData ? data.reduce((s, d) => s + (d.sales || 0), 0) : '—'}</p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground mb-1">Peak Day</p>
-          <p className="text-lg font-bold text-primary">{hasData ? Math.max(...data.map((d: any) => d.sales || 0)) : '—'}</p>
+          <p className="text-lg font-bold text-primary">{hasData ? Math.max(...data.map(d => d.sales || 0)) : '—'}</p>
         </div>
       </div>
     </div>

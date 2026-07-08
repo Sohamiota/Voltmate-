@@ -50,6 +50,7 @@ export default function DashboardOverview() {
 
   const retryCountRef = useRef(0)
   const mountedRef    = useRef(true)
+  const fetchAllRef   = useRef<(isAutoRetry?: boolean) => Promise<void>>(async () => {})
 
   useEffect(() => {
     mountedRef.current = true
@@ -154,12 +155,16 @@ export default function DashboardOverview() {
       if (retryCountRef.current < 1) {
         retryCountRef.current += 1
         setBackendError('Backend is waking up (cold start). Retrying in 15 s…')
-        setTimeout(() => { if (mountedRef.current) fetchAll(true) }, 15_000)
+        setTimeout(() => { if (mountedRef.current) void fetchAllRef.current(true) }, 15_000)
       } else {
         setBackendError('Unable to reach the backend. Check your connection and try Refresh.')
       }
     }
   }, [])
+
+  useEffect(() => {
+    fetchAllRef.current = fetchAll;
+  }, [fetchAll]);
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
@@ -181,7 +186,7 @@ export default function DashboardOverview() {
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
             Welcome back, {userName}
           </h1>
-          <p className="text-muted-foreground text-sm">Here's your dealership overview for today</p>
+          <p className="text-muted-foreground text-sm">Here&apos;s your dealership overview for today</p>
         </div>
         <button
           onClick={() => fetchAll()}

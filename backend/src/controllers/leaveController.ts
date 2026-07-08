@@ -15,7 +15,7 @@ import {
   type LeaveType,
 } from '../services/leaveService';
 import { readProofFile, type ProofPayload } from '../utils/leaveProof';
-import { optDate, optId, optStr } from '../utils/validate';
+import { optDate, optId, optPlainText } from '../utils/validate';
 
 function parseProof(body: Record<string, unknown>): ProofPayload | undefined {
   const p = body.proof as Record<string, unknown> | undefined;
@@ -71,7 +71,7 @@ export async function createLeaveRequest(req: Request, res: Response) {
 
     const start = optDate(body.start_date);
     const end = optDate(body.end_date);
-    const reason = optStr(body.reason, 1000);
+    const reason = optPlainText(body.reason, 'note', 1000);
     if (start.error) return res.status(400).json({ error: `start_date: ${start.error}` });
     if (end.error) return res.status(400).json({ error: `end_date: ${end.error}` });
     if (reason.error) return res.status(400).json({ error: `reason: ${reason.error}` });
@@ -148,7 +148,7 @@ export async function adminApproveLeave(req: Request, res: Response) {
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'invalid id' });
 
     const approve = req.body?.approve !== false;
-    const note = optStr(req.body?.note, 500);
+    const note = optPlainText(req.body?.note, 'note', 500);
     if (note.error) return res.status(400).json({ error: `note: ${note.error}` });
 
     const row = await approveLeaveRequest(id, approverId, approve, note.value ?? undefined);

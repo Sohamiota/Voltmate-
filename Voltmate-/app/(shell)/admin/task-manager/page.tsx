@@ -43,6 +43,19 @@ function taskBadge(s: string): React.CSSProperties {
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
+type TaskHistoryEntry = {
+  id?: number;
+  edited_by_name?: string;
+  edited_at?: string;
+  created_at?: string;
+  status?: string;
+  description?: string;
+  old_description?: string;
+  new_description?: string;
+  old_status?: string;
+  new_status?: string;
+};
+
 export default function AdminTaskManagerPage() {
   const [tasks,         setTasks]         = useState<Task[]>([]);
   const [loading,       setLoading]       = useState(true);
@@ -52,7 +65,7 @@ export default function AdminTaskManagerPage() {
 
   // History modal
   const [histTask,      setHistTask]      = useState<Task | null>(null);
-  const [history,       setHistory]       = useState<any[]>([]);
+  const [history,       setHistory]       = useState<TaskHistoryEntry[]>([]);
   const [histLoading,   setHistLoading]   = useState(false);
 
   // Toasts
@@ -341,7 +354,7 @@ export default function AdminTaskManagerPage() {
                         Edit #{history.length - idx} by{' '}
                         <strong className="text-[#dde3f0]">{h.edited_by_name || 'Unknown'}</strong>
                       </span>
-                      <span className="text-[11px] text-[#4b5268]">{fmtTs(h.edited_at)}</span>
+                      <span className="text-[11px] text-[#4b5268]">{h.edited_at ? fmtTs(h.edited_at) : '—'}</span>
                     </div>
                     {h.old_description !== h.new_description && (
                       <div className="mb-2">
@@ -358,9 +371,9 @@ export default function AdminTaskManagerPage() {
                       <div>
                         <div className="text-[10px] text-[#4b5268] uppercase tracking-[0.8px] mb-1.5">Status</div>
                         <div className="flex items-center gap-2 text-[12px]">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap" style={taskBadge(h.old_status)}>{h.old_status}</span>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap" style={taskBadge(h.old_status ?? '')}>{h.old_status}</span>
                           <span className="text-[#4b5268]">→</span>
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap" style={taskBadge(h.new_status)}>{h.new_status}</span>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap" style={taskBadge(h.new_status ?? '')}>{h.new_status}</span>
                         </div>
                       </div>
                     )}

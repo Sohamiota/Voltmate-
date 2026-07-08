@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { query } from '../db';
-import { optDate, optEnum, optId, optStr } from '../utils/validate';
+import { optDate, optEnum, optId, optPlainText } from '../utils/validate';
 
 /** Who may view trails and team snapshots (read-only CRM / attendance oversight). */
 function canViewLocationTrails(role: string | undefined): boolean {
@@ -50,7 +50,7 @@ export async function recordPing(req: Request, res: Response) {
     const accuracyM =
       body.accuracy_m != null && isFinite(Number(body.accuracy_m)) ? Number(body.accuracy_m) : null;
 
-    const vNote = optStr(body.note, 300);
+    const vNote = optPlainText(body.note, 'note', 300);
     if (vNote.error) return res.status(400).json({ error: `note: ${vNote.error}` });
 
     const type = body.type === 'manual' ? 'manual' : 'auto';

@@ -66,8 +66,8 @@ export default function LoginPage() {
           setError('Account created! Check your email for the verification code.');
         }
       }
-    } catch (err: any) {
-      setError(err?.message || 'Request failed');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Request failed');
     } finally {
       setLoading(false);
     }
@@ -185,8 +185,8 @@ export default function LoginPage() {
                         setError('Email verified. Awaiting admin approval.');
                         setMode('login');
                       }
-                    } catch (e: any) {
-                      setError(e?.message || 'Verify failed');
+                    } catch (e: unknown) {
+                      setError(e instanceof Error ? e.message : 'Verify failed');
                     } finally {
                       setLoading(false);
                     }
@@ -211,7 +211,7 @@ export default function LoginPage() {
         </form>
 
         <div className='mt-6 text-center text-sm text-gray-400'>
-          Don't have an account? Register from the employee app or contact admin.
+          Don&apos;t have an account? Register from the employee app or contact admin.
         </div>
       </div>
     </div>

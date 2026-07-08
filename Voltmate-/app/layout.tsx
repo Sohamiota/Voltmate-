@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import AuthGuard from './AuthGuard'
+import PlainTextInputGuard from '@/components/PlainTextInputGuard'
 
 import './globals.css'
 
@@ -34,6 +35,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="font-sans antialiased">
+        <PlainTextInputGuard />
         <AuthGuard>{children}</AuthGuard>
       </body>
     </html>

@@ -2,9 +2,9 @@
 
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import PageHeader from '@/components/PageHeader';
+import ServiceManagerShell from '@/components/service-manager/ServiceManagerShell';
+import ServiceSchedulePanel from '@/components/service-manager/ServiceSchedulePanel';
 import VehicleDetailDrawer from '@/components/service-manager/VehicleDetailDrawer';
-import { getBackNavigation, getBreadcrumbsForPath } from '@/lib/navigation';
 import { downloadXlsx, xlsDate } from '@/lib/exportXlsx';
 import {
   Vehicle,
@@ -256,8 +256,8 @@ function ServiceManagerVehiclesPageInner() {
       }
       setModalOpen(null);
       await fetchVehicleList();
-    } catch (err: any) {
-      alert(err?.message || 'Save failed');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setSubmitting(false);
     }
@@ -301,8 +301,8 @@ function ServiceManagerVehiclesPageInner() {
       if (!res.ok) throw new Error(await res.text());
       setMarkDoneService(null);
       await fetchVehicleList();
-    } catch (err: any) {
-      alert(err?.message || 'Update failed');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Update failed');
     } finally {
       setSubmitting(false);
     }
@@ -351,8 +351,8 @@ function ServiceManagerVehiclesPageInner() {
       if (!res.ok) throw new Error(await res.text());
       setEditServiceState(null);
       await fetchVehicleList();
-    } catch (err: any) {
-      alert(err?.message || 'Save failed');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setSubmitting(false);
     }
@@ -367,8 +367,8 @@ function ServiceManagerVehiclesPageInner() {
       const res = await fetch(`${API_BASE}/vehicles/${id}`, { method: 'DELETE', headers });
       if (!res.ok) throw new Error(await res.text());
       await fetchVehicleList();
-    } catch (err: any) {
-      alert(err?.message || 'Delete failed');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Delete failed');
     }
   }
 
@@ -474,23 +474,18 @@ function ServiceManagerVehiclesPageInner() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0c12] text-[#e8edf5] font-sans">
-      <div className="px-7 py-8 max-w-full mx-auto">
-        <div className="mb-7 flex items-center justify-between flex-wrap gap-3">
-          <PageHeader
-            variant="dark"
-            className="mb-0"
-            title="Vehicle Management"
-            description="Full service tracking: 1st, 2nd, and 3rd service status per vehicle"
-            backHref={getBackNavigation('/service-manager/vehicles')?.href}
-            backLabel={`Back to ${getBackNavigation('/service-manager/vehicles')?.label ?? 'Service Manager'}`}
-            breadcrumbs={getBreadcrumbsForPath('/service-manager/vehicles')}
-          />
-          <div className="flex gap-2 flex-wrap">
-            <button type="button" className={baseBtn} onClick={() => setImportOpen(true)}>↑ Import JSON</button>
-            <button type="button" className={primaryBtnLg} onClick={openAdd}>+ Add Vehicle</button>
-          </div>
-        </div>
+    <ServiceManagerShell
+      title="Vehicle Management"
+      description="Euler KM/month service schedule — Storm, Turbo, Neo, HiLoad/HiCity"
+      actions={
+        <>
+          <button type="button" className={baseBtn} onClick={() => setImportOpen(true)}>↑ Import JSON</button>
+          <button type="button" className={primaryBtnLg} onClick={openAdd}>+ Add Vehicle</button>
+        </>
+      }
+    >
+
+        <ServiceSchedulePanel />
 
         <div className="mb-4 flex flex-wrap gap-2">
           <input
@@ -985,7 +980,6 @@ function ServiceManagerVehiclesPageInner() {
             </form>
           </div>
         )}
-      </div>
-    </div>
+    </ServiceManagerShell>
   );
 }

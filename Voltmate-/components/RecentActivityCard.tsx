@@ -26,10 +26,10 @@ export default function RecentActivityCard() {
       try {
         const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
         // Try fetching real activity if backend provides it; otherwise leave empty
-        const res: any = await get('/activity', token || undefined).catch(() => ({ activities: [] }))
-        setActivities(res.activities || [])
-      } catch (e: any) {
-        setError(e?.message || 'Failed to load activity')
+        const res = await get('/activity', token || undefined).catch(() => ({ activities: [] as Activity[] }))
+        setActivities((res as { activities?: Activity[] }).activities || [])
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'Failed to load activity')
       } finally {
         setLoading(false)
       }

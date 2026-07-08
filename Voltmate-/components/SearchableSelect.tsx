@@ -2,6 +2,7 @@
 
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { sanitizeCrmPlainText } from '@/lib/crmTextInput';
 
 export interface SSOption { value: string; label: string; }
 
@@ -142,7 +143,7 @@ export default function SearchableSelect({
             <input
               ref={inputRef}
               value={query}
-              onChange={e => { setQuery(e.target.value); setHighlight(0); }}
+              onChange={e => { setQuery(sanitizeCrmPlainText(e.target.value, 'note')); setHighlight(0); }}
               onKeyDown={handleKeyDown}
               placeholder="Search…"
               style={{

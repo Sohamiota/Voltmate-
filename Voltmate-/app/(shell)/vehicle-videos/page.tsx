@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { YouTubeVideo, YouTubePlaylistResponse } from '@/types/api';
 import { API_BASE, getStoredToken } from '@/src/api/client';
 
 // YouTube calls are proxied through the backend so the API key is never
@@ -53,6 +52,26 @@ interface Video {
   viewCount?: string;
 }
 
+type PlaylistItem = {
+  snippet: {
+    title: string;
+    description: string;
+    publishedAt: string;
+    resourceId: { videoId: string };
+    thumbnails?: { high?: { url: string }; medium?: { url: string } };
+  };
+};
+
+type VideoStatsItem = {
+  id: string;
+  statistics?: { viewCount?: string };
+};
+
+type PlaylistItemsResponse = {
+  items?: PlaylistItem[];
+  nextPageToken?: string;
+};
+
 function formatCount(n: string | undefined): string {
   if (!n) return '';
   const num = parseInt(n, 10);
@@ -76,27 +95,19 @@ export default function VehicleVideosPage() {
   const [channelTitle, setChannelTitle] = useState('Euler Motors');
   const searchRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!search.trim()) { setFiltered(videos); return; }
-    const q = search.toLowerCase();
-    setFiltered(videos.filter(v => v.title.toLowerCase().includes(q) || v.description.toLowerCase().includes(q)));
-  }, [search, videos]);
-
-  useEffect(() => { fetchVideos(); }, []);
-
-  async function resolveChannelId(): Promise<string> {
-    try {
-      const cfg = await fetch(`${YT_BASE}/euler/config`, {
-        headers: { Authorization: `Bearer ${getStoredToken()}` },
-      }).then(r => r.json());
-      if (cfg?.channelId) return cfg.channelId as string;
-    } catch {
-      /* use local fallback */
-    }
-    return EULER_CHANNEL_ID_FALLBACK;
-  }
-
   const fetchVideos = useCallback(async (pageToken?: string) => {
+    async function resolveChannelId(): Promise<string> {
+      try {
+        const cfg = await fetch(`${YT_BASE}/euler/config`, {
+          headers: { Authorization: `Bearer ${getStoredToken()}` },
+        }).then(r => r.json());
+        if (cfg?.channelId) return cfg.channelId as string;
+      } catch {
+        /* use local fallback */
+      }
+      return EULER_CHANNEL_ID_FALLBACK;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -113,16 +124,16 @@ export default function VehicleVideosPage() {
 
       const plParams: Record<string, string> = { part: 'snippet', playlistId: uploadsId, maxResults: '24' };
       if (pageToken) plParams.pageToken = pageToken;
-      const plData = await ytFetchJson<YouTubePlaylistResponse>('playlistItems', plParams);
+      const plData = await ytFetchJson<PlaylistItemsResponse>('playlistItems', plParams);
       if (!plData.items) return;
       setNextPageToken(plData.nextPageToken || null);
 
-      const videoIds: string = plData.items.map((i: any) => i.snippet.resourceId.videoId).join(',');
-      const statsData = await ytFetchJson<{ items?: YouTubeVideo[] }>('videos', { part: 'statistics', id: videoIds });
-      const statsMap: Record<string, YouTubeVideo> = {};
-      statsData.items?.forEach((v: YouTubeVideo) => { statsMap[(v as any).id] = v; });
+      const videoIds = plData.items.map(i => i.snippet.resourceId.videoId).join(',');
+      const statsData = await ytFetchJson<{ items?: VideoStatsItem[] }>('videos', { part: 'statistics', id: videoIds });
+      const statsMap: Record<string, VideoStatsItem> = {};
+      statsData.items?.forEach(v => { statsMap[v.id] = v; });
 
-      const newVideos: Video[] = plData.items.map((item: any) => {
+      const newVideos: Video[] = plData.items.map(item => {
         const vid = item.snippet.resourceId.videoId;
         return {
           id: vid,
@@ -130,17 +141,25 @@ export default function VehicleVideosPage() {
           description: item.snippet.description,
           thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.medium?.url || '',
           publishedAt: item.snippet.publishedAt,
-          viewCount: (statsMap[vid] as any)?.statistics?.viewCount,
+          viewCount: statsMap[vid]?.statistics?.viewCount,
         };
       });
 
       setVideos(prev => pageToken ? [...prev, ...newVideos] : newVideos);
-    } catch (e: any) {
-      setError(e.message || 'Failed to fetch videos');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to fetch videos');
     } finally {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!search.trim()) { setFiltered(videos); return; }
+    const q = search.toLowerCase();
+    setFiltered(videos.filter(v => v.title.toLowerCase().includes(q) || v.description.toLowerCase().includes(q)));
+  }, [search, videos]);
+
+  useEffect(() => { void fetchVideos(); }, [fetchVideos]);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-200 font-sans p-8">

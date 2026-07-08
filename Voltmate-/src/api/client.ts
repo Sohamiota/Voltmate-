@@ -60,7 +60,7 @@ export async function get(path: string, token?: string) {
   return request(path, { method: 'GET', token });
 }
 
-export async function post(path: string, body?: any, token?: string) {
+export async function post(path: string, body?: unknown, token?: string) {
   return request(path, {
     method: 'POST',
     body:   body ? JSON.stringify(body) : undefined,
@@ -68,7 +68,7 @@ export async function post(path: string, body?: any, token?: string) {
   });
 }
 
-export async function patch(path: string, body?: any, token?: string) {
+export async function patch(path: string, body?: unknown, token?: string) {
   return request(path, {
     method: 'PATCH',
     body:   body ? JSON.stringify(body) : undefined,

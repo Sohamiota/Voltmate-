@@ -10,6 +10,25 @@ import {
   vehicleLabel,
 } from '@/lib/serviceManagerApi';
 
+type OwnerStatusVehicle = {
+  id: number;
+  vehicle_type?: string;
+  vehicle_number?: string;
+  chassis_number?: string;
+  service_no?: number;
+  due_date?: string;
+  due_km?: number | null;
+  current_km?: number;
+  last_done_no?: number;
+  last_done_date?: string;
+  last_done_km?: number;
+};
+
+type OwnerStatusData = {
+  vehicles?: OwnerStatusVehicle[];
+  dealership_contact?: { phone?: string };
+};
+
 type Step = 'phone' | 'otp' | 'status';
 
 export default function ServiceStatusPage() {
@@ -18,7 +37,7 @@ export default function ServiceStatusPage() {
   const [otp, setOtp] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [statusData, setStatusData] = useState<any>(null);
+  const [statusData, setStatusData] = useState<OwnerStatusData | null>(null);
 
   async function sendOtp(e: React.FormEvent) {
     e.preventDefault();
@@ -41,7 +60,7 @@ export default function ServiceStatusPage() {
     try {
       const { token } = await verifyOwnerOtp(phone, otp);
       setOwnerToken(token);
-      const data = await fetchOwnerStatus();
+      const data = await fetchOwnerStatus() as OwnerStatusData;
       setStatusData(data);
       setStep('status');
     } catch (err: unknown) {
@@ -105,7 +124,7 @@ export default function ServiceStatusPage() {
 
         {step === 'status' && statusData && (
           <div className="space-y-4">
-            {(statusData.vehicles || []).map((v: any) => (
+            {(statusData.vehicles || []).map((v: OwnerStatusVehicle) => (
               <div key={v.id} className="border border-[#1e2236] rounded-xl p-4">
                 <div className="font-bold">{vehicleLabel(v)}</div>
                 <div className="text-sm text-[#8e97ad]">{v.vehicle_type || '—'}</div>

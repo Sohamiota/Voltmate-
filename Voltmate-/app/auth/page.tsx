@@ -31,7 +31,7 @@ export default function AuthPage() {
   }
 
   const validateForm = () => {
-    const newErrors: any = {}
+    const newErrors: typeof errors = {}
     
     if (!isLogin && !formData.fullName.trim()) {
       newErrors.fullName = 'Full name is required'

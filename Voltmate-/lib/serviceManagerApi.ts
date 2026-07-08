@@ -119,6 +119,9 @@ export interface VehicleService {
   status?: string;
   remarks?: string;
   cost?: number | string;
+  vehicle_number?: string;
+  chassis_number?: string;
+  vehicle_type?: string;
 }
 
 export interface PdiItem {
@@ -229,6 +232,57 @@ export async function fetchAnalytics(from?: string, to?: string): Promise<Analyt
   if (from) params.set('from', from);
   if (to) params.set('to', to);
   const res = await fetch(`${API_BASE}/vehicles/analytics?${params}`, { headers: authHeaders() });
+  return parseJson(res);
+}
+
+export interface CustomerVehicleSummary {
+  id: number;
+  vehicle_number?: string;
+  chassis_number?: string;
+  vehicle_type?: string;
+  owner_phone?: string;
+  location?: string;
+  current_km?: number;
+  pending_service_id?: number | null;
+  pending_service_no?: number | null;
+  pending_due_km?: number | null;
+  pending_due_date?: string | null;
+  urgency: Urgency;
+  due_today?: boolean;
+  stale_km?: boolean;
+}
+
+export interface CustomerGroup {
+  customer_name: string;
+  vehicle_count: number;
+  overdue_count: number;
+  due_soon_count: number;
+  due_this_week_count: number;
+  vehicles: CustomerVehicleSummary[];
+}
+
+export interface CustomerDetail {
+  customer_name: string;
+  vehicles: Vehicle[];
+  services: VehicleService[];
+  activity_log: Array<{
+    id: number;
+    entity_type: string;
+    entity_id: number;
+    action: string;
+    performed_at: string;
+    performed_by_name?: string;
+    details?: string;
+  }>;
+}
+
+export async function fetchCustomerGroups(): Promise<{ customers: CustomerGroup[] }> {
+  const res = await fetch(`${API_BASE}/vehicles/customers`, { headers: authHeaders() });
+  return parseJson(res);
+}
+
+export async function fetchCustomerDetail(customerKey: string): Promise<CustomerDetail> {
+  const res = await fetch(`${API_BASE}/vehicles/customers/${customerKey}`, { headers: authHeaders() });
   return parseJson(res);
 }
 

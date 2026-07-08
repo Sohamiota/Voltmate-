@@ -1,12 +1,12 @@
 import {
   optEnum,
-  optStr,
   optDate,
   optIsoDateTime,
   optBool,
   collectErrors,
   DEFERRAL_BUCKETS,
   CONTACT_DISPOSITIONS,
+  optPlainText,
 } from './validate';
 
 export type ParsedCrmDeferral = {
@@ -29,7 +29,7 @@ export function parseCrmDeferralBody(body: Record<string, unknown>): {
   parsed: ParsedCrmDeferral | null;
 } {
   const vDeferral = optEnum(body.deferral_bucket, DEFERRAL_BUCKETS);
-  const vDeferNotes = optStr(body.deferral_notes, 2000);
+  const vDeferNotes = optPlainText(body.deferral_notes, 'note', 2000);
   const vFollowUp = optDate(body.follow_up_after_date);
   const vEarliest = optDate(body.earliest_purchase_intent_date);
   const vDispo = optEnum(body.contact_disposition, CONTACT_DISPOSITIONS);

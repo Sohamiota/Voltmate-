@@ -2,15 +2,15 @@ import { Request, Response } from 'express';
 import { query, pool } from '../db';
 import { logActivity } from '../utils/activityLog';
 import {
-  DEFAULT_DAYS_INTERVAL,
-  DEFAULT_KM_INTERVAL,
   DEFAULT_PDI_CHECKLIST,
+  computeInitialServiceDue,
   isDueThisWeek,
   isDueToday,
   isStaleOdometer,
   PDI_DUE_DAYS,
   urgency,
 } from '../utils/vehicleServiceRules';
+import { parseVehicleTextFields } from '../utils/vehicleValidate';
 
 const VEHICLE_LIST_SQL = `
   SELECT v.*,
@@ -113,20 +113,22 @@ export async function getVehicle(req: Request, res: Response) {
 export async function createVehicle(req: Request, res: Response) {
   try {
     const userId = (req as any).user?.sub ?? null;
+    const body = req.body || {};
+    const parsed = parseVehicleTextFields(body);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+
     const {
       vehicle_number, chassis_number, vehicle_type,
       owner_name, owner_phone, driver_name, driver_phone,
-      location, purchase_date, current_km, pdi, speak_with, remarks,
-    } = req.body;
+      location, purchase_date, pdi, speak_with, remarks,
+    } = parsed.fields;
 
-    const purchaseKm = current_km != null ? parseInt(String(current_km), 10) : 0;
-    const dueKm = purchaseKm + DEFAULT_KM_INTERVAL;
-    let dueDate: string | null = null;
+    const current_km = body.current_km != null ? parseInt(String(body.current_km), 10) : 0;
+    const purchaseKm = Number.isFinite(current_km) && current_km >= 0 ? current_km : 0;
+    const purchaseDateStr = purchase_date ? String(purchase_date).slice(0, 10) : null;
+    const firstService = computeInitialServiceDue(vehicle_type, purchaseDateStr, purchaseKm);
     let pdiDueDate: string | null = null;
     if (purchase_date) {
-      const d = new Date(purchase_date);
-      d.setDate(d.getDate() + DEFAULT_DAYS_INTERVAL);
-      dueDate = d.toISOString().slice(0, 10);
       const pdiD = new Date(purchase_date);
       pdiD.setDate(pdiD.getDate() + PDI_DUE_DAYS);
       pdiDueDate = pdiD.toISOString().slice(0, 10);
@@ -141,17 +143,17 @@ export async function createVehicle(req: Request, res: Response) {
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending',$12,$13,$14,$15,now(),$16,now(),now())
       RETURNING *`,
       [
-        vehicle_number || null, chassis_number || null, vehicle_type || null,
-        owner_name || null, owner_phone || null, driver_name || null, driver_phone || null,
-        location || null, purchase_date || null, purchaseKm, pdi || null, pdiDueDate,
-        JSON.stringify(DEFAULT_PDI_CHECKLIST), speak_with || null, remarks || null, userId,
+        vehicle_number, chassis_number, vehicle_type,
+        owner_name, owner_phone, driver_name, driver_phone,
+        location, purchase_date, purchaseKm, pdi, pdiDueDate,
+        JSON.stringify(DEFAULT_PDI_CHECKLIST), speak_with, remarks, userId,
       ],
     );
     const vehicle = (ins as any).rows[0];
     await query(
       `INSERT INTO vehicle_services (vehicle_id, service_no, due_km, due_date, status, created_by, created_at, updated_at)
        VALUES ($1, 1, $2, $3, 'pending', $4, now(), now())`,
-      [vehicle.id, dueKm, dueDate, userId],
+      [vehicle.id, firstService.due_km, firstService.due_date, userId],
     );
     await logActivity('vehicle', vehicle.id, vehicle.vehicle_number || vehicle.chassis_number, 'create', userId);
     res.status(201).json(vehicle);
@@ -166,11 +168,17 @@ export async function updateVehicle(req: Request, res: Response) {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
     const userId = (req as any).user?.sub ?? null;
+    const body = req.body || {};
+    const parsed = parseVehicleTextFields(body);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+
     const {
       vehicle_number, chassis_number, vehicle_type,
       owner_name, owner_phone, driver_name, driver_phone,
-      location, purchase_date, current_km, pdi, speak_with, remarks,
-    } = req.body;
+      location, purchase_date, pdi, speak_with, remarks,
+    } = parsed.fields;
+
+    const current_km = body.current_km != null ? parseInt(String(body.current_km), 10) : null;
 
     const r = await query(
       `UPDATE vehicles SET
@@ -180,14 +188,14 @@ export async function updateVehicle(req: Request, res: Response) {
         updated_at=now()
        WHERE id=$14 RETURNING *`,
       [
-        vehicle_number ?? null, chassis_number ?? null, vehicle_type ?? null,
-        owner_name ?? null, owner_phone ?? null, driver_name ?? null, driver_phone ?? null,
-        location ?? null, purchase_date ?? null, current_km ?? null, pdi ?? null,
-        speak_with ?? null, remarks ?? null, id,
+        vehicle_number, chassis_number, vehicle_type,
+        owner_name, owner_phone, driver_name, driver_phone,
+        location, purchase_date, current_km, pdi,
+        speak_with, remarks, id,
       ],
     );
     if ((r as any).rowCount === 0) return res.status(404).json({ error: 'vehicle not found' });
-    await logActivity('vehicle', id, vehicle_number || chassis_number, 'update', userId);
+    await logActivity('vehicle', id, vehicle_number || chassis_number || String(id), 'update', userId);
     res.json((r as any).rows[0]);
   } catch (e) {
     console.error('updateVehicle', e);
@@ -301,10 +309,17 @@ export async function importVehicles(req: Request, res: Response) {
     const importedIds: number[] = [];
     try {
       await client.query('BEGIN');
-      for (const row of vehicles) {
-        const chassis_number = row.chassis_number ?? row.vehicle_number ?? null;
-        const vehicle_number = row.vehicle_number ?? chassis_number ?? null;
-        const purchase_date = normalizeDate(row.purchase_date);
+      for (let i = 0; i < vehicles.length; i++) {
+        const row = vehicles[i];
+        const parsed = parseVehicleTextFields(row as Record<string, unknown>);
+        if (parsed.error) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: `vehicles[${i}]: ${parsed.error}` });
+        }
+        const f = parsed.fields;
+        const chassis_number = f.chassis_number ?? f.vehicle_number ?? null;
+        const vehicle_number = f.vehicle_number ?? chassis_number ?? null;
+        const purchase_date = normalizeDate(f.purchase_date ?? (row as any).purchase_date);
         const current_km = row.current_km != null ? parseInt(String(row.current_km), 10) : 0;
         let pdiDueDate: string | null = null;
         if (purchase_date) {
@@ -322,12 +337,12 @@ export async function importVehicles(req: Request, res: Response) {
           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending',$12,$13,$14,$15,now(),$16,now(),now())
           RETURNING id`,
           [
-            vehicle_number, chassis_number, row.vehicle_type ?? null,
-            row.owner_name ?? null, row.owner_phone ?? null,
-            row.driver_name ?? null, row.driver_phone ?? null,
-            row.location ?? null, purchase_date, isNaN(current_km) ? 0 : current_km,
-            row.pdi ?? null, pdiDueDate, JSON.stringify(DEFAULT_PDI_CHECKLIST),
-            row.speak_with ?? null, row.remarks ?? null, userId,
+            vehicle_number, chassis_number, f.vehicle_type,
+            f.owner_name, f.owner_phone,
+            f.driver_name, f.driver_phone,
+            f.location, purchase_date, isNaN(current_km) ? 0 : current_km,
+            f.pdi, pdiDueDate, JSON.stringify(DEFAULT_PDI_CHECKLIST),
+            f.speak_with, f.remarks, userId,
           ],
         );
         const vehicleId = (ins as any).rows[0]?.id;
@@ -335,6 +350,21 @@ export async function importVehicles(req: Request, res: Response) {
         importedIds.push(vehicleId);
 
         const services = Array.isArray(row.services) ? row.services : [];
+        if (services.length === 0) {
+          const purchaseDateStr = purchase_date ? String(purchase_date).slice(0, 10) : null;
+          const firstService = computeInitialServiceDue(
+            row.vehicle_type ?? null,
+            purchaseDateStr,
+            isNaN(current_km) ? 0 : current_km,
+          );
+          await client.query(
+            `INSERT INTO vehicle_services (vehicle_id, service_no, due_km, due_date, status, created_by, created_at, updated_at)
+             VALUES ($1, 1, $2, $3, 'pending', $4, now(), now())
+             ON CONFLICT (vehicle_id, service_no) DO NOTHING`,
+            [vehicleId, firstService.due_km, firstService.due_date, userId],
+          );
+        }
+
         let lastActualKm = current_km;
         for (const svc of services) {
           const service_no = svc.service_no != null ? parseInt(String(svc.service_no), 10) : null;

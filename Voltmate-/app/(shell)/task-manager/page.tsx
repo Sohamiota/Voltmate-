@@ -49,6 +49,19 @@ function todayISO() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+type TaskHistoryEntry = {
+  id?: number;
+  edited_by_name?: string;
+  edited_at?: string;
+  created_at?: string;
+  status?: string;
+  description?: string;
+  old_description?: string;
+  new_description?: string;
+  old_status?: string;
+  new_status?: string;
+};
+
 export default function TaskManagerPage() {
   const [me,           setMe]           = useState<{ name: string; email: string } | null>(null);
   const [todayTask,    setTodayTask]    = useState<Task | null>(null);
@@ -70,7 +83,7 @@ export default function TaskManagerPage() {
 
   // History modal
   const [histTask,     setHistTask]     = useState<Task | null>(null);
-  const [history,      setHistory]      = useState<any[]>([]);
+  const [history,      setHistory]      = useState<TaskHistoryEntry[]>([]);
   const [histLoading,  setHistLoading]  = useState(false);
 
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -411,7 +424,7 @@ export default function TaskManagerPage() {
                   <div key={h.id} className="bg-[#111] border border-zinc-800 rounded-[10px] px-4 py-3.5">
                     <div className="flex justify-between mb-2.5">
                       <span className="text-xs text-zinc-400">Edit #{history.length - i} by <strong className="text-zinc-200">{h.edited_by_name || 'Unknown'}</strong></span>
-                      <span className="text-[11px] text-zinc-500">{fmtTs(h.edited_at)}</span>
+                      <span className="text-[11px] text-zinc-500">{h.edited_at ? fmtTs(h.edited_at) : '—'}</span>
                     </div>
                     {h.old_description !== h.new_description && (
                       <div className="mb-2">
@@ -428,9 +441,9 @@ export default function TaskManagerPage() {
                       <div>
                         <div className="text-[11px] text-zinc-400 mb-1 uppercase tracking-[0.5px]">Status</div>
                         <div className="flex items-center gap-2 text-xs">
-                          <span className={`px-2.5 py-0.5 rounded-md border ${badgeClass(h.old_status)}`}>{h.old_status}</span>
+                          <span className={`px-2.5 py-0.5 rounded-md border ${badgeClass(h.old_status ?? '')}`}>{h.old_status}</span>
                           <span className="text-zinc-500">→</span>
-                          <span className={`px-2.5 py-0.5 rounded-md border ${badgeClass(h.new_status)}`}>{h.new_status}</span>
+                          <span className={`px-2.5 py-0.5 rounded-md border ${badgeClass(h.new_status ?? '')}`}>{h.new_status}</span>
                         </div>
                       </div>
                     )}

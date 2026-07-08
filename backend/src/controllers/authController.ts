@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import sgMail from '@sendgrid/mail';
-import { reqStr, reqEmail, collectErrors, optEnum } from '../utils/validate';
+import { reqPlainText, reqStr, reqEmail, collectErrors, optEnum } from '../utils/validate';
 
 if (process.env.SENDGRID_API_KEY) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -36,7 +36,7 @@ export async function register(req: Request, res: Response) {
   try {
     const body = req.body || {};
 
-    const vName  = reqStr(body.name, 100);
+    const vName  = reqPlainText(body.name, 'name', 100);
     const vEmail = reqEmail(body.email);
 
     // Passwords must never be stripped/transformed before hashing.
@@ -108,7 +108,7 @@ export async function verify(req: Request, res: Response) {
   try {
     const body   = req.body || {};
     const vEmail = reqEmail(body.email);
-    const vOtp   = reqStr(body.otp, 6);
+    const vOtp   = reqStr(body.otp, 6, { plainTextKind: 'identifier' });
     const fieldErr = collectErrors({ email: vEmail.error, otp: vOtp.error });
     if (fieldErr) return res.status(400).json({ error: fieldErr });
 
@@ -275,7 +275,7 @@ export async function adminCreateUser(req: Request, res: Response) {
       return res.status(403).json({ error: 'Forbidden' });
 
     const body = req.body || {};
-    const vName  = reqStr(body.name, 100);
+    const vName  = reqPlainText(body.name, 'name', 100);
     const vEmail = reqEmail(body.email);
     const rawPw  = typeof body.password === 'string' ? body.password : '';
 
