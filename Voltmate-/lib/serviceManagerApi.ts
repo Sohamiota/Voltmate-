@@ -53,7 +53,7 @@ export interface DashboardData {
     top_overdue: Array<{ vehicle_id: number; label: string; owner_name?: string; due_date?: string }>;
     generated_at?: string;
   } | null;
-  pending_services: PendingService[];
+  pending_services?: PendingService[];
 }
 
 export interface ServiceAlert {

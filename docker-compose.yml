@@ -17,8 +17,6 @@ services:
       - DATABASE_URL=postgres://postgres:password@db:5432/postgres?sslmode=disable
       - JWT_SECRET=${JWT_SECRET}
       - PORT=8080
-      - SENDGRID_API_KEY
-      - SENDGRID_FROM
     depends_on:
       - db
     ports:

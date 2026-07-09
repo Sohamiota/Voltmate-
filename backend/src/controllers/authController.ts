@@ -3,12 +3,7 @@ import { query } from '../db';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import sgMail from '@sendgrid/mail';
 import { reqPlainText, reqStr, reqEmail, collectErrors, optEnum } from '../utils/validate';
-
-if (process.env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-}
 
 // ─── [C-1] JWT secret MUST come from environment — never fall back to a
 // hardcoded value. The fail-fast check in middlewares/auth.ts handles startup.
@@ -76,26 +71,8 @@ export async function register(req: Request, res: Response) {
       [name, email, hash, otp, expires],
     );
 
-    // ─── Send OTP via SendGrid when configured; otherwise log to stdout ─────
-    // When SENDGRID_API_KEY is not set, OTP is intentionally printed to the
-    // server log so admins can relay it to the new user manually.
-    if (process.env.SENDGRID_API_KEY) {
-      try {
-        await sgMail.send({
-          to:      email,
-          from:    process.env.SENDGRID_FROM || 'no-reply@example.com',
-          subject: 'Verify your Voltmate account',
-          text:    `Your verification code is ${otp}. It expires in 15 minutes.`,
-          html:    `<p>Your verification code is <strong>${otp}</strong>. It expires in 15 minutes.</p>`,
-        });
-      } catch (e) {
-        console.error('[auth] SendGrid error — falling back to log:', e);
-        console.log(`[OTP] ${email} → ${otp}`);
-      }
-    } else {
-      // No email provider configured — log OTP so admin can relay it manually
-      console.log(`[OTP] ${email} → ${otp}`);
-    }
+    // OTP is logged server-side; relay to the user manually or via a future mail provider.
+    console.log(`[OTP] ${email} → ${otp}`);
 
     res.status(202).json({ message: 'Registration received. Please verify your email.' });
   } catch (err) {

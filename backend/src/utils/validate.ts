@@ -169,6 +169,12 @@ export function sanitizeSearch(val: unknown, maxLen = 100): string {
 /** Hard ceiling for list endpoints — prevents OOM on Render (512 MB instances). */
 export const MAX_PAGE_SIZE = 1000;
 
+/** When clients omit limit on leads, cap rows (still large enough for full CRM export in UI). */
+export const MAX_LEADS_LIST = 5000;
+
+/** Vehicle list / export ceiling. */
+export const MAX_VEHICLES_LIST = 2000;
+
 /** CSV exports load all rows into memory — cap to avoid heap exhaustion. */
 export const MAX_CSV_EXPORT_ROWS = 2000;
 
@@ -186,11 +192,11 @@ export function parsePagination(
   return { limit, offset };
 }
 
-/** Leads list — omit limit (or pass `all`) to return every matching row. */
+/** Leads list — omit limit (or pass `all`) to return up to MAX_LEADS_LIST rows. */
 export function parseLeadsListQuery(
   limitRaw: unknown,
   offsetRaw: unknown,
-): { limit: number | null; offset: number } {
+): { limit: number; offset: number; capped: boolean } {
   const offset = Math.max(parseInt(String(offsetRaw ?? '0'), 10) || 0, 0);
   if (
     limitRaw === undefined ||
@@ -198,11 +204,14 @@ export function parseLeadsListQuery(
     limitRaw === '' ||
     String(limitRaw).toLowerCase() === 'all'
   ) {
-    return { limit: null, offset };
+    return { limit: MAX_LEADS_LIST, offset, capped: true };
   }
   const parsed = parseInt(String(limitRaw), 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return { limit: null, offset };
-  return { limit: parsed, offset };
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return { limit: MAX_LEADS_LIST, offset, capped: true };
+  }
+  const limit = Math.min(parsed, MAX_LEADS_LIST);
+  return { limit, offset, capped: limit < parsed };
 }
 
 // ── Collect field errors and return a single error string (or null) ───────────

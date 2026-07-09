@@ -11,6 +11,7 @@ import {
   urgency,
 } from '../utils/vehicleServiceRules';
 import { parseVehicleTextFields } from '../utils/vehicleValidate';
+import { MAX_VEHICLES_LIST } from '../utils/validate';
 
 const VEHICLE_LIST_SQL = `
   SELECT v.*,
@@ -54,7 +55,10 @@ export async function listVehicles(req: Request, res: Response) {
     const vehicleType = req.query.vehicle_type as string | undefined;
     const serviceNo = req.query.service_no as string | undefined;
 
-    const r = await query(`${VEHICLE_LIST_SQL} ORDER BY v.created_at DESC`);
+    const r = await query(
+      `${VEHICLE_LIST_SQL} ORDER BY v.created_at DESC LIMIT $1`,
+      [MAX_VEHICLES_LIST],
+    );
     let rows = (r as any).rows.map(mapVehicleRow);
 
     if (search) {
@@ -80,7 +84,7 @@ export async function listVehicles(req: Request, res: Response) {
       if (!isNaN(n)) rows = rows.filter((row: any) => row.next_service_no === n);
     }
 
-    res.json({ vehicles: rows });
+    res.json({ vehicles: rows, limit: MAX_VEHICLES_LIST, truncated: rows.length >= MAX_VEHICLES_LIST });
   } catch (e) {
     console.error('listVehicles', e);
     res.status(500).json({ error: 'failed' });
@@ -413,36 +417,31 @@ export async function importVehicles(req: Request, res: Response) {
 export async function serviceDashboard(req: Request, res: Response) {
   try {
     const r = await query(`
-      SELECT v.id, v.vehicle_number, v.chassis_number, v.vehicle_type,
-             v.owner_name, v.owner_phone, v.driver_name, v.driver_phone,
-             v.location, v.current_km,
+      SELECT v.id, v.current_km,
              COALESCE(v.km_updated_at, v.updated_at) AS km_updated_at,
-             vs.id AS service_id, vs.service_no, vs.due_km, vs.due_date, vs.status
+             vs.due_km, vs.due_date
       FROM vehicles v
       INNER JOIN vehicle_services vs ON vs.vehicle_id = v.id AND vs.status = 'pending'
-      ORDER BY v.id, vs.service_no ASC
     `);
-    const rows = (r as any).rows;
 
-    const items = rows.map((row: any) => {
+    let overdue = 0;
+    let dueSoon = 0;
+    let dueToday = 0;
+    let dueThisWeek = 0;
+    let staleKm = 0;
+
+    for (const row of (r as any).rows) {
       const currentKm = row.current_km || 0;
       const u = urgency(currentKm, row.due_km, row.due_date);
-      return {
-        ...row,
-        urgency: u,
-        due_today: isDueToday(row.due_date),
-        due_this_week: isDueThisWeek(row.due_date),
-        stale_km: isStaleOdometer(row.km_updated_at),
-      };
-    });
+      if (u === 'overdue') overdue += 1;
+      if (u === 'due_soon') dueSoon += 1;
+      if (isDueToday(row.due_date)) dueToday += 1;
+      else if (isDueThisWeek(row.due_date)) dueThisWeek += 1;
+      if (isStaleOdometer(row.km_updated_at)) staleKm += 1;
+    }
 
     const vehiclesCount = await query('SELECT COUNT(*) AS c FROM vehicles');
     const totalVehicles = parseInt((vehiclesCount as any).rows[0]?.c || '0', 10);
-    const overdue = items.filter((i: any) => i.urgency === 'overdue').length;
-    const dueSoon = items.filter((i: any) => i.urgency === 'due_soon').length;
-    const dueToday = items.filter((i: any) => i.due_today).length;
-    const dueThisWeek = items.filter((i: any) => i.due_this_week && !i.due_today).length;
-    const staleKm = items.filter((i: any) => i.stale_km).length;
 
     let openAlerts = 0;
     let snapshot: Record<string, unknown> | null = null;
@@ -456,9 +455,6 @@ export async function serviceDashboard(req: Request, res: Response) {
       console.warn('serviceDashboard monitoring tables unavailable', alertErr);
     }
 
-    const order: Record<string, number> = { overdue: 0, due_soon: 1, ok: 2 };
-    const sorted = [...items].sort((a: any, b: any) => (order[a.urgency] ?? 2) - (order[b.urgency] ?? 2));
-
     res.json({
       total_vehicles: totalVehicles,
       overdue_count: overdue,
@@ -471,7 +467,6 @@ export async function serviceDashboard(req: Request, res: Response) {
         ? { snapshot_date: snapshot.snapshot_date, top_overdue: snapshot.top_overdue ?? [], generated_at: snapshot.created_at }
         : null,
       last_updated: new Date().toISOString(),
-      pending_services: sorted,
     });
   } catch (e) {
     console.error('serviceDashboard', e);
@@ -494,7 +489,8 @@ export async function exportVehiclesCSV(req: Request, res: Response) {
       LEFT JOIN vehicle_services s2 ON s2.vehicle_id = v.id AND s2.service_no = 2
       LEFT JOIN vehicle_services s3 ON s3.vehicle_id = v.id AND s3.service_no = 3
       ORDER BY v.created_at DESC
-    `);
+      LIMIT $1
+    `, [MAX_VEHICLES_LIST]);
     const rows = (r as any).rows;
     const header = [
       'owner_name', 'owner_phone',

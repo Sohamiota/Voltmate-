@@ -123,7 +123,8 @@ export async function getCustomerDetail(req: Request, res: Response) {
          FROM vehicle_services vs
          JOIN vehicles v ON v.id = vs.vehicle_id
          WHERE vs.vehicle_id = ANY($1::int[])
-         ORDER BY vs.completion_date DESC NULLS LAST, vs.service_no DESC`,
+         ORDER BY vs.completion_date DESC NULLS LAST, vs.service_no DESC
+         LIMIT 50`,
         [vehicleIds],
       );
       completedServices = (svcR as any).rows;

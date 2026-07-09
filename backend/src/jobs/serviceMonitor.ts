@@ -40,7 +40,10 @@ export async function runServiceMonitor(): Promise<void> {
   console.log(`[serviceMonitor] running at ${now.toISOString()}`);
 
   const vehiclesR = await query(`
-    SELECT v.*,
+    SELECT v.id, v.vehicle_number, v.chassis_number, v.vehicle_type,
+           v.owner_name, v.owner_phone, v.location, v.current_km,
+           v.pdi_status, v.pdi_due_date, v.purchase_date,
+           COALESCE(v.km_updated_at, v.updated_at) AS km_updated_at,
            vs.id AS service_id, vs.service_no, vs.due_km, vs.due_date, vs.status AS svc_status
     FROM vehicles v
     LEFT JOIN LATERAL (

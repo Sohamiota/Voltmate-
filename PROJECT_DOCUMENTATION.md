@@ -124,7 +124,6 @@ voltwheels-ems/
 | Rate limiting | `express-rate-limit` |
 | Security headers | `helmet` |
 | CORS | `cors` |
-| Email | `@sendgrid/mail` |
 | Language | TypeScript |
 
 ### Database
@@ -149,8 +148,6 @@ voltwheels-ems/
 | `NODE_ENV` | recommended | `development` or `production` |
 | `ALLOWED_ORIGIN` | production | Primary frontend origin for CORS |
 | `ALLOWED_ORIGINS` | production | Comma-separated additional origins |
-| `SENDGRID_API_KEY` | optional | For email functionality |
-| `SENDGRID_FROM` | optional | Sender email address |
 
 ### Frontend (`Voltmate-/.env.local`)
 
@@ -403,7 +400,7 @@ Middleware stack applied in order:
 
 | Method | Path | Function | Auth | Notes |
 |---|---|---|---|---|
-| POST | `/register` | `register` | public | Creates user, sends verification email via SendGrid |
+| POST | `/register` | `register` | public | Creates user; OTP logged to server stdout |
 | POST | `/verify` | `verify` | public | Verifies email token |
 | POST | `/login` | `login` | public | Returns JWT on success |
 | GET | `/me` | `me` | ✅ | Returns current user profile |
@@ -787,7 +784,7 @@ Full shadcn/ui set: accordion, alert, avatar, badge, button, calendar, card, car
 1. User POSTs to `/api/v1/auth/register` with name, email, password
 2. Password is hashed with `bcrypt` (salt rounds: 10)
 3. Account is created with `is_approved = false`
-4. Verification email sent via SendGrid
+4. OTP logged to server stdout (admin relays to user)
 5. Admin must call `/api/v1/auth/admin/users/:id/approve` to activate
 
 ### Login Flow
@@ -943,7 +940,6 @@ Browser
 - [ ] `DATABASE_URL` — production Postgres connection string
 - [ ] `ALLOWED_ORIGIN` — set to `https://voltwheelsind.com`
 - [ ] `ALLOWED_ORIGINS` — any additional frontend origins
-- [ ] `SENDGRID_API_KEY` + `SENDGRID_FROM` — for email verification
 - [ ] `NEXT_PUBLIC_API_URL` — set to `https://voltmate.onrender.com`
 - [ ] `NODE_ENV=production`
 

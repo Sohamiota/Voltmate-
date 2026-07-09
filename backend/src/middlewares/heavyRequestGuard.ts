@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 
 /** Max concurrent bulk list/export queries — avoids heap spikes on 512 MB Render. */
-const MAX_CONCURRENT = 2;
+const MAX_CONCURRENT = 1;
 let active = 0;
 
 export function heavyRequestGuard(req: Request, res: Response, next: NextFunction) {

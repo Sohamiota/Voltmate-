@@ -5,11 +5,6 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 dotenv.config();
-import sgMail from '@sendgrid/mail';
-
-if (process.env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-}
 
 // ─── [C-1 / H-5] JWT secret MUST come from environment ───────────────────────
 function getJwtSecret(): string {
@@ -57,23 +52,7 @@ export async function register(req: Request, res: Response) {
       [name, email, hash, otp, expires],
     );
 
-    if (process.env.SENDGRID_API_KEY) {
-      try {
-        await sgMail.send({
-          to:      email,
-          from:    process.env.SENDGRID_FROM || 'no-reply@example.com',
-          subject: 'Verify your account',
-          text:    `Your OTP is ${otp}. It expires in 15 minutes.`,
-          html:    `<p>Your OTP is <strong>${otp}</strong>. Expires in 15 minutes.</p>`,
-        });
-      } catch (e) {
-        console.error('[auth] SendGrid error — falling back to log:', e);
-        console.log(`[OTP] ${email} → ${otp}`);
-      }
-    } else {
-      // No email provider — log OTP for admin to relay manually
-      console.log(`[OTP] ${email} → ${otp}`);
-    }
+    console.log(`[OTP] ${email} → ${otp}`);
 
     res.status(202).json({ message: 'Registration received. Please verify your email.' });
   } catch (err) {

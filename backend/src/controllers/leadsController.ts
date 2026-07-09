@@ -4,7 +4,7 @@ import { logActivity } from '../utils/activityLog';
 import {
   optPhone, optDate, optEnum, reqId, optBool,
   collectErrors, parseLeadsListQuery, sanitizeSearch, LEAD_TYPES,
-  reqPlainText, optPlainText,
+  reqPlainText, optPlainText, MAX_CSV_EXPORT_ROWS,
 } from '../utils/validate';
 import { parseCrmDeferralBody } from '../utils/crmDeferral';
 
@@ -161,7 +161,7 @@ export async function updateLead(req: Request, res: Response) {
 }
 
 export async function listLeads(req: Request, res: Response) {
-  const { limit, offset } = parseLeadsListQuery(req.query.limit, req.query.offset);
+  const { limit, offset, capped } = parseLeadsListQuery(req.query.limit, req.query.offset);
   try {
     await ensureLeadsCols();
     const q     = sanitizeSearch(req.query.q);
@@ -171,7 +171,7 @@ export async function listLeads(req: Request, res: Response) {
     if (end.error)   return res.status(400).json({ error: `endDate: ${end.error}` });
 
     const where: string[] = [];
-    const params: any[]   = [];
+    const params: unknown[]   = [];
     if (q) {
       params.push(`%${q}%`);
       where.push(`(l.cust_code ILIKE $${params.length} OR l.cust_name ILIKE $${params.length} OR l.phone_no ILIKE $${params.length} OR l.location ILIKE $${params.length})`);
@@ -189,16 +189,11 @@ export async function listLeads(req: Request, res: Response) {
     `;
     if (where.length) sql += ` WHERE ${where.join(' AND ')}`;
     sql += ' ORDER BY l.created_at DESC';
-    if (limit != null) {
-      sql += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-      params.push(limit, offset);
-    } else if (offset > 0) {
-      sql += ` OFFSET $${params.length + 1}`;
-      params.push(offset);
-    }
+    sql += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(limit, offset);
 
     const r = await query(sql, params);
-    res.json({ leads: (r as any).rows, limit, offset });
+    res.json({ leads: (r as any).rows, limit, offset, capped });
   } catch (e) {
     console.error('listLeads error:', e);
     res.status(500).json({ error: 'failed' });
@@ -250,7 +245,8 @@ export async function exportLeadsCSV(req: Request, res: Response) {
       LEFT JOIN users uc ON uc.id = l.created_by
       LEFT JOIN users uu ON uu.id = l.updated_by
       ORDER BY l.created_at DESC
-    `);
+      LIMIT $1
+    `, [MAX_CSV_EXPORT_ROWS]);
     const rows   = (r as any).rows;
     const header = ['id','cust_code','connect_date','cust_name','business','phone_no','phone_no_2','lead_type','location','note','is_hot_lead','deferral_bucket','deferral_notes','follow_up_after_date','earliest_purchase_intent_date','contact_disposition','callback_requested_at','customer_promised_callback','created_by_name','created_at','updated_by_name','updated_at'];
     const csv    = [header.join(',')].concat(

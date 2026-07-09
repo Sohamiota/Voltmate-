@@ -4,13 +4,12 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "start": "node --max-old-space-size=320 dist/index.js",
+    "start": "node --max-old-space-size=384 dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "migrate": "node scripts/migrate.js",
     "seed": "node scripts/seed-admin.js"
   },
   "dependencies": {
-    "@sendgrid/mail": "^7.7.0",
     "bcrypt": "^5.1.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

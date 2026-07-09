@@ -28,6 +28,7 @@ import { listCustomerGroups, getCustomerDetail } from '../controllers/serviceHub
 import { authMiddleware } from '../middlewares/auth';
 import { requireServiceRead, requireServiceWrite } from '../middlewares/serviceRole';
 import { ensureServiceManagerMiddleware } from '../utils/ensureServiceManagerSchema';
+import { heavyRequestGuard } from '../middlewares/heavyRequestGuard';
 
 const router = Router();
 
@@ -40,13 +41,13 @@ router.get('/alerts/count', getOpenAlertCount);
 router.get('/alerts', listAlerts);
 router.patch('/alerts/ack-all', requireServiceWrite, acknowledgeAllAlerts);
 router.patch('/alerts/:id/ack', requireServiceWrite, acknowledgeAlert);
-router.get('/analytics', getServiceAnalytics);
-router.get('/customers', listCustomerGroups);
-router.get('/customers/:customerKey', getCustomerDetail);
+router.get('/analytics', heavyRequestGuard, getServiceAnalytics);
+router.get('/customers', heavyRequestGuard, listCustomerGroups);
+router.get('/customers/:customerKey', heavyRequestGuard, getCustomerDetail);
 router.get('/filters', getFilterOptions);
-router.get('/dashboard', serviceDashboard);
-router.get('/export/csv', exportVehiclesCSV);
-router.get('/', listVehicles);
+router.get('/dashboard', heavyRequestGuard, serviceDashboard);
+router.get('/export/csv', heavyRequestGuard, exportVehiclesCSV);
+router.get('/', heavyRequestGuard, listVehicles);
 router.post('/import', requireServiceWrite, importVehicles);
 router.post('/', requireServiceWrite, createVehicle);
 router.get('/:id/services', listServicesForVehicle);
