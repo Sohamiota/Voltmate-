@@ -387,6 +387,11 @@ export async function listVisits(req: Request, res: Response) {
     const limitPlaceholder  = visitDateFrom ? '$2' : '$1';
     const offsetPlaceholder = visitDateFrom ? '$3' : '$2';
 
+    const countSql = `SELECT COUNT(*)::int AS total FROM visits v ${dateClause}`;
+    const countParams = visitDateFrom ? [visitDateFrom] : [];
+    const countRes = await query(countSql, countParams);
+    const total = (countRes as any).rows[0]?.total ?? 0;
+
     const r = await query(
       `SELECT v.id, v.lead_id, v.lead_cust_code, v.salesperson_id, v.vehicle, v.status,
               v.visit_date, v.next_action, v.next_action_date, v.note, v.phone_no, v.phone_no_2,
@@ -414,7 +419,7 @@ ${VISIT_CRM_SQL},
        LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}`,
       params,
     );
-    res.json({ visits: (r as any).rows, limit, offset });
+    res.json({ visits: (r as any).rows, total, limit, offset });
   } catch (e) {
     console.error('listVisits error:', e);
     res.status(500).json({ error: 'failed' });

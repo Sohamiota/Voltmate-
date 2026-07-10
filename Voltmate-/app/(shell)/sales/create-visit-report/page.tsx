@@ -436,9 +436,11 @@ export default function CreateVisitReportPage() {
   }, []);
 
   useEffect(() => {
-    fetchLeads();
     fetchEmployees();
-    fetchVisits();
+    void (async () => {
+      await fetchLeads();
+      await fetchVisits();
+    })();
   }, [fetchLeads, fetchEmployees, fetchVisits]);
 
   // ── Search with debounce ───────────────────────────────────────────────────

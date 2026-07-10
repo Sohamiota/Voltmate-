@@ -27,6 +27,28 @@ function getToken() {
 
 const CHART_COLORS = ['#00d9ff', '#7c3aed', '#22c55e', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#f97316'];
 
+/** Dashboard sample size — kept ≤500 so parallel fetches skip heavy-request guard. */
+const DASHBOARD_LIMIT = 500;
+
+async function fetchWithRetry(
+  url: string,
+  headers: Record<string, string>,
+  label: string,
+  retries = 2,
+): Promise<Response> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(url, { headers });
+    if (res.ok) return res;
+    if (res.status === 503 && attempt < retries) {
+      await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+      continue;
+    }
+    const body = await res.text().catch(() => '');
+    throw new Error(`${label} failed (${res.status})${body ? `: ${body.slice(0, 120)}` : ''}`);
+  }
+  throw new Error(`${label} failed`);
+}
+
 const STATUS_BADGE: Record<string, string> = {
   'Booking Amount Received':  'bg-green-500/15 text-green-400 border-green-500/25',
   'Booking Date Confirmed':   'bg-teal-500/15 text-teal-400 border-teal-500/25',
@@ -74,6 +96,8 @@ type VisitRow = {
 export default function SalesPerformance() {
   const [leads,   setLeads]   = useState<LeadRow[]>([]);
   const [visits,  setVisits]  = useState<VisitRow[]>([]);
+  const [totalLeads,  setTotalLeads]  = useState(0);
+  const [totalVisits, setTotalVisits] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -92,16 +116,24 @@ export default function SalesPerformance() {
     setLoading(true);
     setError('');
     try {
+      const headers = { Authorization: `Bearer ${token}` };
       const [leadsRes, visitsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/v1/leads`,  { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_BASE}/api/v1/visits?limit=1000`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetchWithRetry(
+          `${API_BASE}/api/v1/leads?limit=${DASHBOARD_LIMIT}`,
+          headers,
+          'Leads',
+        ),
+        fetchWithRetry(
+          `${API_BASE}/api/v1/visits?limit=${DASHBOARD_LIMIT}`,
+          headers,
+          'Visits',
+        ),
       ]);
-      if (!leadsRes.ok || !visitsRes.ok) {
-        throw new Error(`HTTP ${leadsRes.status}/${visitsRes.status} fetching leads/visits`);
-      }
       const [lj, vj] = await Promise.all([leadsRes.json(), visitsRes.json()]);
       setLeads(lj.leads   || []);
       setVisits(vj.visits || []);
+      setTotalLeads(typeof lj.total === 'number' ? lj.total : (lj.leads?.length ?? 0));
+      setTotalVisits(typeof vj.total === 'number' ? vj.total : (vj.visits?.length ?? 0));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load data');
     } finally {
@@ -208,7 +240,7 @@ export default function SalesPerformance() {
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Leads</p>
             <FileText className="w-4 h-4 text-primary" />
           </div>
-          <p className="text-3xl font-bold text-primary">{loading ? '…' : leads.length}</p>
+          <p className="text-3xl font-bold text-primary">{loading ? '…' : totalLeads}</p>
           <p className="text-xs text-muted-foreground mt-1">All lead reports</p>
         </div>
 
@@ -217,7 +249,7 @@ export default function SalesPerformance() {
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Visits</p>
             <TrendingUp className="w-4 h-4 text-secondary" />
           </div>
-          <p className="text-3xl font-bold text-secondary">{loading ? '…' : visits.length}</p>
+          <p className="text-3xl font-bold text-secondary">{loading ? '…' : totalVisits}</p>
           <p className="text-xs text-muted-foreground mt-1">All visit reports</p>
         </div>
 
@@ -244,7 +276,7 @@ export default function SalesPerformance() {
             <Target className="w-4 h-4 text-green-400" />
           </div>
           <p className="text-3xl font-bold text-green-400">{loading ? '…' : `${conversionRate}%`}</p>
-          <p className="text-xs text-muted-foreground mt-1">{leadsWithVisits} of {leads.length} leads visited</p>
+          <p className="text-xs text-muted-foreground mt-1">{leadsWithVisits} of {leads.length} recent leads visited</p>
         </div>
 
       </div>

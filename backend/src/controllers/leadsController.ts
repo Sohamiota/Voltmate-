@@ -188,12 +188,18 @@ export async function listLeads(req: Request, res: Response) {
       LEFT JOIN users uu ON uu.id = l.updated_by
     `;
     if (where.length) sql += ` WHERE ${where.join(' AND ')}`;
+
+    let countSql = `SELECT COUNT(*)::int AS total FROM leads l`;
+    if (where.length) countSql += ` WHERE ${where.join(' AND ')}`;
+    const countRes = await query(countSql, [...params]);
+    const total = (countRes as any).rows[0]?.total ?? 0;
+
     sql += ' ORDER BY l.created_at DESC';
     sql += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(limit, offset);
 
     const r = await query(sql, params);
-    res.json({ leads: (r as any).rows, limit, offset, capped });
+    res.json({ leads: (r as any).rows, total, limit, offset, capped });
   } catch (e) {
     console.error('listLeads error:', e);
     res.status(500).json({ error: 'failed' });
