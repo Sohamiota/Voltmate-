@@ -7,6 +7,8 @@ export type LineItem = {
 
 export type PaymentMode = 'Cash' | 'UPI' | 'Bank Transfer' | 'Cheque' | 'Card';
 
+export type BankTransferMode = 'RTGS' | 'NEFT' | '';
+
 export type ReceiptDraft = {
   receiptNo: string;
   date: string;
@@ -16,6 +18,13 @@ export type ReceiptDraft = {
   cashAmount: number;
   upiAmount: number;
   upiRef: string;
+  chequeAmount: number;
+  chequeNo: string;
+  chequeDate: string;
+  chequeBank: string;
+  bankTransferAmount: number;
+  bankTransferMode: BankTransferMode;
+  bankTransferRef: string;
   vehicleModel: string;
   bookingDate: string;
   notes: string;

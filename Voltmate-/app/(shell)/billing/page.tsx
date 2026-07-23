@@ -11,7 +11,7 @@ import {
   saveBillingDocument,
 } from '@/lib/billing/api';
 import {
-  addDaysIso, defaultQuoteRows, newQuoteRow, quoteGrandTotal, receiptTotalAmount, todayIso,
+  addDaysIso, defaultQuoteRows, newQuoteRow, normalizeReceiptDraft, quoteGrandTotal, receiptTotalAmount, todayIso,
 } from '@/lib/billing/format';
 import { nextQuoteNo, nextReceiptNo } from '@/lib/billing/numbering';
 import { EULER_VEHICLES, EULER_VEHICLE_NAMES, resolveQuoteVehicle, vehicleByName } from '@/lib/billing/eulerVehicles';
@@ -140,7 +140,10 @@ const CSS = `
   .bill-mm-accent{height:5px;background:linear-gradient(90deg,#0057B8 0%,#0ea5e9 55%,#22d3ee 100%);}
   .bill-mm-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding:22px 28px 16px;flex-wrap:wrap;}
   .bill-mm-head-left{flex:1;min-width:200px;}
-  .bill-mm-head-right{flex-shrink:0;}
+  .bill-mm-head-right{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:12px;}
+  .bill-mm-euler-brand{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+  .bill-mm-euler-logo{height:40px;width:auto;max-width:120px;object-fit:contain;display:block;}
+  .bill-mm-euler-tag{font-size:9px;font-weight:600;color:#64748b;text-align:right;max-width:150px;line-height:1.35;}
   .bill-mm-badge{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#0057B8;background:#eff6ff;border:1px solid #bfdbfe;padding:4px 10px;border-radius:999px;margin-bottom:10px;}
   .bill-mm-co-name{font-size:17px;font-weight:800;color:#0f172a;letter-spacing:-.2px;line-height:1.25;}
   .bill-mm-co-addr{font-size:11px;color:#64748b;margin-top:5px;line-height:1.5;max-width:340px;}
@@ -173,6 +176,8 @@ const CSS = `
   .bill-mm-mode{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:3px 8px;border-radius:6px;}
   .bill-mm-mode-cash{background:#dcfce7;color:#166534;}
   .bill-mm-mode-upi{background:#ede9fe;color:#5b21b6;}
+  .bill-mm-mode-cheque{background:#fef3c7;color:#92400e;}
+  .bill-mm-mode-bank{background:#dbeafe;color:#1e40af;}
   .bill-mm-booking{padding:16px 28px 8px;}
   .bill-mm-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin-bottom:10px;}
   .bill-mm-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -364,18 +369,10 @@ export default function BillingPage() {
   const [updateVisitStatus, setUpdateVisitStatus] = useState(true);
   const [linkedVisit, setLinkedVisit] = useState<LinkedVisit | null>(null);
 
-  const [receipt, setReceipt] = useState<ReceiptDraft>(() => ({
-    receiptNo: '',
+  const [receipt, setReceipt] = useState<ReceiptDraft>(() => normalizeReceiptDraft({
     date: todayIso(),
-    customerName: '',
-    customerPhone: '',
-    customerAddress: '',
-    cashAmount: 0,
-    upiAmount: 0,
-    upiRef: '',
     vehicleModel: EULER_VEHICLES[0].name,
     bookingDate: todayIso(),
-    notes: '',
   }));
 
   const [quote, setQuote] = useState<QuotationDraft>(() => ({
@@ -466,7 +463,7 @@ export default function BillingPage() {
         customer_name: isQuote ? quote.customerName : receipt.customerName,
         customer_phone: isQuote ? quote.customerPhone : receipt.customerPhone,
         vehicle_model: isQuote ? quote.vehicleModel : receipt.vehicleModel,
-        grand_total: isQuote ? quoteGrandTotal(quote.rows) : receiptTotalAmount(receipt.cashAmount, receipt.upiAmount),
+        grand_total: isQuote ? quoteGrandTotal(quote.rows) : receiptTotalAmount(receipt),
         payload,
         html_snapshot: root.outerHTML,
         visit_id: linkedVisit?.id ?? (isQuote ? quote.visitId : receipt.visitId) ?? null,
@@ -553,7 +550,11 @@ export default function BillingPage() {
     }
     if (doc.doc_type === 'receipt' && payload.receipt) {
       setTab('receipt');
-      setReceipt({ ...payload.receipt, visitId: doc.visit_id, leadCustCode: doc.lead_cust_code });
+      setReceipt(normalizeReceiptDraft({
+        ...payload.receipt,
+        visitId: doc.visit_id,
+        leadCustCode: doc.lead_cust_code,
+      }));
     }
     if (doc.visit_id) {
       setLinkedVisit({
@@ -576,19 +577,12 @@ export default function BillingPage() {
   function resetReceipt() {
     const date = todayIso();
     setLinkedVisit(null);
-    setReceipt({
+    setReceipt(normalizeReceiptDraft({
       receiptNo: nextReceiptNo(date),
       date,
-      customerName: '',
-      customerPhone: '',
-      customerAddress: '',
-      cashAmount: 0,
-      upiAmount: 0,
-      upiRef: '',
       vehicleModel: EULER_VEHICLES[0].name,
       bookingDate: date,
-      notes: '',
-    });
+    }));
   }
 
   function resetQuote() {
@@ -645,7 +639,7 @@ export default function BillingPage() {
   }
 
   const selectedVehicle = resolveQuoteVehicle(quote.vehicleModel);
-  const receiptTotal = receiptTotalAmount(receipt.cashAmount, receipt.upiAmount);
+  const receiptTotal = receiptTotalAmount(receipt);
 
   return (
     <div className="bill-root">
@@ -849,8 +843,71 @@ export default function BillingPage() {
                   />
                 </div>
                 <div className="bill-field">
+                  <label>Cheque amount (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={receipt.chequeAmount || ''}
+                    onChange={e => setReceipt(r => ({ ...r, chequeAmount: Math.max(0, parseFloat(e.target.value) || 0) }))}
+                    placeholder="25000"
+                  />
+                </div>
+                <div className="bill-field">
+                  <label>Cheque number</label>
+                  <input
+                    value={receipt.chequeNo}
+                    onChange={e => setReceipt(r => ({ ...r, chequeNo: e.target.value }))}
+                    placeholder="Cheque no."
+                  />
+                </div>
+                <div className="bill-field">
+                  <label>Cheque date</label>
+                  <input
+                    type="date"
+                    value={receipt.chequeDate}
+                    onChange={e => setReceipt(r => ({ ...r, chequeDate: e.target.value }))}
+                  />
+                </div>
+                <div className="bill-field">
+                  <label>Cheque bank (optional)</label>
+                  <input
+                    value={receipt.chequeBank}
+                    onChange={e => setReceipt(r => ({ ...r, chequeBank: e.target.value }))}
+                    placeholder="HDFC Bank, Durgapur"
+                  />
+                </div>
+                <div className="bill-field">
+                  <label>Bank transfer amount (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={receipt.bankTransferAmount || ''}
+                    onChange={e => setReceipt(r => ({ ...r, bankTransferAmount: Math.max(0, parseFloat(e.target.value) || 0) }))}
+                    placeholder="100000"
+                  />
+                </div>
+                <div className="bill-field">
+                  <label>Transfer mode</label>
+                  <select
+                    value={receipt.bankTransferMode}
+                    onChange={e => setReceipt(r => ({ ...r, bankTransferMode: e.target.value as ReceiptDraft['bankTransferMode'] }))}
+                  >
+                    <option value="">Select RTGS / NEFT</option>
+                    <option value="RTGS">RTGS</option>
+                    <option value="NEFT">NEFT</option>
+                  </select>
+                </div>
+                <div className="bill-field">
+                  <label>Bank transfer UTR / reference</label>
+                  <input
+                    value={receipt.bankTransferRef}
+                    onChange={e => setReceipt(r => ({ ...r, bankTransferRef: e.target.value }))}
+                    placeholder="UTR / transaction ref"
+                  />
+                </div>
+                <div className="bill-field">
                   <label>Total amount (₹)</label>
-                  <input readOnly value={receiptTotal ? receiptTotal.toLocaleString('en-IN') : ''} placeholder="Auto: cash + UPI" />
+                  <input readOnly value={receiptTotal ? receiptTotal.toLocaleString('en-IN') : ''} placeholder="Auto: sum of all payment modes" />
                 </div>
                 <div className="bill-field full">
                   <label>Vehicle model (against booking)</label>
@@ -997,6 +1054,13 @@ export default function BillingPage() {
                 cashAmount: receipt.cashAmount,
                 upiAmount: receipt.upiAmount,
                 upiRef: receipt.upiRef,
+                chequeAmount: receipt.chequeAmount,
+                chequeNo: receipt.chequeNo,
+                chequeDate: receipt.chequeDate,
+                chequeBank: receipt.chequeBank,
+                bankTransferAmount: receipt.bankTransferAmount,
+                bankTransferMode: receipt.bankTransferMode,
+                bankTransferRef: receipt.bankTransferRef,
                 vehicleModel: receipt.vehicleModel,
                 bookingDate: receipt.bookingDate,
               }}

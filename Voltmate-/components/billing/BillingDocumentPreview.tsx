@@ -1,6 +1,6 @@
 'use client';
 
-import type { BankDetails, CompanyProfile, QuotationDraft } from '@/lib/billing/types';
+import type { BankDetails, CompanyProfile, QuotationDraft, ReceiptDraft } from '@/lib/billing/types';
 import { resolveQuoteVehicle } from '@/lib/billing/eulerVehicles';
 import { EulerLogo } from '@/components/billing/BrandMark';
 import {
@@ -11,7 +11,10 @@ import {
   fmtQuoteDateShort,
   fmtQuotePrice,
   fmtReceiptDateDot,
+  formatBankTransferRemarks,
+  formatChequeRemarks,
   quoteGrandTotal,
+  receiptPaymentNarrative,
   receiptTotalAmount,
 } from '@/lib/billing/format';
 
@@ -25,6 +28,13 @@ type Props = {
     cashAmount?: number;
     upiAmount?: number;
     upiRef?: string;
+    chequeAmount?: number;
+    chequeNo?: string;
+    chequeDate?: string;
+    chequeBank?: string;
+    bankTransferAmount?: number;
+    bankTransferMode?: string;
+    bankTransferRef?: string;
     vehicleModel?: string;
     bookingDate?: string;
   };
@@ -72,14 +82,36 @@ function MarginMoneyReceipt({
   cashAmount = 0,
   upiAmount = 0,
   upiRef,
+  chequeAmount = 0,
+  chequeNo,
+  chequeDate,
+  chequeBank,
+  bankTransferAmount = 0,
+  bankTransferMode,
+  bankTransferRef,
   vehicleModel,
   bookingDate,
 }: NonNullable<Props['receipt']> & { company: CompanyProfile }) {
   const fy = company.financialYear || financialYearLabel(date);
-  const total = receiptTotalAmount(cashAmount, upiAmount);
+  const paymentSlice = { cashAmount, upiAmount, chequeAmount, bankTransferAmount };
+  const total = receiptTotalAmount(paymentSlice);
   const cash = Math.round(Math.max(0, cashAmount));
   const upi = Math.round(Math.max(0, upiAmount));
+  const cheque = Math.round(Math.max(0, chequeAmount));
+  const bankTransfer = Math.round(Math.max(0, bankTransferAmount));
   const branchLabel = company.branch ? `${company.name} · ${company.branch}` : company.name;
+  const paymentSummary = receiptPaymentNarrative({
+    cashAmount,
+    upiAmount,
+    upiRef: upiRef ?? '',
+    chequeAmount,
+    chequeNo: chequeNo ?? '',
+    chequeBank: chequeBank ?? '',
+    chequeDate: chequeDate ?? '',
+    bankTransferAmount,
+    bankTransferMode: (bankTransferMode ?? '') as ReceiptDraft['bankTransferMode'],
+    bankTransferRef: bankTransferRef ?? '',
+  });
 
   return (
     <div className="bill-mm-doc">
@@ -98,6 +130,10 @@ function MarginMoneyReceipt({
           ) : null}
         </div>
         <div className="bill-mm-head-right">
+          <div className="bill-mm-euler-brand">
+            <EulerLogo className="bill-mm-euler-logo" />
+            <div className="bill-mm-euler-tag">Authorized Euler Motors Dealer</div>
+          </div>
           <div className="bill-mm-id-card">
             <div className="bill-mm-id-row">
               <span>Receipt No.</span>
@@ -160,9 +196,27 @@ function MarginMoneyReceipt({
               <td className="bill-mm-pay-amt">{fmtInr(upi)}</td>
             </tr>
           )}
+          {cheque > 0 && (
+            <tr>
+              <td><span className="bill-mm-mode bill-mm-mode-cheque">Cheque</span></td>
+              <td>{formatChequeRemarks(chequeNo, chequeBank, chequeDate)}</td>
+              <td className="bill-mm-pay-amt">{fmtInr(cheque)}</td>
+            </tr>
+          )}
+          {bankTransfer > 0 && (
+            <tr>
+              <td>
+                <span className="bill-mm-mode bill-mm-mode-bank">
+                  {bankTransferMode?.trim() || 'Bank Transfer'}
+                </span>
+              </td>
+              <td>{formatBankTransferRemarks(bankTransferMode, bankTransferRef)}</td>
+              <td className="bill-mm-pay-amt">{fmtInr(bankTransfer)}</td>
+            </tr>
+          )}
           {total === 0 && (
             <tr>
-              <td colSpan={3} className="bill-mm-pay-empty">Enter cash or UPI amount</td>
+              <td colSpan={3} className="bill-mm-pay-empty">Enter payment amount (cash, UPI, cheque, or bank transfer)</td>
             </tr>
           )}
         </tbody>
@@ -193,7 +247,7 @@ function MarginMoneyReceipt({
       </section>
 
       <p className="bill-mm-ack">
-        We acknowledge receipt of the above sum as margin money towards the stated booking.
+        We acknowledge receipt of the above sum ({paymentSummary}) as margin money towards the stated booking.
         This is a computer-generated receipt and is valid subject to realisation of payment
         and company terms &amp; conditions.
       </p>
@@ -278,7 +332,7 @@ function VoltWheelsQuotation({ company, quote }: { company: CompanyProfile; quot
                 )}
               </td>
               <td className="bill-qt-price">{fmtQuotePrice(row.amount)}</td>
-              <td>{row.remarks || '—'}</td>
+              <td> {row.remarks || '—'}</td>
             </tr>
           ))}
         </tbody>

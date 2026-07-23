@@ -1,4 +1,4 @@
-import type { QuoteTableRow } from './types';
+import type { QuoteTableRow, ReceiptDraft } from './types';
 
 const ONES = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
   'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
@@ -84,23 +84,103 @@ export function fmtReceiptAmount(amount: number): string {
   return `RS ${Math.round(Math.max(0, amount))}/-`;
 }
 
-export function receiptTotalAmount(cash: number, upi: number): number {
-  return Math.round(Math.max(0, cash)) + Math.round(Math.max(0, upi));
+export type ReceiptPaymentSlice = Pick<
+  ReceiptDraft,
+  'cashAmount' | 'upiAmount' | 'chequeAmount' | 'bankTransferAmount'
+>;
+
+export function receiptTotalAmount(payments: ReceiptPaymentSlice): number {
+  return (
+    Math.round(Math.max(0, payments.cashAmount)) +
+    Math.round(Math.max(0, payments.upiAmount)) +
+    Math.round(Math.max(0, payments.chequeAmount ?? 0)) +
+    Math.round(Math.max(0, payments.bankTransferAmount ?? 0))
+  );
 }
 
-/** Payment clause for margin money receipt e.g. "cash RS 50000/- and UPI RS 22903/- (Ref: xxx)" */
-export function receiptPaymentNarrative(cash: number, upi: number, upiRef?: string): string {
-  const c = Math.round(Math.max(0, cash));
-  const u = Math.round(Math.max(0, upi));
+/** Cheque line on printed receipt e.g. "Cheque No. 123456 · HDFC Bank · Dated 26/05/2026" */
+export function formatChequeRemarks(chequeNo?: string, chequeBank?: string, chequeDate?: string): string {
   const parts: string[] = [];
+  if (chequeNo?.trim()) parts.push(`Cheque No. ${chequeNo.trim()}`);
+  if (chequeBank?.trim()) parts.push(chequeBank.trim());
+  if (chequeDate?.trim()) parts.push(`Dated ${fmtBookingDateSlash(chequeDate)}`);
+  return parts.length ? parts.join(' · ') : '—';
+}
+
+/** Bank transfer line e.g. "RTGS · Ref: UTR123456789" */
+export function formatBankTransferRemarks(mode?: string, ref?: string): string {
+  const parts: string[] = [];
+  if (mode?.trim()) parts.push(mode.trim());
+  if (ref?.trim()) parts.push(`Ref: ${ref.trim()}`);
+  return parts.length ? parts.join(' · ') : '—';
+}
+
+/** Payment clause for margin money receipt narrative block. */
+export function receiptPaymentNarrative(receipt: Pick<
+  ReceiptDraft,
+  | 'cashAmount'
+  | 'upiAmount'
+  | 'upiRef'
+  | 'chequeAmount'
+  | 'chequeNo'
+  | 'chequeBank'
+  | 'chequeDate'
+  | 'bankTransferAmount'
+  | 'bankTransferMode'
+  | 'bankTransferRef'
+>): string {
+  const parts: string[] = [];
+  const c = Math.round(Math.max(0, receipt.cashAmount));
+  const u = Math.round(Math.max(0, receipt.upiAmount));
+  const ch = Math.round(Math.max(0, receipt.chequeAmount ?? 0));
+  const bt = Math.round(Math.max(0, receipt.bankTransferAmount ?? 0));
+
   if (c > 0) parts.push(`cash ${fmtReceiptAmount(c)}`);
   if (u > 0) {
     let upiPart = `UPI ${fmtReceiptAmount(u)}`;
-    if (upiRef?.trim()) upiPart += ` (Ref: ${upiRef.trim()})`;
+    if (receipt.upiRef?.trim()) upiPart += ` (Ref: ${receipt.upiRef.trim()})`;
     parts.push(upiPart);
+  }
+  if (ch > 0) {
+    let chequePart = `Cheque ${fmtReceiptAmount(ch)}`;
+    const remarks = formatChequeRemarks(receipt.chequeNo, receipt.chequeBank, receipt.chequeDate);
+    if (remarks !== '—') chequePart += ` (${remarks})`;
+    parts.push(chequePart);
+  }
+  if (bt > 0) {
+    const mode = receipt.bankTransferMode?.trim() || 'Bank Transfer';
+    let bankPart = `${mode} ${fmtReceiptAmount(bt)}`;
+    if (receipt.bankTransferRef?.trim()) bankPart += ` (Ref: ${receipt.bankTransferRef.trim()})`;
+    parts.push(bankPart);
   }
   if (parts.length === 0) return 'cash';
   return parts.join(' and ');
+}
+
+/** Fill defaults for saved receipts that pre-date cheque / bank-transfer fields. */
+export function normalizeReceiptDraft(partial: Partial<ReceiptDraft>): ReceiptDraft {
+  return {
+    receiptNo: partial.receiptNo ?? '',
+    date: partial.date ?? todayIso(),
+    customerName: partial.customerName ?? '',
+    customerPhone: partial.customerPhone ?? '',
+    customerAddress: partial.customerAddress ?? '',
+    cashAmount: partial.cashAmount ?? 0,
+    upiAmount: partial.upiAmount ?? 0,
+    upiRef: partial.upiRef ?? '',
+    chequeAmount: partial.chequeAmount ?? 0,
+    chequeNo: partial.chequeNo ?? '',
+    chequeDate: partial.chequeDate ?? '',
+    chequeBank: partial.chequeBank ?? '',
+    bankTransferAmount: partial.bankTransferAmount ?? 0,
+    bankTransferMode: partial.bankTransferMode ?? '',
+    bankTransferRef: partial.bankTransferRef ?? '',
+    vehicleModel: partial.vehicleModel ?? '',
+    bookingDate: partial.bookingDate ?? partial.date ?? todayIso(),
+    notes: partial.notes ?? '',
+    visitId: partial.visitId ?? null,
+    leadCustCode: partial.leadCustCode ?? null,
+  };
 }
 
 export function fmtQuoteDateShort(iso: string): string {
